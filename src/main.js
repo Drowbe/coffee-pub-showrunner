@@ -2838,8 +2838,12 @@ function setupTray() {
     // menu bar extras use, rather than reading as "a normal part of the
     // menu bar." `@2x` is picked up automatically by nativeImage from the
     // file alongside this one.
-    const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'));
-    icon.setTemplateImage(true);
+    // Windows/Linux have no template images: use the white mark (the
+    // @1.5x/@2x/@3x files beside trayWin.png are picked up by scale factor).
+    const icon = process.platform === 'darwin'
+      ? nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))
+      : nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayWin.png'));
+    if (process.platform === 'darwin') icon.setTemplateImage(true);
     tray = new Tray(icon);
     tray.setToolTip(APP_NAME);
     tray.on('double-click', () => createControlWindow());

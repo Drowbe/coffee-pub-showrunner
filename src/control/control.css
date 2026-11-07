@@ -88,14 +88,33 @@ p {
   gap: 12px;
 }
 
-/* The wordmark carries the name itself -- no separate <h1>/subtitle next
-   to it any more (see src/control/index.html). Height-constrained, width
-   auto, so its own ~2.4:1 aspect ratio sets the width -- a fixed width
-   here would either stretch it or leave dead space beside it. */
+/* The mark is an image; the name beside it is live text, styled to the
+   Coffee Pub design system: "Coffee Pub" in Fraunces Bold, the product
+   name in Figtree SemiBold, same size, one line, mark 1.75x the text height.
+   Dark-theme colors (this bar is dark). Fraunces/Figtree are used if
+   installed; the fallbacks keep the same weights and feel. */
 .brand-mark {
-  height: 56px;
+  height: 42px;
   width: auto;
   display: block;
+}
+
+.brand-name {
+  font-size: 24px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.brand-co {
+  font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  color: #F4ECDD;
+}
+
+.brand-product {
+  font-family: 'Figtree', -apple-system, 'Segoe UI', system-ui, sans-serif;
+  font-weight: 600;
+  color: #FF8264;
 }
 
 .topbar-actions {

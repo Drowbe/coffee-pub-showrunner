@@ -4,13 +4,13 @@
 #   1. git and fnm (Node version manager), via winget
 #   2. Node 22 as the default Node
 #   3. ~\Developer with a clone of each repo in $Repos
-#   4. npm install for coffee-pub-studio
+#   4. npm install for coffee-pub-showrunner
 #
 # Run it from PowerShell with:
-#   irm https://raw.githubusercontent.com/Drowbe/coffee-pub-studio/main/scripts/win-dev-setup.ps1 | iex
+#   irm https://raw.githubusercontent.com/Drowbe/coffee-pub-showrunner/main/scripts/win-dev-setup.ps1 | iex
 #
 # Or download it first and edit the $Repos list to taste before running:
-#   iwr https://raw.githubusercontent.com/Drowbe/coffee-pub-studio/main/scripts/win-dev-setup.ps1 -OutFile win-dev-setup.ps1
+#   iwr https://raw.githubusercontent.com/Drowbe/coffee-pub-showrunner/main/scripts/win-dev-setup.ps1 -OutFile win-dev-setup.ps1
 #   .\win-dev-setup.ps1
 #
 # Unlike the Mac version of this script, $Repos here does NOT include the
@@ -26,7 +26,7 @@ $DevDir = Join-Path $HOME 'Developer'
 $GitHubUser = 'Drowbe'
 $NodeVersion = '22'
 $Repos = @(
-  'coffee-pub-studio'
+  'coffee-pub-showrunner'
   'coffee-pub-tavern'
 )
 
@@ -103,15 +103,15 @@ foreach ($repo in $Repos) {
   }
 }
 
-# --- coffee-pub-studio dependencies ---------------------------------------
-$studioDir = Join-Path $DevDir 'coffee-pub-studio'
+# --- coffee-pub-showrunner dependencies ---------------------------------------
+$studioDir = Join-Path $DevDir 'coffee-pub-showrunner'
 if (Test-Path (Join-Path $studioDir 'package.json')) {
-  Step 'coffee-pub-studio: npm install'
+  Step 'coffee-pub-showrunner: npm install'
   Push-Location $studioDir
   npm install --no-audit --no-fund
   # npm sometimes skips Electron's binary download; fetch it explicitly.
   if (-not (Test-Path 'node_modules\electron\path.txt')) {
-    Step 'coffee-pub-studio: downloading the Electron binary'
+    Step 'coffee-pub-showrunner: downloading the Electron binary'
     node node_modules\electron\install.js
   }
   Pop-Location
