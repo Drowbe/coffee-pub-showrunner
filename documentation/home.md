@@ -31,5 +31,5 @@ OBS window-capture source management is not yet wired up on Windows; see
 - [Design tokens](designsystem/design-tokens.md) and [Design components](designsystem/design-components.md)
   -- the control panel's own colors, layout tokens, and reusable UI patterns.
 
-See the [repository README](https://github.com/Drowbe/coffee-pub-studio) for requirements and
+See the [repository README](https://github.com/Drowbe/coffee-pub-showrunner) for requirements and
 how to get the app.

@@ -1,5 +1,5 @@
 {
-  "name": "coffee-pub-studio",
+  "name": "coffee-pub-showrunner",
   "productName": "Coffee Pub Showrunner",
   "version": "0.3.0",
   "description": "Wraps any web page in a fixed-size Chromium window that OBS can capture as a source, optimized for FoundryVTT sessions but not exclusive to Foundry.",

@@ -144,9 +144,9 @@ Session tab; the tab itself covers the manual remote, the rule editor, and the e
 steps for trusting Showrunner's certificate on the machine running Foundry.
 
 The full HTTP contract and a worked integration example are on the wiki:
-[Automations API](https://github.com/Drowbe/coffee-pub-studio/wiki/api-automations). How the
+[Automations API](https://github.com/Drowbe/coffee-pub-showrunner/wiki/api-automations). How the
 server itself is built is on the wiki too:
-[Automations architecture](https://github.com/Drowbe/coffee-pub-studio/wiki/architecture-automations).
+[Automations architecture](https://github.com/Drowbe/coffee-pub-showrunner/wiki/architecture-automations).
 
 ## Releasing a new version
 
@@ -166,14 +166,14 @@ VS Code, creates `~/Developer`, clones every Coffee Pub repository into it and r
 `npm install` for this app. It is safe to re-run; each step skips what is already done.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Drowbe/coffee-pub-studio/main/scripts/mac-dev-setup.sh -o ~/mac-dev-setup.sh
+curl -fsSL https://raw.githubusercontent.com/Drowbe/coffee-pub-showrunner/main/scripts/mac-dev-setup.sh -o ~/mac-dev-setup.sh
 bash ~/mac-dev-setup.sh
 ```
 
 Afterwards, run the app from source with:
 
 ```bash
-cd ~/Developer/coffee-pub-studio
+cd ~/Developer/coffee-pub-showrunner
 git pull
 npm start
 ```
@@ -190,13 +190,13 @@ those already live inside Foundry's own `Data/modules` folder, so cloning them a
 would just create a second, unsynced copy of each.
 
 ```powershell
-irm https://raw.githubusercontent.com/Drowbe/coffee-pub-studio/main/scripts/win-dev-setup.ps1 | iex
+irm https://raw.githubusercontent.com/Drowbe/coffee-pub-showrunner/main/scripts/win-dev-setup.ps1 | iex
 ```
 
 Afterwards, run the app from source with:
 
 ```powershell
-cd ~\Developer\coffee-pub-studio
+cd ~\Developer\coffee-pub-showrunner
 git pull
 npm start
 ```
