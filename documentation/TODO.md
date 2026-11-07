@@ -169,8 +169,8 @@ editing moving to each user's own profile) lives in that repo's own TODO.md now,
   image (still auto-tinted, but a dedicated white template asset now, not the original placeholder)
   -- a fixed color stood out against the monochrome menu bar extras everyone else's apps show, so
   matching the system won out over showing the brand's actual color there. The app icon itself
-  (`build/icon.png`, the Dock/dmg/window icon) and the in-app wordmark (`src/assets/logo.png`,
-  `src/assets/wordmark-white.png`) do carry the real brand colors -- just not the menu bar.
+  (`build/icon.png`, the Dock/dmg/window icon) carries the real brand colors -- just not the menu
+  bar. (The Showrunner mark replaced the old cup art everywhere; the in-app name is live text, not an image.)
 
 ## Documentation
 

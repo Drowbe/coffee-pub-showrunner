@@ -3,7 +3,7 @@
 **Audience:** anyone deciding whether to install Coffee Pub Showrunner, or looking for where to read
 more about it.
 
-![Coffee Pub Showrunner](assets/wordmark-card.png)
+![Coffee Pub Showrunner](assets/app-icon.png)
 
 The production side of the Coffee Pub suite: a standalone macOS and Windows app that wraps any
 web page in a fixed-size Chromium window so OBS can capture it as its own source, and keeps that

@@ -1,7 +1,6 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="src/assets/wordmark-white.png">
-  <img src="documentation/assets/wordmark.png" alt="Coffee Pub Showrunner" width="480">
-</picture>
+<p align="center"><img src="documentation/assets/app-icon.png" alt="" width="128"></p>
+
+<h1 align="center">Coffee Pub Showrunner</h1>
 
 The production side of the Coffee Pub suite: a standalone macOS and Windows app that wraps any
 web page in a fixed-size Chromium window so OBS can capture it as its own source, and keeps that
@@ -216,8 +215,10 @@ src/control/           Control panel page (HTML, CSS, JS)
 src/dock/              Edge dock page (HTML, CSS, JS); src/dock-preload.js bridges it
 src/parking.js         Geometry for parking windows off a free display edge
 src/bar/               The bar at the top of each window (HTML, CSS, JS); add per-window controls here
-build/icon.png         App icon: the Coffee Pub brandmark (src/assets/logo.png)
-src/assets/trayTemplate.png  Menu bar icon (@2x alongside it); a template image, auto-tinted to match light/dark
+build/icon.png         App icon: the Coffee Pub Showrunner mark (sources in build/brand/)
+src/assets/trayTemplate.png  macOS menu bar icon (@2x alongside it); a template image, auto-tinted to match light/dark
+src/assets/trayWin.png       Windows/Linux tray icon (the white mark; @1.5x/@2x/@3x alongside it)
+src/assets/mark-white.png    White mark used in the control panel header and the edge dock
 ```
 
 ## Troubleshooting
