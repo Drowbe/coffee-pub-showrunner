@@ -45,6 +45,10 @@ source and a thumbnail taken when it was docked. Click a card to dock that windo
 screen) or bring it back; **Dock Windows** and **Undock Windows** do it for every window, as does
 Cmd+Shift+C.
 
+To shut the app down, use **Quit** at the top right of the control panel, Cmd+Q on a Mac, or **Quit** in
+the menu bar icon's menu if that icon is on. Quitting closes every window Showrunner opened, so you
+are asked first if any are open.
+
 A docked window keeps a 6 pt sliver on screen under a thin dark line, so OBS keeps capturing it,
 whereas hiding or minimizing a window stops the capture. Windows dock on the display they are on,
 toward an edge that has no other monitor beyond it (the dock's side when free, otherwise the

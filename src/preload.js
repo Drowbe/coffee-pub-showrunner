@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('coffeePub', {
   restoreView: (id) => ipcRenderer.invoke('views:restore', id),
   openAll: () => ipcRenderer.invoke('views:openAll'),
   closeAll: () => ipcRenderer.invoke('views:closeAll'),
+  quitApp: () => ipcRenderer.invoke('app:quit'),
   clearSession: () => ipcRenderer.invoke('session:clear'),
   revealConfig: () => ipcRenderer.invoke('config:reveal'),
   getAppInfo: () => ipcRenderer.invoke('app:info'),

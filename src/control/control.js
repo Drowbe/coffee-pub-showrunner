@@ -1494,6 +1494,14 @@ $('open-all').addEventListener('click', async () => {
   await api.openAll();
 });
 $('close-all').addEventListener('click', () => api.closeAll());
+// Quit lives here too, not only in the app menu and the menu bar icon: with the
+// Dock icon hidden or the menu bar icon off there was no visible way to shut
+// the app down. Windows that are open get closed on quit, so ask first.
+$('quit-app').addEventListener('click', () => {
+  const open = status.views.some((v) => v.open);
+  if (open && !window.confirm('Quit Coffee Pub Showrunner? Its windows will close, so OBS loses those sources until you start it again.')) return;
+  api.quitApp();
+});
 collapseEl.addEventListener('click', () => (status.collapsed ? api.expandViews() : api.collapseViews()));
 $('arrange').addEventListener('click', async () => {
   await flushSave();

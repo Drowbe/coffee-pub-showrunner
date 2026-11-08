@@ -3467,6 +3467,7 @@ function registerIpc() {
   ipcMain.handle('views:arrange', (_event, displayId) => arrangeViews(displayId));
   ipcMain.handle('views:openAll', () => openAllViews());
   ipcMain.handle('views:closeAll', () => closeAllViews());
+  ipcMain.handle('app:quit', () => app.quit());
 
   ipcMain.handle('session:clear', async () => {
     const { response } = await dialog.showMessageBox(controlWindow, {
