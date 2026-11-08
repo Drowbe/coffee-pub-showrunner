@@ -1,11 +1,11 @@
 :root {
-  --bg: rgba(30, 22, 17, 0.96);
-  --bg-card: rgba(44, 33, 25, 0.9);
-  --bg-hover: rgba(58, 44, 33, 0.95);
-  --border: rgba(200, 135, 58, 0.35);
-  --text: #f1e6d8;
-  --text-dim: #b3a293;
-  --accent: #c8873a;
+  --bg: rgba(14, 26, 43, 0.96);
+  --bg-card: rgba(24, 44, 71, 0.9);
+  --bg-hover: rgba(38, 66, 107, 0.95);
+  --border: rgba(92, 200, 207, 0.3);
+  --text: #F4ECDD;
+  --text-dim: #B9C3D3;
+  --accent: #5CC8CF;
   --ok: #6fae6b;
   --rec: #d9534f;
   --live: #4f8fd9;
@@ -49,7 +49,7 @@ body {
   height: var(--collapsed-h);
   display: flex;
   flex-direction: row-reverse;
-  background: linear-gradient(160deg, rgba(52, 38, 28, 0.97), var(--bg) 60%);
+  background: linear-gradient(160deg, rgba(24, 44, 71, 0.97), var(--bg) 60%);
   border: 1px solid var(--border);
   border-right: none;
   border-radius: 14px 0 0 14px;
@@ -333,7 +333,7 @@ body.expanded .panel {
 }
 
 .tool:hover {
-  background: rgba(200, 135, 58, 0.25);
+  background: rgba(92, 200, 207, 0.25);
   border-color: var(--border);
 }
 
