@@ -233,6 +233,8 @@ OBS sources in [Windows and regions as OBS sources](documentation/userguides/use
 Proprietary, and free to download and use for now. The source is visible here to read, but it is not
 open source: see [LICENSE](LICENSE) for what is and isn't allowed.
 
+The header uses the Fraunces and Figtree typefaces, bundled under the SIL Open Font License 1.1.
+
 ## AI Assistance and the Illusion of Good Code
 
 I started writing Foundry modules for use at my own table back in 2020. There were already a ton of amazing modules out there, but they either didn't quite do what I wanted or didn't deliver the kind of user experience I was looking for.

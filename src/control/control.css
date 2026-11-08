@@ -1,3 +1,19 @@
+@font-face {
+  font-family: 'Fraunces';
+  src: url('../assets/fonts/fraunces-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Figtree';
+  src: url('../assets/fonts/figtree-latin.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #0E1A2B;
   --bg-card: #182C47;
@@ -91,8 +107,8 @@ p {
 /* The mark is an image; the name beside it is live text, styled to the
    Coffee Pub design system: "Coffee Pub" in Fraunces Bold, the product
    name in Figtree SemiBold, same size, one line, mark 1.75x the text height.
-   Dark-theme colors (this bar is dark). Fraunces/Figtree are used if
-   installed; the fallbacks keep the same weights and feel. */
+   Dark-theme colors (this bar is dark). Fraunces and Figtree are bundled
+   (src/assets/fonts); the fallbacks only apply if they fail to load. */
 .brand-mark {
   height: 34px;
   width: auto;
