@@ -33,7 +33,7 @@ automation step, for example) is updated to match. After installing, delete the 
 - Named regions: mark part of a window, by drawing a rectangle on a snapshot or by naming a
   CSS selector, and the app creates a cropped OBS source for it and keeps the crop current.
 - Session groups: windows in the same group share a login, windows in different groups do not.
-- Coffee Pub Tavern: sign in to the party's voice and video server and publish each player as
+- Coffee Pub Chameleon: sign in to the party's voice and video server and publish each player as
   an OBS Browser Source with one click, kept in sync by the player's stable key.
 - Automations: let a Foundry module (or anything else) trigger an OBS action -- switch scene,
   show or hide a source, start or stop recording or streaming -- over a small local HTTPS
@@ -127,7 +127,7 @@ The full walkthrough lives on the wiki, one guide per piece:
   Retina displays.
 - [Windows and regions as OBS sources](documentation/userguides/userguide-obs.md) -- connecting
   to OBS, the whole-window source, and cropping part of a window into its own source.
-- [Coffee Pub Tavern in OBS](documentation/userguides/userguide-tavern.md) -- publishing the
+- [Coffee Pub Chameleon in OBS](documentation/userguides/userguide-tavern.md) -- publishing the
   party as OBS sources.
 - [Configuration file reference](documentation/userguides/userguide-configuration.md) -- the
   config.json shape, field by field.
@@ -207,7 +207,7 @@ npm start
 src/main.js            Electron main process: windows, menu, IPC, permissions
 src/config.js          Config load/save/validation
 src/obs.js             OBS WebSocket bridge: keeps OBS sources pointed at the windows
-src/tavern.js          Coffee Pub Tavern bridge: admin sign-in, the party with live state, view links
+src/tavern.js          Coffee Pub Chameleon bridge: admin sign-in, the party with live state, view links
 src/automations.js     Automations HTTP server: Foundry modules report events, rules trigger OBS
 src/preload.js         Bridge between the control panel page and the main process
 src/bar-preload.js     Bridge between a window's bar page and the main process

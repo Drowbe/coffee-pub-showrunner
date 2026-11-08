@@ -5,7 +5,7 @@
 The recurring markup/class patterns already in use in `src/control/index.html` and
 `src/control/control.css`. Reuse these rather than inventing a new shape for the same kind of thing --
 the control panel currently has one card layout, one chip, one row, and one collapsible-help pattern, all
-reused across OBS, Tavern, Automations, YouTube and Metadata. A new feature that invents its own instead
+reused across OBS, Chameleon, Automations, YouTube and Metadata. A new feature that invents its own instead
 is what starts the drift this page exists to prevent.
 
 Tokens (colors, radius, spacing) are on the Design tokens page.
@@ -37,14 +37,14 @@ any inline group of controls; reach for it before writing a one-off flex rule.
 ## Chip
 
 `.chip` (`control.css:437`): a small pill -- `24px` tall, `var(--bg-input)` background, bordered,
-`12px`/`600` text -- for a single labeled unit of removable or status-bearing data (a Tavern player, an
+`12px`/`600` text -- for a single labeled unit of removable or status-bearing data (a Chameleon player, an
 OBS source). Modifiers are separate classes layered on top, matched by intent, not by a fixed enum:
 
 | Modifier | Meaning |
 |---|---|
 | `.chip-missing` | The thing this chip refers to no longer exists in OBS |
 | `.chip-dim` | Present but inactive/disabled |
-| `.chip-user-online` / `.chip-user-offline` | Tavern-specific: whether the *person* is at the table right now -- independent of whether the OBS source itself is missing |
+| `.chip-user-online` / `.chip-user-offline` | Chameleon-specific: whether the *person* is at the table right now -- independent of whether the OBS source itself is missing |
 
 A chip's own `<button>` child (`control.css:468`) is borderless/transparent until hover -- the "remove"
 affordance, not a general button.

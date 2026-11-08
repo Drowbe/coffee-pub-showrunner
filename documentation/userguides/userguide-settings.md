@@ -6,7 +6,7 @@ handling in Coffee Pub Showrunner.
 ## The control panel
 
 The control panel has a **Session** tab (layout, the edge dock, OBS connection and login), a
-**CP Tavern** tab when Coffee Pub Tavern is enabled, and one tab per window with its whole-window
+**Chameleon** tab when Coffee Pub Chameleon is enabled, and one tab per window with its whole-window
 source and its regions; every window's own tab has a **Delete window** button. Reopen the panel
 with **Cmd+0** or by clicking the Dock icon after closing it -- the app keeps running in the
 background so OBS keeps its sources. Quit with **Cmd+Q**.

@@ -23,11 +23,11 @@
 
   <nav class="tabs" id="tabs">
     <!-- Internal tab key "metadata" is the visible "Session" tab (this session's own data) --
-         same mismatch as "tavern" already being labeled "CP Tavern". -->
+         same mismatch as "tavern" already being labeled "Chameleon". -->
     <button class="tab" data-tab="configuration" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>Configuration</button>
     <button class="tab" data-tab="metadata" type="button">Session</button>
     <button class="tab" data-tab="automations" id="automations-tab" type="button" hidden><span class="dot" id="automations-dot" title="Automations server"></span>Automations</button>
-    <button class="tab" data-tab="tavern" id="tavern-tab" type="button" hidden><span class="dot" id="tavern-dot" title="Tavern connection"></span>CP Tavern</button>
+    <button class="tab" data-tab="tavern" id="tavern-tab" type="button" hidden><span class="dot" id="tavern-dot" title="Chameleon connection"></span>Chameleon</button>
     <span id="view-tabs" class="view-tabs"></span>
     <span id="appwin-tabs" class="view-tabs"></span>
     <button class="tab tab-add" data-tab="add" type="button" title="Add a window">+</button>
@@ -98,7 +98,7 @@
           </div>
           <div class="connection-chip" data-connection="tavern">
             <span class="dot"></span>
-            <span class="connection-name">CP Tavern</span>
+            <span class="connection-name">Chameleon</span>
             <span class="connection-state hint"></span>
           </div>
           <div class="connection-chip" data-connection="automations">
@@ -256,22 +256,22 @@
       <div class="card tavern">
         <div class="view-head">
           <div class="view-head-left">
-            <h2>CP Tavern</h2>
+            <h2>Chameleon</h2>
             <span class="tag" id="tavern-tag" hidden>SIGNED IN</span>
           </div>
           <div class="view-actions">
             <button id="tavern-connect" class="btn btn-primary" type="button">Sign in</button>
-            <button id="tavern-manage" class="btn" type="button" title="Open the Tavern's manage page in your browser">Manage users</button>
+            <button id="tavern-manage" class="btn" type="button" title="Open Chameleon's manage page in your browser">Manage users</button>
           </div>
         </div>
         <p class="hint">
-          Coffee Pub Tavern is the voice and video server for the people at your table. Sign in with an admin account and the
-          <strong>CP Tavern</strong> tab lists everyone; publish a player to give them their own OBS Browser Source.
+          Coffee Pub Chameleon is the voice and video server for the people at your table. Sign in with an admin account and the
+          <strong>Chameleon</strong> tab lists everyone; publish a player to give them their own OBS Browser Source.
         </p>
         <div class="row">
           <label class="check">
             <input id="tavern-enabled" type="checkbox">
-            <span>Enable Coffee Pub Tavern</span>
+            <span>Enable Coffee Pub Chameleon</span>
           </label>
         </div>
         <div id="tavern-settings" hidden>
@@ -284,7 +284,7 @@
         <div class="row">
           <label class="field field-inline">
             <span>Address</span>
-            <input id="tavern-url" type="url" size="28" spellcheck="false" placeholder="https://tavern.example.com">
+            <input id="tavern-url" type="url" size="28" spellcheck="false" placeholder="https://chameleon.example.com">
           </label>
           <label class="field field-inline">
             <span>Login</span>
@@ -317,7 +317,7 @@
             </label>
             <label class="check" title="Keep width and height at 16:9, the shape of the camera"><input id="tavern-lock" type="checkbox"><span>Constrain proportions</span></label>
           </div>
-          <p class="hint">Their video, or a still image when the camera's off — borders and overlays are set on the Tavern. Audio routes through OBS's own <strong>Control audio via OBS</strong> toggle.</p>
+          <p class="hint">Their video, or a still image when the camera's off — borders and overlays are set on Chameleon. Audio routes through OBS's own <strong>Control audio via OBS</strong> toggle.</p>
         </div>
 
         <div class="card-subsection">
@@ -338,7 +338,7 @@
           </div>
         </div>
 
-        <p class="hint">Someone who's stepped into an ordinary aside gets muted while Enable Asides is on, so their conversation there doesn't bleed into the stream — their source stays on screen either way. Offline sources are left alone; there's no live audio to mute. No visual dim or tint on the Showrunner side; that's the Tavern server's call now.</p>
+        <p class="hint">Someone who's stepped into an ordinary aside gets muted while Enable Asides is on, so their conversation there doesn't bleed into the stream — their source stays on screen either way. Offline sources are left alone; there's no live audio to mute. No visual dim or tint on the Showrunner side; that's Chameleon server's call now.</p>
         <p class="hint" id="tavern-status">Not signed in.</p>
         </div>
       </div>
@@ -524,11 +524,11 @@
             <button id="tavern-show-all" class="btn btn-primary" type="button" title="Show every already-added source in this room that's currently hidden">Show All in OBS</button>
             <button id="tavern-hide-all" class="btn" type="button" title="Hide every source in this room that's currently showing, without deleting it">Hide All in OBS</button>
             <button id="tavern-publish-all" class="btn" type="button" title="Add to OBS everyone in this room who is ticked but not there yet">Add All in OBS</button>
-            <button id="tavern-unpublish-all" class="btn btn-danger" type="button" title="Delete every Tavern source from OBS">Delete All from OBS</button>
-            <button id="tavern-sync" class="btn" type="button" title="Make OBS match: create, re-point and rename the Tavern sources">Sync OBS</button>
+            <button id="tavern-unpublish-all" class="btn btn-danger" type="button" title="Delete every Chameleon source from OBS">Delete All from OBS</button>
+            <button id="tavern-sync" class="btn" type="button" title="Make OBS match: create, re-point and rename Chameleon sources">Sync OBS</button>
           </div>
         </div>
-        <p class="hint" id="tavern-empty">Sign in to the Tavern on the Session tab to see its users here.</p>
+        <p class="hint" id="tavern-empty">Sign in to Chameleon on the Session tab to see its users here.</p>
       </div>
 
       <div class="card" id="tavern-participants-section">

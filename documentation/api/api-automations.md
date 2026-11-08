@@ -370,7 +370,7 @@ disconnected:
 | `stopAll` | Closes every open window |
 | `dockAll` | Slides every open window into the edge dock |
 | `undockAll` | Brings every docked window back out |
-| `syncObs` | Re-points every OBS source at its window/region/Tavern source, the same as **Sync OBS** |
+| `syncObs` | Re-points every OBS source at its window/region/Chameleon source, the same as **Sync OBS** |
 | `applySessionFilename` | Writes the Automations tab's Recording Filename card's **Filename format** template into OBS's own Filename Formatting setting. Fails with a clear error rather than doing anything if no template is set |
 | `runRuleSet` | Runs another rule set by id (`param`), inline -- its stages run in order same as a real trigger, and the caller's own run doesn't continue until it finishes. Refuses with an error rather than looping if the target is already running further up the same call chain |
 | `incrementMetadataField` / `decrementMetadataField` | Adds or subtracts 1 from a Metadata field (`param`, its `key`) -- a plain Number field's value, or a Text+Number/Number+Text field's number segment. Fails with a clear error if the field doesn't exist or isn't a Number-shaped type |
