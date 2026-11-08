@@ -7,7 +7,7 @@ A defect is recorded here once it is confirmed -- either by watching it happen, 
 unambiguous, by a plain reading of the code -- with a workaround if one exists, and moves to the
 CHANGELOG once fixed.
 
-## Windows OBS source management is new and unconfirmed
+## Windows OBS source management: tested on an earlier release
 
 On macOS, Showrunner creates and maintains capture sources with OBS's `screen_capture` input and
 points each at a window by its numeric system ID. Windows OBS has a different input kind,
@@ -16,10 +16,10 @@ OBS which platform it is running on and uses the matching one: the same flow (li
 offers, match by title, point the source, crop, scale, mute) with that input kind and that kind of
 window value. The macOS behavior is unchanged.
 
-This has been built against OBS's documented behavior and tested against a stand-in for OBS, but
-**not yet on a real Windows machine**, so treat it as unconfirmed until it has been. Two things in
-particular need a real check, and the **Copy capture report** button on the OBS card (Configuration
-tab) exists to settle them in one go:
+It has been built against OBS's documented behavior and tested against a stand-in for OBS. It has
+also been run on a real Windows machine, on an earlier release, and worked there. **It has not been
+re-checked on 0.3.2.** Two details are worth confirming on any Windows machine, and the **Copy
+capture report** button on the OBS card (Configuration tab) settles them in one go:
 
 - What OBS actually returns for the window list on Windows (the label and value formats Showrunner's
   matching depends on).
@@ -27,7 +27,7 @@ tab) exists to settle them in one go:
   different Showrunner window, when its own window is closed. Every Showrunner window shares one
   executable and one window class, so any looser matching could show the wrong window.
 
-Also not yet addressed on Windows: display scaling. Showrunner's size readout and the "scaled back
+Display scaling on Windows has not been separately confirmed. Showrunner's size readout and the "scaled back
 down" correction assume the capture is the window's size times the display's scale factor, which is
 how a Retina display behaves on macOS; whether Windows display scaling behaves the same way is part
 of what the report records.
