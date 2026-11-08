@@ -423,7 +423,7 @@ let lastTavernState = null;
 tavern.on('status', (s) => {
   if (s.state !== lastTavernState) {
     lastTavernState = s.state;
-    logActivity('Tavern', s.message || s.state, s.state === 'error' ? 'error' : 'info');
+    logActivity('Chameleon', s.message || s.state, s.state === 'error' ? 'error' : 'info');
   } else {
     broadcastStatus();
   }
@@ -520,7 +520,7 @@ async function syncTavern() {
   const t = configStore.get().tavern;
   const entries = Object.entries(t.players);
   if (!tavern.connected) {
-    report.note = 'Not signed in to the Tavern.';
+    report.note = 'Not signed in to Chameleon.';
     tavernSync = report;
     broadcastStatus();
     return report;
@@ -691,7 +691,7 @@ function isPublished(entry) {
 // source is a separate, explicit action (Delete from OBS).
 async function applyPublish(key, wanted) {
   const user = tavern.party.find((u) => u.key === key);
-  if (!user) throw new Error('That user is not on the Tavern any more.');
+  if (!user) throw new Error('That user is not on Chameleon any more.');
   const current = configStore.get();
   const players = { ...current.tavern.players };
   const room = currentTavernRoom();

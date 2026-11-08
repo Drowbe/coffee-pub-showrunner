@@ -38,7 +38,7 @@ it.
 
 ## Where to go from here
 
-That covers watching your own game render and land in OBS. Coffee Pub Tavern (publishing the
+That covers watching your own game render and land in OBS. Coffee Pub Chameleon (publishing the
 party as their own OBS sources) and Automations (letting a Foundry module drive OBS) are both
 covered on their own pages once written; until then, the repository README's "Using it" section
 walks through every other part of the control panel in more depth.

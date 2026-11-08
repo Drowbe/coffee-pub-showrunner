@@ -11,7 +11,7 @@ reading the code.
 Cards moved, on purpose, away from where the code that runs them (`runAutomationAction`) or their
 own internal names suggested they belonged. The visible tab labels and the internal `data-tab`
 keys/`src/control/control.js` identifiers no longer match one-for-one for "Session" -- same kind of
-mismatch "CP Tavern" already had with its internal key `tavern`, deliberately *not* repeated for
+mismatch "Chameleon" already had with its internal key `tavern`, deliberately *not* repeated for
 "Configuration": that key was `session` immediately after the Session/Configuration split, which
 inverted rather than just abbreviated -- `data-tab="session"`/`tab-session` meant Configuration,
 while the actual Session tab was keyed `metadata` -- confirmed as a real hygiene problem (a `grep
@@ -26,7 +26,7 @@ rename still lands somewhere real instead of every panel hidden:
 | Session | `metadata` | Metadata only -- this session's own data (`config.metadataFields`) |
 | Automations | `automations` | Recording Filename, Rule Sets, Test Events |
 
-Nav order matches this table left to right, then CP Tavern (only once connected) and each
+Nav order matches this table left to right, then Chameleon (only once connected) and each
 window's own tab -- Configuration first since `recallTab()`'s fresh-install default is
 `'configuration'`, the same key. `config.session` (`filenameFormat`, on disk) is a separate,
 untouched thing -- a data key, not a tab key; it just no longer lives on a tab of the same name.
@@ -63,7 +63,7 @@ tab triggers a refresh, since both read the same `automationsScenes`/`automation
 ## Why a server, not a client
 
 Every other integration Showrunner has is the other way around: Showrunner is the client polling
-Coffee Pub Tavern's HTTP API, and OBS's WebSocket connection is loopback-only because OBS and
+Coffee Pub Chameleon's HTTP API, and OBS's WebSocket connection is loopback-only because OBS and
 Showrunner share a Mac. Foundry, running Coffee Pub Herald, is typically on a different machine on the
 same LAN. For a Foundry module to reach Showrunner at all, something has to be listening, and Foundry
 cannot be that thing -- so `AutomationsServer` (`src/automations.js:47`) runs its own HTTPS server,
@@ -95,7 +95,7 @@ recognize and vouch for its own certificate there. `trustsOwnAutomationsCert`
 (`src/main.js:629`) compares actual certificate bytes (`X509Certificate.raw`), not the
 certificate's fingerprint string (whose exact format Electron does not document precisely enough
 to trust a string match), and only while the Automations server that certificate belongs to is
-actually the one running. Every other certificate error -- Tavern, a real Foundry HTTPS
+actually the one running. Every other certificate error -- Chameleon, a real Foundry HTTPS
 connection, anything else -- still gets Electron's normal validation.
 
 ## CORS
@@ -671,7 +671,7 @@ A separate, smaller log than `automations.js`'s own `events` -- `activityLog`
 (`src/main.js:167`, capped at `ACTIVITY_LOG_LIMIT` = 100) exists so the Connections card on the
 Configuration tab can answer "what just happened" across all three services at a glance, not just
 Automations' own. `logActivity(source, event, level)` (`src/main.js:169`) pushes an entry and
-broadcasts; fed from four places: OBS's and Tavern's `'status'` listeners
+broadcasts; fed from four places: OBS's and Chameleon's `'status'` listeners
 (`src/main.js:180`/`204`) only log when `state` itself changed (not every status ping -- OBS/Tavern
 emit `'status'` on routine polling too, e.g. input or output list refreshes, which would otherwise
 spam the log on a timer), Automations' own `'status'` listener the same way (`src/main.js:506`),
@@ -743,7 +743,7 @@ there's nothing here for a compromised renderer to redirect elsewhere.
 
 `clientId` lives in `config.youtube` (plain, unencrypted -- not meaningfully secret, same posture
 as `obs.host`). `clientSecret` and the refresh token share one `safeStorage`-encrypted file,
-`YOUTUBE_SECRET_PATH` (`src/main.js`), same keychain-backed pattern the OBS and Tavern passwords
+`YOUTUBE_SECRET_PATH` (`src/main.js`), same keychain-backed pattern the OBS and Chameleon passwords
 already use (`readSecret`/`writeSecret`, reused directly rather than reimplemented). The access
 token is never persisted -- held in memory on the `YouTubeUploader` instance, refreshed
 automatically via the stored refresh token whenever it's stale or missing (`getAccessToken`).
@@ -1065,7 +1065,7 @@ changed with care rather than renamed outright, because each is how something al
 finds its own data:
 
 - **The data identity stays "Coffee Pub Studio"** (`DATA_NAME`, `app.setName` in `src/main.js`).
-  The settings folder follows the app's name, and so does the key the OBS, Tavern and YouTube
+  The settings folder follows the app's name, and so does the key the OBS, Chameleon and YouTube
   passwords are encrypted with -- confirmed directly: a secret encrypted under one `app.setName`
   value cannot be decrypted under another. Renaming it would have meant re-entering every password
   and reconnecting YouTube, so the visible name (`APP_NAME`: window titles, menus, notifications,
@@ -1073,7 +1073,7 @@ finds its own data:
   alone, since changing it would mean trusting a new certificate on every machine that runs Foundry.
 - **OBS source names move from `(CP Studio)` to `(CPS)`.** At launch `migrateSourceNames` rewrites
   every saved name that carries the old ending -- window and region sources, app windows,
-  published Tavern sources -- and any automation step whose target is exactly one of them (a step
+  published Chameleon sources -- and any automation step whose target is exactly one of them (a step
   that shows or hides a source by name would otherwise stop finding it). The renames to perform go
   into `source-renames.json`; `applyPendingSourceRenames` carries them out in OBS the next time
   it is connected, before either sync runs, then clears the list. A source already gone, or whose

@@ -138,11 +138,11 @@ class TavernBridge extends EventEmitter {
     this.suspended = false;
     const { enabled, url, login } = this.getSettings();
     if (!enabled) {
-      this.setState('disconnected', 'Coffee Pub Tavern is turned off.');
+      this.setState('disconnected', 'Coffee Pub Chameleon is turned off.');
       throw new Error(this.message);
     }
     if (!url) {
-      this.setState('error', 'Enter the Tavern address first.');
+      this.setState('error', 'Enter the Chameleon address first.');
       throw new Error(this.message);
     }
     this.setState('connecting', `Signing in to ${url}...`);
@@ -248,7 +248,7 @@ class TavernBridge extends EventEmitter {
     if (this.state !== 'connected') return;
     this.stopPolling();
     this.token = '';
-    this.setState('error', `Lost the Tavern: ${describeError(err)}`);
+    this.setState('error', `Lost Chameleon: ${describeError(err)}`);
     this.scheduleReconnect();
   }
 
@@ -384,9 +384,9 @@ function isElevatedRole(role) {
 
 function describeError(err) {
   const msg = (err && err.message) || String(err);
-  if (/aborted|AbortError/i.test(msg)) return 'The Tavern did not answer in time.';
-  if (/ECONNREFUSED|fetch failed|ENOTFOUND|EAI_AGAIN/i.test(msg)) return 'Could not reach the Tavern at that address.';
-  if (/wrong login or password/i.test(msg)) return 'The Tavern rejected the login or password.';
+  if (/aborted|AbortError/i.test(msg)) return 'Chameleon did not answer in time.';
+  if (/ECONNREFUSED|fetch failed|ENOTFOUND|EAI_AGAIN/i.test(msg)) return 'Could not reach Chameleon at that address.';
+  if (/wrong login or password/i.test(msg)) return 'Chameleon rejected the login or password.';
   return msg;
 }
 

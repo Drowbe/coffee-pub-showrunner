@@ -434,7 +434,7 @@ function defaultTavern() {
     enabled: false, url: '', login: '', autoConnect: true,
     playerWidth: 640, playerHeight: 360, lockRatio: true,
     characterWidth: 256, characterHeight: 256, characterWithPlayer: false,
-    space: 'lobby', // the Tavern space whose members the Tavern tab shows and OBS sources gate on
+    space: 'lobby', // Chameleon space whose members Chameleon tab shows and OBS sources gate on
     followAdmin: true, // "Enable Asides": mute anyone live in a different space than `space` above
     players: {},
   };

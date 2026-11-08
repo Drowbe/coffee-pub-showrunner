@@ -1787,7 +1787,7 @@ $('tavern-show-all').addEventListener('click', () => api.tavernShowAll().catch(r
 $('tavern-hide-all').addEventListener('click', () => api.tavernHideAll().catch(reportError));
 $('tavern-publish-all').addEventListener('click', () => api.tavernPublishAll().catch(reportError));
 $('tavern-unpublish-all').addEventListener('click', () => {
-  if (!window.confirm('Delete every Tavern source from OBS?')) return;
+  if (!window.confirm('Delete every Chameleon source from OBS?')) return;
   api.tavernUnpublishAll(true).catch(reportError);
 });
 $('tavern-sync').addEventListener('click', () => api.tavernSync().catch(reportError));
@@ -1916,7 +1916,7 @@ function renderTavern() {
   $('tavern-users-title').textContent = room ? `Users in ${room.name}` : 'Users';
   $('tavern-room-count').textContent = room ? `${room.members.length} member${room.members.length === 1 ? '' : 's'}` : '';
   tavernEls.empty.hidden = connected;
-  tavernEls.empty.textContent = t.state === 'error' ? t.message : 'Sign in to the Tavern on the Configuration tab to see who is at the table.';
+  tavernEls.empty.textContent = t.state === 'error' ? t.message : 'Sign in to Chameleon on the Configuration tab to see who is at the table.';
   // A room's profile gates which sources it offers: 'participants' drops
   // Character, 'characters' drops Participant, 'roleplaying' (or no
   // profile, for an older server) offers both. Every user in `party` is a
