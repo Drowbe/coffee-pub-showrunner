@@ -72,7 +72,7 @@ p {
   gap: 16px;
   /* Extra left padding clears the traffic-light buttons, which the hidden
      title bar now overlays directly on top of this row's own content. */
-  padding: 14px 20px 14px 96px;
+  padding: 12px 20px 12px 96px;
   border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, #2b211a, var(--bg));
   -webkit-app-region: drag;
@@ -94,13 +94,13 @@ p {
    Dark-theme colors (this bar is dark). Fraunces/Figtree are used if
    installed; the fallbacks keep the same weights and feel. */
 .brand-mark {
-  height: 42px;
+  height: 34px;
   width: auto;
   display: block;
 }
 
 .brand-name {
-  font-size: 24px;
+  font-size: 19px;
   line-height: 1;
   white-space: nowrap;
 }
