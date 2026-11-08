@@ -218,7 +218,7 @@ src/bar/               The bar at the top of each window (HTML, CSS, JS); add pe
 build/icon.png         App icon: the Coffee Pub Showrunner mark (sources in build/brand/)
 src/assets/trayTemplate.png  macOS menu bar icon (@2x alongside it); a template image, auto-tinted to match light/dark
 src/assets/trayWin.png       Windows/Linux tray icon (the white mark; @1.5x/@2x/@3x alongside it)
-src/assets/mark-white.png    White mark used in the control panel header and the edge dock
+src/assets/mark-color.png    Coloured mark used in the control panel header and the edge dock
 ```
 
 ## Troubleshooting
