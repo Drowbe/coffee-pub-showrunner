@@ -1,0 +1,26 @@
+Coffee Pub Showrunner
+Copyright (c) 2026 Coffee Pub. All rights reserved.
+
+This is proprietary software. It is free to download and use for now.
+
+1. You may download, install and use Coffee Pub Showrunner, free of charge.
+
+2. Unless Coffee Pub gives you written permission, you may not copy, modify,
+   merge, publish, redistribute, sublicense or sell the software or its source
+   code, or use its name, logos or artwork as your own. You may not reverse
+   engineer it except where the law allows that despite this restriction.
+
+3. The source code is visible in this repository so you can read it, report
+   problems and see what the app does. Being able to see it does not grant any
+   of the rights in point 2.
+
+4. Coffee Pub may change these terms, or charge for future versions, at any
+   time. A change applies to the versions released after it and does not
+   take away your right to keep using a version you have already downloaded.
+
+5. The software is provided "as is", without warranty of any kind. Coffee Pub
+   is not liable for any damage or loss arising from its use.
+
+6. Third-party components included in the software (for example Electron,
+   obs-websocket-js and Font Awesome) remain under their own licenses, which
+   continue to apply to those components.

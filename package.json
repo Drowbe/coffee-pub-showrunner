@@ -5,7 +5,7 @@
   "description": "Wraps any web page in a fixed-size Chromium window that OBS can capture as a source, optimized for FoundryVTT sessions but not exclusive to Foundry.",
   "main": "src/main.js",
   "private": true,
-  "license": "MIT",
+  "license": "UNLICENSED",
   "author": "Coffee Pub",
   "engines": {
     "node": ">=18"
