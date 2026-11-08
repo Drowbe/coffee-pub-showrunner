@@ -127,7 +127,7 @@ The full walkthrough lives on the wiki, one guide per piece:
   Retina displays.
 - [Windows and regions as OBS sources](documentation/userguides/userguide-obs.md) -- connecting
   to OBS, the whole-window source, and cropping part of a window into its own source.
-- [Coffee Pub Chameleon in OBS](documentation/userguides/userguide-tavern.md) -- publishing the
+- [Coffee Pub Chameleon in OBS](documentation/userguides/userguide-chameleon.md) -- publishing the
   party as OBS sources.
 - [Configuration file reference](documentation/userguides/userguide-configuration.md) -- the
   config.json shape, field by field.
@@ -181,7 +181,7 @@ npm start
 ## Setting up a Windows machine for development
 
 `scripts/win-dev-setup.ps1` installs git and fnm with Node 22 (via winget), creates
-`~\Developer`, clones this repo and coffee-pub-tavern into it, and runs `npm install` for
+`~\Developer`, clones this repo and coffee-pub-chameleon into it, and runs `npm install` for
 this app. It is safe to re-run; each step skips what is already done. It does not install
 an editor -- point Cursor, Zed, VS Code, or the `claude` CLI at the cloned folders; they
 need nothing beyond the repo being on disk and git already knowing your GitHub credentials.

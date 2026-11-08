@@ -672,7 +672,7 @@ A separate, smaller log than `automations.js`'s own `events` -- `activityLog`
 Configuration tab can answer "what just happened" across all three services at a glance, not just
 Automations' own. `logActivity(source, event, level)` (`src/main.js:169`) pushes an entry and
 broadcasts; fed from four places: OBS's and Chameleon's `'status'` listeners
-(`src/main.js:180`/`204`) only log when `state` itself changed (not every status ping -- OBS/Tavern
+(`src/main.js:180`/`204`) only log when `state` itself changed (not every status ping -- OBS/Chameleon
 emit `'status'` on routine polling too, e.g. input or output list refreshes, which would otherwise
 spam the log on a timer), Automations' own `'status'` listener the same way (`src/main.js:506`),
 and its `'event'` listener logging every event received (`src/main.js:515`) plus every rule-set

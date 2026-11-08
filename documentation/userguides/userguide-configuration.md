@@ -9,7 +9,7 @@ Settings are stored as JSON at
 
 This example is trimmed to the window/OBS shape for readability; `tavern` and `automations` are
 separate top-level sections, covered in their own guides:
-[Coffee Pub Chameleon in OBS](userguide-tavern.md) and the
+[Coffee Pub Chameleon in OBS](userguide-chameleon.md) and the
 [Automations API](../api/api-automations.md).
 
 ```json

@@ -27,7 +27,7 @@ $GitHubUser = 'Drowbe'
 $NodeVersion = '22'
 $Repos = @(
   'coffee-pub-showrunner'
-  'coffee-pub-tavern'
+  'coffee-pub-chameleon'
 )
 
 function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Yellow }

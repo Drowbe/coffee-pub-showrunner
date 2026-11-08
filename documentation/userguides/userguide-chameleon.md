@@ -2,13 +2,13 @@
 
 **Audience:** anyone using Coffee Pub Chameleon to publish players into OBS through Showrunner.
 
-[Coffee Pub Chameleon](https://github.com/Drowbe/coffee-pub-tavern) is the party's voice and video
+[Coffee Pub Chameleon](https://github.com/Drowbe/coffee-pub-chameleon) is the party's voice and video
 server. Showrunner signs in to it as an admin and gives every player their own OBS Browser Source.
 
 ## Sign in
 
 On the Session tab, in **Chameleon**, tick **Enable Coffee Pub Chameleon** (the Chameleon tab only
-shows while it is on), then enter the server address (for example `https://tavern.example.com`),
+shows while it is on), then enter the server address (for example `https://chameleon.example.com`),
 your admin login and password, click **Save password**, then **Sign in**. Tick **Sign in
 automatically** to reconnect at every launch.
 
