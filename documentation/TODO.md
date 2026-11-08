@@ -180,7 +180,7 @@ This adoption pass covers the API (`api/api-automations.md`), one paired archite
 open:
 
 - ~~**README is not yet the strict product-page template.**~~ Done: the deep walkthrough moved
-  out into `userguide-settings.md`, `userguide-obs.md`, `userguide-tavern.md` and
+  out into `userguide-settings.md`, `userguide-obs.md`, `userguide-chameleon.md` and
   `userguide-configuration.md`; README now keeps only the short version plus links to the wiki
   guides, alongside the Automations section (already a wiki pointer) and the maintainer-facing
   sections (requirements, install, releasing, dev setup, project layout).

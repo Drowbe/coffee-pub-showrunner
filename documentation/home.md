@@ -21,7 +21,7 @@ hardware; see [Known issues](known-issues.md).
   the edge dock, keyboard shortcuts, Retina displays.
 - [Windows and regions as OBS sources](userguides/userguide-obs.md) -- connecting to OBS, the
   whole-window source, and cropping part of a window into its own source.
-- [Coffee Pub Chameleon in OBS](userguides/userguide-tavern.md) -- publishing the party as OBS
+- [Coffee Pub Chameleon in OBS](userguides/userguide-chameleon.md) -- publishing the party as OBS
   sources.
 - [Configuration file reference](userguides/userguide-configuration.md) -- the config.json
   shape, field by field.
