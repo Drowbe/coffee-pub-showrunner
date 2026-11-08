@@ -39,12 +39,6 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - name: TEMP inspect icon assets
-        run: |
-          car=$(find dist -name Assets.car | head -1); echo "car=$car"
-          xcrun assetutil --info "$car" | grep -E '"(Name|Appearance|AppearanceIdentifier|AssetType|RenditionName)"' | sort | uniq -c | head -40
-          plutil -p "$(dirname "$car")/../Info.plist" | grep -i -E "IconName|IconFile"
-
       - name: Upload installer
         uses: actions/upload-artifact@v7
         with:
