@@ -182,7 +182,7 @@ const PLACEHOLDER_URL =
   encodeURIComponent(
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>No URL</title></head>' +
     '<body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;' +
-    'background:#1a1410;color:#a8998a;font:16px -apple-system,Helvetica,Arial,sans-serif;text-align:center">' +
+    'background:#0E1A2B;color:#B9C3D3;font:16px -apple-system,Helvetica,Arial,sans-serif;text-align:center">' +
     '<div><div style="font-size:40px">&#9749;</div>No URL set for this window.<br>Enter one in the Control Panel (Cmd+0).</div>' +
     '</body></html>',
   );
@@ -2127,7 +2127,7 @@ function createViewWindow(view) {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    backgroundColor: '#1a1410',
+    backgroundColor: '#0E1A2B',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'bar-preload.js'),
@@ -2642,7 +2642,7 @@ function createControlWindow() {
     ...placement,
     minWidth: 820,
     minHeight: 560,
-    backgroundColor: '#1a1410',
+    backgroundColor: '#0E1A2B',
     // The native title bar was its own separate, system-colored strip above
     // the app's own dark .topbar (which already has -webkit-app-region:
     // drag set up for exactly this); hiddenInset keeps the traffic lights
