@@ -13,8 +13,8 @@ to publish each player at the table as their own OBS source, and it runs a small
 server so a Foundry module -- Coffee Pub Herald first -- can trigger an OBS action (switch scene,
 show or hide a source, start or stop recording or streaming) when something happens in the game.
 
-OBS window-capture source management is not yet wired up on Windows; see
-[Known issues](known-issues.md).
+OBS window-capture source management on Windows is built but not yet confirmed on real Windows
+hardware; see [Known issues](known-issues.md).
 
 - [Getting started](userguides/userguide-getting-started.md) -- the first five minutes.
 - [Settings, windows and the edge dock](userguides/userguide-settings.md) -- adding windows,
