@@ -1,0 +1,22 @@
+{
+  "fill": { "solid": "srgb:0.98431,0.96471,0.92549,1.00000" },
+  "fill-specializations": [
+    { "appearance": "dark", "value": { "solid": "srgb:0.05490,0.10196,0.16863,1.00000" } }
+  ],
+  "groups": [
+    {
+      "layers": [
+        {
+          "name": "mark",
+          "image-name": "mark-light.svg",
+          "image-name-specializations": [
+            { "appearance": "dark", "value": "mark-dark.svg" }
+          ]
+        }
+      ],
+      "shadow": { "kind": "none", "opacity": 0 },
+      "translucency": { "enabled": false, "value": 0 }
+    }
+  ],
+  "supported-platforms": { "squares": "shared" }
+}

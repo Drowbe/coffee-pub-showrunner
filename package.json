@@ -30,6 +30,7 @@
     "appId": "live.coffeepub.studio",
     "productName": "Coffee Pub Showrunner",
     "copyright": "Copyright © 2026 Coffee Pub",
+    "icon": "build/icon.png",
     "asar": true,
     "files": [
       "src/**/*",
@@ -41,7 +42,7 @@
     },
     "mac": {
       "category": "public.app-category.utilities",
-      "icon": "build/icon.png",
+      "icon": "build/AppIcon.icon",
       "identity": null,
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
