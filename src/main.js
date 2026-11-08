@@ -2648,10 +2648,10 @@ function createControlWindow() {
     // drag set up for exactly this); hiddenInset keeps the traffic lights
     // but folds the bar itself into the page's own background.
     titleBarStyle: 'hiddenInset',
-    // Centre the traffic lights on the header row (its content is 70px tall,
-    // so the middle is y=35): at the default spot they sat near the top with
+    // Centre the traffic lights on the header row (the row is 34px tall with
+    // 12px padding, so the middle is y=29): at the default spot they sat near the top with
     // an empty gap beneath them, beside the logo. macOS only; ignored elsewhere.
-    trafficLightPosition: { x: 20, y: 29 },
+    trafficLightPosition: { x: 20, y: 23 },
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
