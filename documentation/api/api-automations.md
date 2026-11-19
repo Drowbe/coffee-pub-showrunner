@@ -325,6 +325,10 @@ under HTTPS.
 | `sourceHide` | Sources | Hides a source in every scene it is used in | the exact OBS source name |
 | `sourceToggle` | Sources | Flips a source's current visibility -- one event both shows and hides, so a caller does not need to track state itself or send two different events | the exact OBS source name |
 | `setText` | Sources | Overwrites a text source's displayed text | the exact OBS source name |
+| `sourceMute` | Audio | Mutes an OBS audio source | the exact OBS source name |
+| `sourceUnmute` | Audio | Unmutes an OBS audio source | the exact OBS source name |
+| `sourceToggleMute` | Audio | Flips an OBS audio source's mute, so one event both mutes and unmutes | the exact OBS source name |
+| `setVolume` | Audio | Sets an OBS audio source's volume in dB: -100 is silent, 0 is the level the source arrives at, and OBS stops at 26. Read like `setText`'s text: a typed number, a file, or a Data Field; a direct call sends it as `data.text` | the exact OBS source name |
 | `startRecording` | Controls | Starts OBS recording | not used |
 | `pauseRecording` | Controls | Pauses OBS recording (recording must already be running) | not used |
 | `resumeRecording` | Controls | Resumes a paused OBS recording | not used |
@@ -332,8 +336,8 @@ under HTTPS.
 | `startStreaming` | Controls | Starts OBS streaming | not used |
 | `stopStreaming` | Controls | Stops OBS streaming | not used |
 
-All eleven reuse the same OBS WebSocket connection Showrunner already keeps for everything else; there
-is no separate connection or credential for Automations to reach OBS, and all eleven need it
+All fifteen reuse the same OBS WebSocket connection Showrunner already keeps for everything else; there
+is no separate connection or credential for Automations to reach OBS, and all fifteen need it
 connected.
 
 `setText`'s actual text does not come from `param` (that names which source to write to) -- a

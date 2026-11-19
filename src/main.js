@@ -983,7 +983,7 @@ function collectRequiredPrompts(ruleSet, allRuleSets, metadataFields, seenRuleSe
 
   for (const step of ruleSet.steps) {
     if (step.type !== 'action') continue;
-    if ((step.action === 'setText' || step.action === 'setMetadataField') && step.valueType === 'dataField') {
+    if ((step.action === 'setText' || step.action === 'setVolume' || step.action === 'setMetadataField') && step.valueType === 'dataField') {
       addKey(step.dataField || (step.action === 'setMetadataField' ? 'value' : 'text'));
     } else if (step.action === 'applySessionFilename') {
       // The *current* filename template, same one applySessionFilename
@@ -1175,7 +1175,7 @@ function checkAndApplyPrompts(event, providedPrompts) {
 
 // One step's action -> the OBS or Studio call it makes. `param` is the
 // step's own value: a scene name for sceneSwitch, a source name for
-// sourceShow/sourceHide/sourceToggle/setText, ignored otherwise.
+// sourceShow/sourceHide/sourceToggle/setText and the audio actions, ignored otherwise.
 // `eventData` is whatever triggered this (undefined for a manual "Time
 // it" run or a direct action call with none given);
 // `stepContext` (only read by setText, via resolveTextValue above) is the
@@ -1209,6 +1209,26 @@ async function runAutomationAction(action, param, eventData, stepContext, chain 
       requireObs();
       if (!param) throw new Error('setText needs a source name.');
       return obs.setInputText(param, resolveTextValue(stepContext, eventData));
+    }
+    case 'sourceMute':
+      requireObs();
+      if (!param) throw new Error('sourceMute needs a source name.');
+      return obs.setInputMuted(param, true);
+    case 'sourceUnmute':
+      requireObs();
+      if (!param) throw new Error('sourceUnmute needs a source name.');
+      return obs.setInputMuted(param, false);
+    case 'sourceToggleMute':
+      requireObs();
+      if (!param) throw new Error('sourceToggleMute needs a source name.');
+      return obs.toggleInputMuted(param);
+    case 'setVolume': {
+      requireObs();
+      if (!param) throw new Error('setVolume needs a source name.');
+      const raw = String(resolveTextValue(stepContext, eventData)).trim();
+      const db = Number.parseFloat(raw);
+      if (!Number.isFinite(db)) throw new Error(`setVolume needs a level in dB, such as -6 (got "${raw}").`);
+      return obs.setInputVolumeDb(param, db);
     }
     case 'startRecording':
       requireObs();
