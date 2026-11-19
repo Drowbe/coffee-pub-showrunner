@@ -2636,11 +2636,11 @@ function createControlWindow() {
     const a = d.workArea;
     return remembered.x < a.x + a.width - 80 && remembered.x + remembered.width > a.x + 80 && remembered.y >= a.y - 20 && remembered.y < a.y + a.height - 80;
   });
-  const placement = onScreen ? remembered : { width: 880, height: 760 };
+  const placement = onScreen ? remembered : { width: 1040, height: 780 };
   controlWindow = new BrowserWindow({
     title: `${APP_NAME} - Control Panel - ${REVISION}`,
     ...placement,
-    minWidth: 820,
+    minWidth: 900,
     minHeight: 560,
     backgroundColor: '#0E1A2B',
     // The native title bar was its own separate, system-colored strip above

@@ -779,8 +779,9 @@ function onAddMenuKey(event) {
 }
 function openAddMenu(anchor) {
   const rect = anchor.getBoundingClientRect();
-  addMenuEl.style.top = `${rect.bottom + 6}px`;
-  addMenuEl.style.left = `${Math.max(8, rect.left - 40)}px`;
+  // Beside the sidebar's "Add window" row, level with it, so it opens into the content area.
+  addMenuEl.style.top = `${Math.max(8, rect.top - 4)}px`;
+  addMenuEl.style.left = `${rect.right + 6}px`;
   addMenuEl.querySelector('[data-kind="web"]').disabled = config.views.length >= limits.maxViews;
   addMenuEl.querySelector('[data-kind="app"]').disabled = (config.appWindows || []).length >= MAX_APP_WINDOWS;
   addMenuEl.hidden = false;
