@@ -840,15 +840,56 @@ select:focus {
   margin-top: auto;
 }
 
-/* Tabs */
-.tabs {
+/* Side navigation: grouped sections on the left, content on the right. */
+.shell {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  align-items: flex-end;
+}
+
+.shell > main {
+  min-width: 0;
+}
+
+.sidebar {
+  width: 188px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
-  padding: 10px 20px 0;
+  padding: 12px 10px 16px;
+  border-right: 1px solid var(--border);
+  background: #0B1626;
+  overflow-y: auto;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  overflow-x: auto;
+}
+
+.nav-group:last-child {
+  border-bottom: none;
+}
+
+/* The Integrations group has nothing in it until Chameleon or Automations is
+   switched on, so it (and its divider) disappear with them. */
+#nav-integrations:not(:has(.tab:not([hidden]))) {
+  display: none;
+}
+
+.nav-heading {
+  padding: 6px 10px 4px;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.8;
 }
 
 .view-tabs {
@@ -856,20 +897,23 @@ select:focus {
 }
 
 .tab {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
   border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: var(--text-dim);
   font: inherit;
   font-weight: 500;
+  text-align: left;
   cursor: pointer;
   white-space: nowrap;
-  margin-bottom: -1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab:hover {
@@ -881,13 +925,23 @@ select:focus {
   color: var(--text);
   background: var(--bg-card);
   border-color: var(--border);
-  border-bottom: 1px solid var(--bg-card);
+  border-left-color: var(--accent);
 }
 
 .tab-add {
-  font-size: 16px;
-  padding: 6px 12px;
+  margin-top: 4px;
   color: var(--accent);
+  font-size: 12px;
+}
+
+.tab-add i {
+  width: 8px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.dot.ghost {
+  visibility: hidden;
 }
 
 .dot {

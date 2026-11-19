@@ -22,17 +22,29 @@
     </div>
   </header>
 
-  <nav class="tabs" id="tabs">
+  <div class="shell">
+  <nav class="sidebar" id="tabs" aria-label="Sections">
     <!-- Internal tab key "metadata" is the visible "Session" tab (this session's own data) --
-         same mismatch as "tavern" already being labeled "Chameleon". -->
-    <button class="tab" data-tab="configuration" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>Configuration</button>
-    <button class="tab" data-tab="metadata" type="button">Session</button>
-    <button class="tab" data-tab="automations" id="automations-tab" type="button" hidden><span class="dot" id="automations-dot" title="Automations server"></span>Automations</button>
-    <button class="tab" data-tab="tavern" id="tavern-tab" type="button" hidden><span class="dot" id="tavern-dot" title="Chameleon connection"></span>Chameleon</button>
-    <span id="view-tabs" class="view-tabs"></span>
-    <span id="appwin-tabs" class="view-tabs"></span>
-    <button class="tab tab-add" data-tab="add" type="button" title="Add a window">+</button>
+         same mismatch as "tavern" already being labeled "Chameleon". Each .tab keeps its
+         data-tab key; selectTab() in control.js drives the active state and panels. -->
+    <div class="nav-group">
+      <div class="nav-heading">Session</div>
+      <button class="tab" data-tab="configuration" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>Configuration</button>
+      <button class="tab" data-tab="metadata" type="button"><span class="dot ghost"></span>Session</button>
+    </div>
+    <div class="nav-group" id="nav-integrations">
+      <div class="nav-heading">Integrations</div>
+      <button class="tab" data-tab="automations" id="automations-tab" type="button" hidden><span class="dot" id="automations-dot" title="Automations server"></span>Automations</button>
+      <button class="tab" data-tab="tavern" id="tavern-tab" type="button" hidden><span class="dot" id="tavern-dot" title="Chameleon connection"></span>Chameleon</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-heading">Windows</div>
+      <span id="view-tabs" class="view-tabs"></span>
+      <span id="appwin-tabs" class="view-tabs"></span>
+      <button class="tab tab-add" data-tab="add" type="button" title="Add a window"><i class="fa-solid fa-plus" aria-hidden="true"></i>Add window</button>
+    </div>
   </nav>
+
 
   <main>
     <section class="tab-panel" id="tab-metadata">
@@ -593,6 +605,7 @@
     <section id="views" class="views"></section>
     <section id="appwins" class="views"></section>
   </main>
+  </div>
 
   <!-- The "+" tab's chooser: web windows and app windows are added the same
        way, by asking what kind. Positioned under the button by control.js. -->
