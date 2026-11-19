@@ -2716,6 +2716,9 @@ function applyYoutubeConfig() {
 
 function renderYoutubeStatus() {
   const yt = status.youtube || { connected: false, hasClientSecret: false, connecting: null };
+  // The rail's dot follows the connection the way the OBS, Chameleon and Automations dots do.
+  $('youtube-dot').classList.toggle('on', Boolean(yt.connected));
+  $('youtube-dot').classList.toggle('connecting', Boolean(yt.connecting));
   const lastRecording = yt.lastRecording;
   const lastRecordingEl = $('youtube-last-recording');
   lastRecordingEl.hidden = !lastRecording;
@@ -4626,6 +4629,11 @@ $('picker-save').addEventListener('click', async () => {
   renderDisplays();
   renderObs();
   renderStatus();
+  // The integrations' own state (dots, tags, buttons) from the first status rather than waiting
+  // for the next broadcast, which with OBS offline may not come for a while.
+  renderTavern();
+  renderAutomationsStatus();
+  renderYoutubeStatus();
   renderConnectionsBoard();
   $('about-version').textContent = info.revision;
   $('about-build').textContent = info.build && info.build.branch ? `on ${info.build.branch}` : '-';
