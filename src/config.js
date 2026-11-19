@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const backup = require('./backup');
 
 // Version 13 stores a list of shows (see the show helpers above ConfigStore);
 // everything outside a show is global. Files from version 12 and earlier
@@ -967,6 +968,13 @@ class ConfigStore {
     this.data = project(this.stored);
     // Rewrite files saved by an older version so they carry the new shape.
     if (this.loadedVersion !== null && this.loadedVersion !== CONFIG_VERSION) {
+      // An older build cannot read the new format, so keep a copy of the old
+      // files before the first rewrite.
+      try {
+        backup.create(path.dirname(this.filePath), `migrate-v${this.loadedVersion === undefined ? 'unknown' : this.loadedVersion}`);
+      } catch (err) {
+        console.warn(`[config] Could not back up before migrating: ${err.message}`);
+      }
       this.write();
     }
   }

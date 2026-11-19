@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification } = require('electron');
+const backups = require('./backup');
 const { ConfigStore, LIMITS, REGION_LIMITS, DEFAULT_GROUP, AUTOMATIONS_ACTION_SCHEMA, STUDIO_ACTION_SCHEMA, SOURCE_SUFFIX, upgradeSourceName } = require('./config');
 const { ObsBridge, parseWindowChoice } = require('./obs');
 const { TavernBridge } = require('./tavern');
@@ -2943,6 +2944,40 @@ function registerIpc() {
     broadcastStatus();
     return saved;
   });
+  // --- Backups ---
+  ipcMain.handle('backups:list', () => backups.list(app.getPath('userData')));
+  ipcMain.handle('backups:create', () => {
+    const created = backups.create(app.getPath('userData'), 'manual');
+    if (!created) throw new Error('There are no settings to back up yet.');
+    logActivity('Studio', 'Backed up the settings.', 'info');
+    return backups.list(app.getPath('userData'));
+  });
+  ipcMain.handle('backups:reveal', () => {
+    const dir = backups.backupsDir(app.getPath('userData'));
+    fs.mkdirSync(dir, { recursive: true });
+    return shell.openPath(dir);
+  });
+  ipcMain.handle('backups:restore', async (_event, id) => {
+    const target = backups.list(app.getPath('userData')).find((b) => b.id === id);
+    if (!target) throw new Error('That backup no longer exists.');
+    const when = target.created ? new Date(target.created).toLocaleString() : target.id;
+    const { response } = await dialog.showMessageBox(controlWindow, {
+      type: 'warning',
+      buttons: ['Cancel', 'Restore and restart'],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Restore the backup from ${when}?`,
+      detail: 'This replaces your current settings with the ones in that backup, then restarts Showrunner. Your current settings are backed up first, so you can undo this from the same list.',
+    });
+    if (response !== 1) return null;
+    backups.restore(app.getPath('userData'), id);
+    // exit() rather than quit(): closing windows would save the settings now
+    // in memory over the ones just restored.
+    app.relaunch();
+    app.exit(0);
+    return true;
+  });
+
   ipcMain.handle('config:reset', () => {
     const saved = configStore.save({});
     saved.views.forEach(applyViewSettings);

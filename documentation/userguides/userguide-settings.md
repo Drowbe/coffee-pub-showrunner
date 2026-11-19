@@ -43,6 +43,21 @@ These stay the same for every show: the OBS connection, the YouTube login, the C
 login, the Automations port and token, the dock, and the app preferences. Sources a show created in OBS
 stay in OBS when you switch away; Showrunner does not remove them.
 
+## Backups
+
+**Configuration** has a **Backups** card. A backup is a dated copy of your settings: your shows and
+everything in them, the saved passwords, the Automations certificates, the recordings list and the
+renamed-source list. It does not include the browser cache or sign-ins to Foundry.
+
+Showrunner makes a backup by itself the first time a new version changes the settings format, before
+anything is rewritten, because an older version cannot read the new format. Click **Back up now** to
+make one whenever you like, and **Show in Finder** to open the folder (`backups` inside the app's
+settings folder; see the [configuration reference](userguide-configuration.md)).
+
+**Restore** puts a backup's files back and restarts Showrunner. It makes a backup of your current
+settings first, so a restore can be undone from the same list. The newest 20 backups are kept; the
+ones made before a format change are never removed.
+
 ## Size and position
 
 Set each window's **Width** and **Height** to the exact size you want; changes apply live to open

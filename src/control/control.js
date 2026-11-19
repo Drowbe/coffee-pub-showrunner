@@ -1003,6 +1003,76 @@ showsEls.newName.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') createShowFromInput();
 });
 
+// ---------------------------------------------------------------------------
+// Backups
+// ---------------------------------------------------------------------------
+
+const backupEls = { list: $('backups-list'), now: $('backup-now'), reveal: $('backup-reveal') };
+
+function describeBackupReason(reason) {
+  if (reason === 'manual') return 'Backed up by you';
+  if (reason === 'before-restore') return 'Made just before a restore';
+  const migrate = /^migrate-v(.+)$/.exec(reason);
+  if (migrate) return migrate[1] === 'unknown' ? 'Made before an update changed the settings format' : `Made before an update changed the settings format (was version ${migrate[1]})`;
+  return reason;
+}
+
+function renderBackups(backups) {
+  backupEls.list.textContent = '';
+  if (backups.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'hint';
+    empty.textContent = 'No backups yet.';
+    backupEls.list.appendChild(empty);
+    return;
+  }
+  for (const backup of backups) {
+    const row = document.createElement('div');
+    row.className = 'backup-row';
+    const text = document.createElement('div');
+    text.className = 'backup-when';
+    const when = document.createElement('div');
+    when.textContent = backup.created ? new Date(backup.created).toLocaleString() : backup.id;
+    const why = document.createElement('div');
+    why.className = 'backup-why';
+    why.textContent = describeBackupReason(backup.reason);
+    text.append(when, why);
+    const restore = document.createElement('button');
+    restore.type = 'button';
+    restore.className = 'btn btn-small';
+    restore.textContent = 'Restore';
+    restore.addEventListener('click', async () => {
+      try {
+        await flushSave();
+        await api.restoreBackup(backup.id);
+      } catch (err) {
+        showToast(err.message || String(err), { type: 'error' });
+      }
+    });
+    row.append(text, restore);
+    backupEls.list.appendChild(row);
+  }
+}
+
+async function refreshBackups() {
+  try {
+    renderBackups(await api.listBackups());
+  } catch (err) {
+    showToast(err.message || String(err), { type: 'error' });
+  }
+}
+
+backupEls.now.addEventListener('click', async () => {
+  try {
+    renderBackups(await api.createBackup());
+    showToast('Settings backed up.');
+  } catch (err) {
+    showToast(err.message || String(err), { type: 'error' });
+  }
+});
+backupEls.reveal.addEventListener('click', () => api.revealBackups());
+refreshBackups();
+
 function renderSessionGroups() {
   const list = $('session-groups');
   list.textContent = '';

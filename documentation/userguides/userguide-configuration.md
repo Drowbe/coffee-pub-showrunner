@@ -7,6 +7,9 @@ Settings are stored as JSON at
 `~/Library/Application Support/Coffee Pub Studio/config.json` (the folder keeps the app's earlier name on purpose, so a rename never loses settings or passwords; the control panel's
 **Show config file** button reveals it in Finder).
 
+Backups of this file and the other settings files are kept in a `backups` folder beside it; see
+[Settings, windows and the edge dock](userguide-settings.md#backups).
+
 Since version 13 the file holds a list of **shows**. Each show owns its `views`, `appWindows`,
 `metadataFields`, `session` (the filename format), `automations` (`enabled` and `ruleSets`) and the
 `tavern` settings that depend on the table (`enabled`, `space`, `followAdmin`,

@@ -126,3 +126,12 @@ net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a
   Automations and Chameleon. The OBS switch and YouTube defaults get theirs in 0.4.1.
 - The cookie-sharing "session group" is now called "login group" in the UI and docs. The config field
   is still `session`.
+
+## 0.4.1 as built so far
+
+- **Backups** (`src/backup.js`): a dated folder under `backups/` in the settings folder, holding the
+  config, the secret and trust files, the Automations certificates, the recordings list and the
+  renamed-source list. One is made before a config migration rewrites the file, on demand, and just
+  before a restore. A restore copies the files back and restarts the app with `app.exit`, not `quit`, so
+  closing windows cannot save the old in-memory settings over the restored ones. The newest 20 are kept;
+  migration backups are never pruned.
