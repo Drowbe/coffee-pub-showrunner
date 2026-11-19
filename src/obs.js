@@ -64,6 +64,16 @@ function isWindowValue(value) {
   return Number.isInteger(value) || (typeof value === 'string' && value.length > 0);
 }
 const BROWSER_KIND = 'browser_source';
+
+// The standard chain added to each Chameleon participant's audio: take the
+// background noise out, even out loud and quiet speech, then catch peaks.
+// Order matters, so they are created in this order. A chain that is already
+// partly there is left alone (see addLevelingFilters).
+const LEVELING_FILTERS = [
+  { name: 'Showrunner: Noise suppression', kind: 'noise_suppress_filter_v2', settings: { method: 'rnnoise' } },
+  { name: 'Showrunner: Compressor', kind: 'compressor_filter', settings: { ratio: 4, threshold: -22, attack_time: 6, release_time: 80, output_gain: 6 } },
+  { name: 'Showrunner: Limiter', kind: 'limiter_filter', settings: { threshold: -3, release_time: 60 } },
+];
 const CROP_FILTER_KIND = 'crop_filter'; // OBS "Crop/Pad"
 const CROP_FILTER_NAME = 'Coffee Pub Crop';
 // Formerly an OBS "Color Correction" filter used to dim/tint offline and
@@ -584,6 +594,22 @@ class ObsBridge extends EventEmitter {
     });
   }
 
+  // Adds the standard leveling chain to an input, skipping any kind it already
+  // has a filter of (the user's own, or ours from before) and any kind this
+  // OBS does not offer. Returns the names of the filters it added.
+  async addLevelingFilters(inputName) {
+    const { filters } = await this.obs.call('GetSourceFilterList', { sourceName: inputName });
+    const have = new Set(filters.map((f) => f.filterKind));
+    const { sourceFilterKinds } = await this.obs.call('GetSourceFilterKindList');
+    const added = [];
+    for (const spec of LEVELING_FILTERS) {
+      if (have.has(spec.kind) || !sourceFilterKinds.includes(spec.kind)) continue;
+      await this.obs.call('CreateSourceFilter', { sourceName: inputName, filterName: spec.name, filterKind: spec.kind, filterSettings: spec.settings });
+      added.push(spec.name);
+    }
+    return added;
+  }
+
   async renameInput(inputName, newInputName) {
     await this.obs.call('SetInputName', { inputName, newInputName });
   }
@@ -814,4 +840,4 @@ function describeError(err) {
   return msg;
 }
 
-module.exports = { ObsBridge, INPUT_KIND, WINDOWS_INPUT_KIND, BROWSER_KIND, parseWindowChoice, findAppWindow, findAppWindowChoice };
+module.exports = { ObsBridge, LEVELING_FILTERS, INPUT_KIND, WINDOWS_INPUT_KIND, BROWSER_KIND, parseWindowChoice, findAppWindow, findAppWindowChoice };

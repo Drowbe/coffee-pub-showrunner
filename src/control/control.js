@@ -1947,6 +1947,7 @@ const tavernEls = {
   height: $('tavern-height'),
   lock: $('tavern-lock'),
   indicator: $('tavern-indicator'),
+  audioFilters: $('tavern-audio-filters'),
   statusWidth: $('tavern-status-width'),
   statusHeight: $('tavern-status-height'),
   connect: $('tavern-connect'),
@@ -1991,6 +1992,7 @@ function applyTavernConfig() {
   if (document.activeElement !== tavernEls.url) tavernEls.url.value = t.url;
   if (document.activeElement !== tavernEls.login) tavernEls.login.value = t.login;
   tavernEls.auto.checked = t.autoConnect;
+  tavernEls.audioFilters.checked = t.audioFilters;
   if (document.activeElement !== tavernEls.width) tavernEls.width.value = String(t.playerWidth);
   if (document.activeElement !== tavernEls.height) tavernEls.height.value = String(t.playerHeight);
   tavernEls.lock.checked = t.lockRatio;
@@ -2019,6 +2021,7 @@ async function saveTavernSettings() {
     playerHeight: Number(tavernEls.height.value) || 360,
     lockRatio: tavernEls.lock.checked,
     characterWithPlayer: tavernEls.indicator.checked,
+    audioFilters: tavernEls.audioFilters.checked,
     characterWidth: Number(tavernEls.statusWidth.value) || 256,
     characterHeight: Number(tavernEls.statusHeight.value) || 256,
   };
@@ -2032,9 +2035,17 @@ async function saveTavernSettings() {
   renderTavern();
   renderConnectionsBoard();
 }
-for (const el of [tavernEls.enabled, tavernEls.url, tavernEls.login, tavernEls.auto, tavernEls.width, tavernEls.height, tavernEls.lock, tavernEls.indicator, tavernEls.statusWidth, tavernEls.statusHeight]) {
+for (const el of [tavernEls.enabled, tavernEls.url, tavernEls.login, tavernEls.auto, tavernEls.width, tavernEls.height, tavernEls.lock, tavernEls.indicator, tavernEls.audioFilters, tavernEls.statusWidth, tavernEls.statusHeight]) {
   el.addEventListener('change', saveTavernSettings);
 }
+$('tavern-add-filters').addEventListener('click', async () => {
+  try {
+    const { sources, filters } = await api.tavernAddAudioFilters();
+    showToast(filters ? `Added ${filters} filter${filters === 1 ? '' : 's'} to ${sources} source${sources === 1 ? '' : 's'}.` : 'Every participant source already has the audio filters.');
+  } catch (err) {
+    showToast(err.message || String(err), { type: 'error' });
+  }
+});
 $('tavern-save-password').addEventListener('click', async () => {
   await saveTavernSettings();
   status.tavern = await api.tavernSetPassword(tavernEls.password.value);
