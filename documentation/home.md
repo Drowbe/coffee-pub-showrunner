@@ -31,5 +31,23 @@ hardware; see [Known issues](known-issues.md).
 - [Design tokens](designsystem/design-tokens.md) and [Design components](designsystem/design-components.md)
   -- the control panel's own colors, layout tokens, and reusable UI patterns.
 
+## Screenshots
+
+![The edge dock with live game thumbnails](assets/showrunner-sidebar-dock.png)
+
+![OBS with Showrunner's window source and Chameleon participants](assets/showrunner-sidebar-obs-live.png)
+
+![Connection status and the activity log](assets/showrunner-sidebar-connections.png)
+
+![A window's settings and its OBS source](assets/showrunner-sidebar-window.png)
+
+![A region cropped out of a window](assets/showrunner-sidebar-regions.png)
+
+![Coffee Pub Chameleon participants as OBS sources](assets/showrunner-sidebar-chameleon.png)
+
+![Automations rule sets and the recording filename](assets/showrunner-sidebar-automations.png)
+
+![YouTube upload settings](assets/showrunner-sidebar-youtube.png)
+
 See the [repository README](https://github.com/Drowbe/coffee-pub-showrunner) for requirements and
 how to get the app.
