@@ -47,7 +47,7 @@ profile per kind of recording, such as a D&D campaign, a game livestream or a po
 The **Profile** picker at the top of the sidebar names the active profile. Pick another profile from it to
 switch. The last entry, **Manage profiles...**, opens a page of its own, separate from any profile's pages. There,
 type a name and click **New profile** to start an empty one, or click **Duplicate** on an existing profile to
-copy it, windows and regions included. Edit a profile's name in place, click **Switch** to make it the
+copy it, windows and regions included. Rename a profile by editing its name in place: press Enter or click away to save (a message confirms it and the picker updates at once), or press Escape to cancel. Then click **Switch** to make it the
 active profile, and **Delete** to remove one (the last profile cannot be deleted).
 
 Each profile card also has switches for **Chameleon**, **Automations** and **YouTube**: what the profile uses. Flip them for the profile you are in or for any other one, without switching to it. A profile with YouTube off shows no YouTube page in the rail, so a podcast profile can have all three off while a game profile has them on. The YouTube login and defaults are shared by every profile; only whether it is on belongs to the profile.

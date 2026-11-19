@@ -975,6 +975,7 @@ const profilesEls = {
   newButton: $('profile-new'),
 };
 let profilesSignature = '';
+let profilesListStale = false;
 const MANAGE_PROFILES = '__manage__';
 
 // The picker names the active profile, or Manage profiles while that page is open.
@@ -996,10 +997,10 @@ async function profileAction(run) {
 function renderProfiles() {
   const signature = JSON.stringify([config.profiles, config.activeProfile]);
   if (signature === profilesSignature) return;
-  if (isEditing(profilesEls.list)) return;
   profilesSignature = signature;
 
   // The picker is always there: the profiles, then a way into the page that manages them.
+  // It follows every change at once, even while a name on the Manage page is being edited.
   profilesEls.select.textContent = '';
   for (const profile of config.profiles) {
     const option = document.createElement('option');
@@ -1017,6 +1018,13 @@ function renderProfiles() {
   profilesEls.select.appendChild(manage);
   syncProfilePicker();
 
+  // The cards themselves are rebuilt only when the cursor is not in one, so typing is not
+  // interrupted; they catch up the next time anything changes.
+  if (isEditing(profilesEls.list)) {
+    profilesListStale = true;
+    return;
+  }
+  profilesListStale = false;
   profilesEls.list.textContent = '';
   for (const profile of config.profiles) {
     const active = profile.id === config.activeProfile;
@@ -1030,7 +1038,30 @@ function renderProfiles() {
     name.maxLength = 40;
     name.spellcheck = false;
     name.setAttribute('aria-label', 'Profile name');
-    name.addEventListener('change', () => profileAction(() => api.renameProfile(profile.id, name.value)));
+    // Saves when you press Enter or click away. Escape puts the old name back.
+    name.addEventListener('change', async () => {
+      const next = name.value.trim();
+      if (!next || next === profile.name) {
+        name.value = profile.name;
+        return;
+      }
+      const saved = await profileAction(() => api.renameProfile(profile.id, next));
+      if (saved) showToast(`Renamed to \u201c${next}\u201d.`);
+    });
+    name.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') name.blur();
+      else if (event.key === 'Escape') {
+        name.value = profile.name;
+        name.blur();
+      }
+    });
+    // Once the cursor leaves the cards, any rebuild that was held back runs.
+    name.addEventListener('blur', () => {
+      if (profilesListStale) {
+        profilesSignature = '';
+        renderProfiles();
+      }
+    });
     row.appendChild(name);
 
     if (active) {
