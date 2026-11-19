@@ -315,7 +315,7 @@ main {
 
 .field input,
 .field select,
-.show-row input,
+.profile-row input,
 select {
   background: var(--bg-input);
   border: 1px solid var(--border);
@@ -327,7 +327,7 @@ select {
 }
 
 .field input:focus,
-.show-row input:focus,
+.profile-row input:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
@@ -2071,13 +2071,17 @@ select.automation-step-param-missing {
   text-align: left;
 }
 
-/* Shows */
-.show-picker { display: flex; flex-direction: column; gap: 6px; padding: 0 2px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
-.show-picker .nav-heading { padding: 2px 8px 0; }
-.show-picker select { width: 100%; }
-.shows-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.show-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
-.show-row.active { border-color: var(--accent); }
-.show-row input { flex: 1; min-width: 0; }
-.show-row .badge { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); padding: 2px 8px; }
-.shows-new input { flex: 1; min-width: 0; }
+/* Profiles */
+.profile-picker { display: flex; flex-direction: column; gap: 6px; padding: 0 2px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+.profile-picker .nav-heading { padding: 2px 8px 0; }
+.profile-picker select { width: 100%; }
+.profiles-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.profile-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
+.profile-row.active { border-color: var(--accent); }
+.profile-row input { flex: 1; min-width: 0; }
+.profile-row .badge { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); padding: 2px 8px; }
+.profiles-new input { flex: 1; min-width: 0; }
+.backups-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; max-height: 260px; overflow-y: auto; }
+.backup-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
+.backup-row .backup-when { flex: 1; min-width: 0; }
+.backup-row .backup-why { color: var(--text-dim, #8aa0b8); font-size: 12px; }

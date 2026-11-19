@@ -715,10 +715,12 @@ function selectTab(name) {
   if (name === 'automations' && !config.automations.enabled) name = 'configuration';
   if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'configuration';
   activeTab = name;
-  rememberTab(name);
+  if (name !== 'profiles') rememberTab(name);
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.tab === name);
   }
+  $('tab-profiles').hidden = name !== 'profiles';
+  syncProfilePicker();
   $('tab-metadata').hidden = name !== 'metadata';
   $('tab-configuration').hidden = name !== 'configuration';
   $('tab-tavern').hidden = name !== 'tavern';
@@ -860,7 +862,7 @@ function applyConfig(next) {
   dockSideEl.disabled = !config.dock.enabled;
   if (document.activeElement !== dockOverlapEl) dockOverlapEl.value = String(config.dock.overlap);
   renderSessionGroups();
-  renderShows();
+  renderProfiles();
   hideDockIconEl.checked = config.hideDockIcon;
   hideDockIconEl.disabled = !config.menuBarIcon;
   retinaDoubleEl.checked = config.retinaDouble;
@@ -897,19 +899,26 @@ function applyConfig(next) {
 }
 
 // ---------------------------------------------------------------------------
-// Shows
+// Profiles
 // ---------------------------------------------------------------------------
 
-const showsEls = {
-  picker: $('show-picker'),
-  select: $('show-select'),
-  list: $('shows-list'),
-  newName: $('show-new-name'),
-  newButton: $('show-new'),
+const profilesEls = {
+  picker: $('profile-picker'),
+  select: $('profile-select'),
+  list: $('profiles-list'),
+  newName: $('profile-new-name'),
+  newButton: $('profile-new'),
 };
-let showsSignature = '';
+let profilesSignature = '';
+const MANAGE_PROFILES = '__manage__';
 
-async function showAction(run) {
+// The picker names the active profile, or Manage profiles while that page is open.
+function syncProfilePicker() {
+  if (!config || !profilesEls) return;
+  profilesEls.select.value = activeTab === 'profiles' ? MANAGE_PROFILES : config.activeProfile;
+}
+
+async function profileAction(run) {
   try {
     await flushSave();
     return await run();
@@ -919,37 +928,44 @@ async function showAction(run) {
   }
 }
 
-function renderShows() {
-  const signature = JSON.stringify([config.shows, config.activeShow]);
-  if (signature === showsSignature) return;
-  if (isEditing(showsEls.list)) return;
-  showsSignature = signature;
+function renderProfiles() {
+  const signature = JSON.stringify([config.profiles, config.activeProfile]);
+  if (signature === profilesSignature) return;
+  if (isEditing(profilesEls.list)) return;
+  profilesSignature = signature;
 
-  // The picker appears only once there is something to pick between.
-  showsEls.picker.hidden = config.shows.length < 2;
-  showsEls.select.textContent = '';
-  for (const show of config.shows) {
+  // The picker is always there: the profiles, then a way into the page that manages them.
+  profilesEls.select.textContent = '';
+  for (const profile of config.profiles) {
     const option = document.createElement('option');
-    option.value = show.id;
-    option.textContent = show.name;
-    showsEls.select.appendChild(option);
+    option.value = profile.id;
+    option.textContent = profile.name;
+    profilesEls.select.appendChild(option);
   }
-  showsEls.select.value = config.activeShow;
+  const divider = document.createElement('option');
+  divider.disabled = true;
+  divider.textContent = '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';
+  profilesEls.select.appendChild(divider);
+  const manage = document.createElement('option');
+  manage.value = MANAGE_PROFILES;
+  manage.textContent = 'Manage profiles\u2026';
+  profilesEls.select.appendChild(manage);
+  syncProfilePicker();
 
-  showsEls.list.textContent = '';
-  for (const show of config.shows) {
-    const active = show.id === config.activeShow;
+  profilesEls.list.textContent = '';
+  for (const profile of config.profiles) {
+    const active = profile.id === config.activeProfile;
     const row = document.createElement('div');
-    row.className = `show-row${active ? ' active' : ''}`;
-    row.dataset.showId = show.id;
+    row.className = `profile-row${active ? ' active' : ''}`;
+    row.dataset.profileId = profile.id;
 
     const name = document.createElement('input');
     name.type = 'text';
-    name.value = show.name;
+    name.value = profile.name;
     name.maxLength = 40;
     name.spellcheck = false;
-    name.setAttribute('aria-label', 'Show name');
-    name.addEventListener('change', () => showAction(() => api.renameShow(show.id, name.value)));
+    name.setAttribute('aria-label', 'Profile name');
+    name.addEventListener('change', () => profileAction(() => api.renameProfile(profile.id, name.value)));
     row.appendChild(name);
 
     if (active) {
@@ -962,7 +978,7 @@ function renderShows() {
       switchButton.type = 'button';
       switchButton.className = 'btn btn-small';
       switchButton.textContent = 'Switch';
-      switchButton.addEventListener('click', () => showAction(() => api.switchShow(show.id)));
+      switchButton.addEventListener('click', () => profileAction(() => api.switchProfile(profile.id)));
       row.appendChild(switchButton);
     }
 
@@ -970,38 +986,116 @@ function renderShows() {
     duplicate.type = 'button';
     duplicate.className = 'btn btn-small';
     duplicate.textContent = 'Duplicate';
-    duplicate.title = 'A copy of this show, windows and regions included';
-    duplicate.addEventListener('click', () => showAction(() => api.duplicateShow(show.id)));
+    duplicate.title = 'A copy of this profile, windows and regions included';
+    duplicate.addEventListener('click', () => profileAction(() => api.duplicateProfile(profile.id)));
     row.appendChild(duplicate);
 
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'btn btn-small btn-danger';
     remove.textContent = 'Delete';
-    remove.disabled = config.shows.length < 2;
-    remove.addEventListener('click', () => showAction(() => api.deleteShow(show.id)));
+    remove.disabled = config.profiles.length < 2;
+    remove.addEventListener('click', () => profileAction(() => api.deleteProfile(profile.id)));
     row.appendChild(remove);
 
-    showsEls.list.appendChild(row);
+    profilesEls.list.appendChild(row);
   }
 }
 
-showsEls.select.addEventListener('change', async () => {
-  const wanted = showsEls.select.value;
-  const result = await showAction(() => api.switchShow(wanted));
-  // Cancelled or failed: put the picker back on the active show.
-  if (!result) showsEls.select.value = config.activeShow;
+profilesEls.select.addEventListener('change', async () => {
+  const wanted = profilesEls.select.value;
+  if (wanted === MANAGE_PROFILES) {
+    selectTab('profiles');
+    return;
+  }
+  // Picking a profile while on the manage page switches to it and leaves the page.
+  const result = await profileAction(() => api.switchProfile(wanted));
+  if (result || wanted === config.activeProfile) {
+    if (activeTab === 'profiles') selectTab('configuration');
+  }
+  // Cancelled or failed: put the picker back where it was.
+  syncProfilePicker();
 });
 
-async function createShowFromInput() {
-  const name = showsEls.newName.value.trim();
-  const result = await showAction(() => api.createShow(name));
-  if (result) showsEls.newName.value = '';
+async function createProfileFromInput() {
+  const name = profilesEls.newName.value.trim();
+  const result = await profileAction(() => api.createProfile(name));
+  if (result) profilesEls.newName.value = '';
 }
-showsEls.newButton.addEventListener('click', createShowFromInput);
-showsEls.newName.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') createShowFromInput();
+profilesEls.newButton.addEventListener('click', createProfileFromInput);
+profilesEls.newName.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') createProfileFromInput();
 });
+
+// ---------------------------------------------------------------------------
+// Backups
+// ---------------------------------------------------------------------------
+
+const backupEls = { list: $('backups-list'), now: $('backup-now'), reveal: $('backup-reveal') };
+
+function describeBackupReason(reason) {
+  if (reason === 'manual') return 'Backed up by you';
+  if (reason === 'before-restore') return 'Made just before a restore';
+  const migrate = /^migrate-v(.+)$/.exec(reason);
+  if (migrate) return migrate[1] === 'unknown' ? 'Made before an update changed the settings format' : `Made before an update changed the settings format (was version ${migrate[1]})`;
+  return reason;
+}
+
+function renderBackups(backups) {
+  backupEls.list.textContent = '';
+  if (backups.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'hint';
+    empty.textContent = 'No backups yet.';
+    backupEls.list.appendChild(empty);
+    return;
+  }
+  for (const backup of backups) {
+    const row = document.createElement('div');
+    row.className = 'backup-row';
+    const text = document.createElement('div');
+    text.className = 'backup-when';
+    const when = document.createElement('div');
+    when.textContent = backup.created ? new Date(backup.created).toLocaleString() : backup.id;
+    const why = document.createElement('div');
+    why.className = 'backup-why';
+    why.textContent = describeBackupReason(backup.reason);
+    text.append(when, why);
+    const restore = document.createElement('button');
+    restore.type = 'button';
+    restore.className = 'btn btn-small';
+    restore.textContent = 'Restore';
+    restore.addEventListener('click', async () => {
+      try {
+        await flushSave();
+        await api.restoreBackup(backup.id);
+      } catch (err) {
+        showToast(err.message || String(err), { type: 'error' });
+      }
+    });
+    row.append(text, restore);
+    backupEls.list.appendChild(row);
+  }
+}
+
+async function refreshBackups() {
+  try {
+    renderBackups(await api.listBackups());
+  } catch (err) {
+    showToast(err.message || String(err), { type: 'error' });
+  }
+}
+
+backupEls.now.addEventListener('click', async () => {
+  try {
+    renderBackups(await api.createBackup());
+    showToast('Settings backed up.');
+  } catch (err) {
+    showToast(err.message || String(err), { type: 'error' });
+  }
+});
+backupEls.reveal.addEventListener('click', () => api.revealBackups());
+refreshBackups();
 
 function renderSessionGroups() {
   const list = $('session-groups');

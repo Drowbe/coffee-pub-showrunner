@@ -6,13 +6,14 @@
 
 const fs = require('fs');
 const path = require('path');
+const backup = require('./backup');
 
-// Version 13 stores a list of shows (see the show helpers above ConfigStore);
-// everything outside a show is global. Files from version 12 and earlier
-// become one show. Version 12 reads only the current field names: the old ones (obsSources,
+// Version 14 stores a list of profiles (see the profile helpers above
+// ConfigStore); everything outside a profile is global. Version 13 called
+// them shows. Files from version 12 and earlier become one profile. Version 12 reads only the current field names: the old ones (obsSources,
 // openOnLaunch, obs.enabled, the pre-0.1.9 Tavern names) are no longer
 // migrated.
-const CONFIG_VERSION = 13;
+const CONFIG_VERSION = 14;
 
 // Session groups: windows with the same group name share cookies and storage.
 const DEFAULT_GROUP = 'Main';
@@ -813,22 +814,22 @@ function sanitizeConfig(input) {
 }
 
 // ---------------------------------------------------------------------------
-// Shows
+// Profiles
 //
-// A show is the part of the setup that changes between kinds of recording:
+// A profile is the part of the setup that changes between kinds of recording:
 // its windows, Session fields, filename template, automation rules and the
 // Chameleon settings that depend on the table. Everything else (the OBS and
 // YouTube connections, the dock, preferences, and the Chameleon and
 // Automations connection details) is global.
 //
-// The rest of the app reads and writes one flat config -- the active show's
-// part merged over the global part -- exactly as before shows existed.
+// The rest of the app reads and writes one flat config -- the active profile's
+// part merged over the global part -- exactly as before profiles existed.
 // project() builds that flat config from the stored shape and fold() writes
 // one back, so only this file knows how the file is laid out.
 // ---------------------------------------------------------------------------
 
-const SHOW_LIMITS = { maxShows: 12, maxNameLen: 40 };
-const TAVERN_SHOW_KEYS = ['enabled', 'characterWithPlayer', 'space', 'followAdmin', 'players'];
+const PROFILE_LIMITS = { maxShows: 12, maxNameLen: 40 };
+const TAVERN_PROFILE_KEYS = ['enabled', 'characterWithPlayer', 'space', 'followAdmin', 'players'];
 
 function pick(obj, keys) {
   const out = {};
@@ -842,8 +843,8 @@ function omit(obj, keys) {
   return out;
 }
 
-// The per-show part of a (sanitized) flat config.
-function showFromFlat(flat, id, name) {
+// The per-profile part of a (sanitized) flat config.
+function profileFromFlat(flat, id, name) {
   return {
     id,
     name,
@@ -852,7 +853,7 @@ function showFromFlat(flat, id, name) {
     metadataFields: flat.metadataFields,
     session: flat.session,
     automations: { enabled: flat.automations.enabled, ruleSets: flat.automations.ruleSets },
-    tavern: pick(flat.tavern, TAVERN_SHOW_KEYS),
+    tavern: pick(flat.tavern, TAVERN_PROFILE_KEYS),
   };
 }
 
@@ -869,49 +870,49 @@ function globalFromFlat(flat) {
     obs: flat.obs,
     youtube: flat.youtube,
     panel: flat.panel,
-    tavern: omit(flat.tavern, TAVERN_SHOW_KEYS),
+    tavern: omit(flat.tavern, TAVERN_PROFILE_KEYS),
     automations: { port: flat.automations.port, token: flat.automations.token },
   };
 }
 
-function sanitizeShowName(value, fallback) {
-  const text = typeof value === 'string' ? value.trim().slice(0, SHOW_LIMITS.maxNameLen) : '';
+function sanitizeProfileName(value, fallback) {
+  const text = typeof value === 'string' ? value.trim().slice(0, PROFILE_LIMITS.maxNameLen) : '';
   return text || fallback;
 }
 
-// The flat config one show produces: the global part with that show's part
+// The flat config one profile produces: the global part with that profile's part
 // merged over it.
-function flatFor(stored, show) {
+function flatFor(stored, profile) {
   return sanitizeConfig({
     ...stored,
-    tavern: { ...stored.tavern, ...show.tavern },
-    automations: { ...stored.automations, ...show.automations },
-    views: show.views,
-    appWindows: show.appWindows,
-    metadataFields: show.metadataFields,
-    session: show.session,
+    tavern: { ...stored.tavern, ...profile.tavern },
+    automations: { ...stored.automations, ...profile.automations },
+    views: profile.views,
+    appWindows: profile.appWindows,
+    metadataFields: profile.metadataFields,
+    session: profile.session,
   });
 }
 
-// What the rest of the app sees: the active show's flat config, plus the
-// show list and which one is active.
+// What the rest of the app sees: the active profile's flat config, plus the
+// profile list and which one is active.
 function project(stored) {
-  const show = stored.shows.find((s) => s.id === stored.activeShow) || stored.shows[0];
+  const profile = stored.profiles.find((s) => s.id === stored.activeProfile) || stored.profiles[0];
   return {
-    ...flatFor(stored, show),
-    shows: stored.shows.map((s) => ({ id: s.id, name: s.name })),
-    activeShow: show.id,
+    ...flatFor(stored, profile),
+    profiles: stored.profiles.map((s) => ({ id: s.id, name: s.name })),
+    activeProfile: profile.id,
   };
 }
 
 // Writes a flat config (an edit of the projection) back into the stored shape.
 function fold(stored, flatInput) {
   const flat = sanitizeConfig(flatInput);
-  const active = stored.shows.find((s) => s.id === stored.activeShow) || stored.shows[0];
+  const active = stored.profiles.find((s) => s.id === stored.activeProfile) || stored.profiles[0];
   return {
     ...globalFromFlat(flat),
-    shows: stored.shows.map((s) => (s.id === active.id ? showFromFlat(flat, s.id, s.name) : s)),
-    activeShow: active.id,
+    profiles: stored.profiles.map((s) => (s.id === active.id ? profileFromFlat(flat, s.id, s.name) : s)),
+    activeProfile: active.id,
   };
 }
 
@@ -920,43 +921,43 @@ function storedFromFlat(input, name) {
   const flat = sanitizeConfig(input);
   return {
     ...globalFromFlat(flat),
-    shows: [showFromFlat(flat, 'show1', name)],
-    activeShow: 'show1',
+    profiles: [profileFromFlat(flat, 'profile1', name)],
+    activeProfile: 'profile1',
   };
 }
 
 // Validates a stored config read from disk: unique ids, sane names, an
-// active show that exists, and every show's part passed through the same
+// active profile that exists, and every profile's part passed through the same
 // sanitizers the flat config uses.
 function sanitizeStored(input) {
   const src = input && typeof input === 'object' ? input : {};
-  const rawShows = (Array.isArray(src.shows) ? src.shows : []).filter((s) => s && typeof s === 'object').slice(0, SHOW_LIMITS.maxShows);
-  if (rawShows.length === 0) return storedFromFlat(src, 'My Show');
+  const rawProfiles = (Array.isArray(src.profiles) ? src.profiles : []).filter((s) => s && typeof s === 'object').slice(0, PROFILE_LIMITS.maxShows);
+  if (rawProfiles.length === 0) return storedFromFlat(src, 'My Profile');
   const taken = new Set();
-  const clean = rawShows.map((raw, index) => {
-    let id = sanitizeId(raw.id, `show${index + 1}`);
+  const clean = rawProfiles.map((raw, index) => {
+    let id = sanitizeId(raw.id, `profile${index + 1}`);
     let n = 2;
     const base = id;
     while (taken.has(id)) id = `${base}-${n++}`;
     taken.add(id);
-    return { ...raw, id, name: sanitizeShowName(raw.name, `Show ${index + 1}`) };
+    return { ...raw, id, name: sanitizeProfileName(raw.name, `Profile ${index + 1}`) };
   });
   const flats = clean.map((raw) => flatFor(src, raw));
-  const shows = flats.map((flat, i) => showFromFlat(flat, clean[i].id, clean[i].name));
-  const activeShow = shows.some((s) => s.id === src.activeShow) ? src.activeShow : shows[0].id;
-  return { ...globalFromFlat(flats[0]), shows, activeShow };
+  const profiles = flats.map((flat, i) => profileFromFlat(flat, clean[i].id, clean[i].name));
+  const activeProfile = profiles.some((s) => s.id === src.activeProfile) ? src.activeProfile : profiles[0].id;
+  return { ...globalFromFlat(flats[0]), profiles, activeProfile };
 }
 
-// A show with nothing set up yet.
-function blankShow(id, name) {
-  return showFromFlat(sanitizeConfig({}), id, name);
+// A profile with nothing set up yet.
+function blankProfile(id, name) {
+  return profileFromFlat(sanitizeConfig({}), id, name);
 }
 
-function newShowId(shows) {
-  const taken = new Set(shows.map((s) => s.id));
-  let n = shows.length + 1;
-  while (taken.has(`show${n}`)) n++;
-  return `show${n}`;
+function newProfileId(profiles) {
+  const taken = new Set(profiles.map((s) => s.id));
+  let n = profiles.length + 1;
+  while (taken.has(`profile${n}`)) n++;
+  return `profile${n}`;
 }
 
 class ConfigStore {
@@ -967,6 +968,13 @@ class ConfigStore {
     this.data = project(this.stored);
     // Rewrite files saved by an older version so they carry the new shape.
     if (this.loadedVersion !== null && this.loadedVersion !== CONFIG_VERSION) {
+      // An older build cannot read the new format, so keep a copy of the old
+      // files before the first rewrite.
+      try {
+        backup.create(path.dirname(this.filePath), `migrate-v${this.loadedVersion === undefined ? 'unknown' : this.loadedVersion}`);
+      } catch (err) {
+        console.warn(`[config] Could not back up before migrating: ${err.message}`);
+      }
       this.write();
     }
   }
@@ -976,14 +984,19 @@ class ConfigStore {
       const raw = fs.readFileSync(this.filePath, 'utf8');
       const parsed = JSON.parse(raw);
       this.loadedVersion = parsed && typeof parsed === 'object' ? parsed.version : undefined;
-      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.shows)) return sanitizeStored(parsed);
-      // Before shows: the whole file is one show.
+      // Version 13 called profiles shows.
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.shows) && !Array.isArray(parsed.profiles)) {
+        const { shows, activeShow, ...rest } = parsed;
+        return sanitizeStored({ ...rest, profiles: shows, activeProfile: activeShow });
+      }
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.profiles)) return sanitizeStored(parsed);
+      // Before profiles: the whole file is one profile.
       return storedFromFlat(parsed, 'D&D');
     } catch (err) {
       if (err.code !== 'ENOENT') {
         console.warn(`[config] Could not read ${this.filePath}, using defaults: ${err.message}`);
       }
-      return storedFromFlat({}, 'My Show');
+      return storedFromFlat({}, 'My Profile');
     }
   }
 
@@ -994,8 +1007,8 @@ class ConfigStore {
     fs.renameSync(tmp, this.filePath);
   }
 
-  // Saves a flat config (an edit of get()) into the active show and the
-  // global part. The show list itself is changed only by the show methods.
+  // Saves a flat config (an edit of get()) into the active profile and the
+  // global part. The profile list itself is changed only by the profile methods.
   save(next) {
     this.stored = fold(this.stored, next);
     this.data = project(this.stored);
@@ -1003,7 +1016,7 @@ class ConfigStore {
     return this.data;
   }
 
-  // --- Shows ---
+  // --- Profiles ---
 
   // Replaces the stored config and refreshes the flat view of it.
   commit(stored) {
@@ -1013,48 +1026,48 @@ class ConfigStore {
     return this.data;
   }
 
-  listShows() {
-    return this.data.shows.slice();
+  listProfiles() {
+    return this.data.profiles.slice();
   }
 
-  // A new show with nothing set up. Returns the new show's id.
-  createShow(name) {
-    if (this.stored.shows.length >= SHOW_LIMITS.maxShows) throw new Error(`At most ${SHOW_LIMITS.maxShows} shows.`);
-    const id = newShowId(this.stored.shows);
-    const show = blankShow(id, sanitizeShowName(name, `Show ${this.stored.shows.length + 1}`));
-    this.commit({ ...this.stored, shows: [...this.stored.shows, show] });
+  // A new profile with nothing set up. Returns the new profile's id.
+  createProfile(name) {
+    if (this.stored.profiles.length >= PROFILE_LIMITS.maxShows) throw new Error(`At most ${PROFILE_LIMITS.maxShows} profiles.`);
+    const id = newProfileId(this.stored.profiles);
+    const profile = blankProfile(id, sanitizeProfileName(name, `Profile ${this.stored.profiles.length + 1}`));
+    this.commit({ ...this.stored, profiles: [...this.stored.profiles, profile] });
     return id;
   }
 
-  // A copy of a show with everything in it, windows and regions included.
-  duplicateShow(id, name) {
-    if (this.stored.shows.length >= SHOW_LIMITS.maxShows) throw new Error(`At most ${SHOW_LIMITS.maxShows} shows.`);
-    const source = this.stored.shows.find((s) => s.id === id);
-    if (!source) throw new Error(`Unknown show: ${id}`);
-    const copyId = newShowId(this.stored.shows);
-    const copy = { ...JSON.parse(JSON.stringify(source)), id: copyId, name: sanitizeShowName(name, `${source.name} copy`) };
-    this.commit({ ...this.stored, shows: [...this.stored.shows, copy] });
+  // A copy of a profile with everything in it, windows and regions included.
+  duplicateProfile(id, name) {
+    if (this.stored.profiles.length >= PROFILE_LIMITS.maxShows) throw new Error(`At most ${PROFILE_LIMITS.maxShows} profiles.`);
+    const source = this.stored.profiles.find((s) => s.id === id);
+    if (!source) throw new Error(`Unknown profile: ${id}`);
+    const copyId = newProfileId(this.stored.profiles);
+    const copy = { ...JSON.parse(JSON.stringify(source)), id: copyId, name: sanitizeProfileName(name, `${source.name} copy`) };
+    this.commit({ ...this.stored, profiles: [...this.stored.profiles, copy] });
     return copyId;
   }
 
-  renameShow(id, name) {
-    if (!this.stored.shows.some((s) => s.id === id)) throw new Error(`Unknown show: ${id}`);
-    const shows = this.stored.shows.map((s) => (s.id === id ? { ...s, name: sanitizeShowName(name, s.name) } : s));
-    return this.commit({ ...this.stored, shows });
+  renameProfile(id, name) {
+    if (!this.stored.profiles.some((s) => s.id === id)) throw new Error(`Unknown profile: ${id}`);
+    const profiles = this.stored.profiles.map((s) => (s.id === id ? { ...s, name: sanitizeProfileName(name, s.name) } : s));
+    return this.commit({ ...this.stored, profiles });
   }
 
-  // The last show cannot be deleted. Deleting the active one activates the first left.
-  deleteShow(id) {
-    if (this.stored.shows.length <= 1) throw new Error('The last show cannot be deleted.');
-    const shows = this.stored.shows.filter((s) => s.id !== id);
-    if (shows.length === this.stored.shows.length) throw new Error(`Unknown show: ${id}`);
-    const activeShow = this.stored.activeShow === id ? shows[0].id : this.stored.activeShow;
-    return this.commit({ ...this.stored, shows, activeShow });
+  // The last profile cannot be deleted. Deleting the active one activates the first left.
+  deleteProfile(id) {
+    if (this.stored.profiles.length <= 1) throw new Error('The last profile cannot be deleted.');
+    const profiles = this.stored.profiles.filter((s) => s.id !== id);
+    if (profiles.length === this.stored.profiles.length) throw new Error(`Unknown profile: ${id}`);
+    const activeProfile = this.stored.activeProfile === id ? profiles[0].id : this.stored.activeProfile;
+    return this.commit({ ...this.stored, profiles, activeProfile });
   }
 
-  switchShow(id) {
-    if (!this.stored.shows.some((s) => s.id === id)) throw new Error(`Unknown show: ${id}`);
-    return this.commit({ ...this.stored, activeShow: id });
+  switchProfile(id) {
+    if (!this.stored.profiles.some((s) => s.id === id)) throw new Error(`Unknown profile: ${id}`);
+    return this.commit({ ...this.stored, activeProfile: id });
   }
 
   get() {
@@ -1137,7 +1150,7 @@ module.exports = {
   STUDIO_ACTIONS,
   STUDIO_ACTION_SCHEMA,
   CONFIG_VERSION,
-  SHOW_LIMITS,
+  PROFILE_LIMITS,
   DEFAULT_GROUP,
   RESERVED_FIELD_KEYS,
   METADATA_FIELD_LIMITS,

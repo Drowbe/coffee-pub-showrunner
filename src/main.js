@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification } = require('electron');
+const backups = require('./backup');
 const { ConfigStore, LIMITS, REGION_LIMITS, DEFAULT_GROUP, AUTOMATIONS_ACTION_SCHEMA, STUDIO_ACTION_SCHEMA, SOURCE_SUFFIX, upgradeSourceName } = require('./config');
 const { ObsBridge, parseWindowChoice } = require('./obs');
 const { TavernBridge } = require('./tavern');
@@ -2367,24 +2368,24 @@ function removeView(id) {
 }
 
 // ---------------------------------------------------------------------------
-// Shows
+// Profiles
 // ---------------------------------------------------------------------------
 
-// Closes the windows of the show being left, makes another show active and
+// Closes the windows of the profile being left, makes another profile active and
 // brings its setup up: its windows, Session fields, automation rules and
 // Chameleon settings. The OBS and YouTube connections are global and stay as
 // they are.
-let switchingShow = false;
-async function switchShow(id) {
-  if (switchingShow) throw new Error('Already switching shows.');
-  if (id === configStore.get().activeShow) return configStore.get();
-  switchingShow = true;
+let switchingProfile = false;
+async function switchProfile(id) {
+  if (switchingProfile) throw new Error('Already switching profiles.');
+  if (id === configStore.get().activeProfile) return configStore.get();
+  switchingProfile = true;
   try {
     closeAllViews();
     const deadline = Date.now() + 5000;
     while (viewWindows.size > 0 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
     parked.clear();
-    const saved = configStore.switchShow(id);
+    const saved = configStore.switchProfile(id);
     if (tavern.connected && !saved.tavern.enabled) await tavern.disconnect().catch(() => {});
     if (saved.tavern.enabled && saved.tavern.autoConnect && !tavern.connected && saved.tavern.url) await tavern.connect().catch(() => {});
     await syncAutomationsServer();
@@ -2394,16 +2395,16 @@ async function switchShow(id) {
     buildMenu();
     scheduleObsSync();
     syncTavern().catch(() => {});
-    logActivity('Studio', `Switched to the show "${saved.shows.find((s) => s.id === saved.activeShow).name}".`, 'info');
+    logActivity('Studio', `Switched to the profile "${saved.profiles.find((s) => s.id === saved.activeProfile).name}".`, 'info');
     broadcastStatus();
     return configStore.get();
   } finally {
-    switchingShow = false;
+    switchingProfile = false;
   }
 }
 
-// Asks before leaving a show that has windows open, since they close.
-async function confirmLeaveShow(targetName) {
+// Asks before leaving a profile that has windows open, since they close.
+async function confirmLeaveProfile(targetName) {
   if (viewWindows.size === 0) return true;
   const { response } = await dialog.showMessageBox(controlWindow, {
     type: 'question',
@@ -2411,14 +2412,14 @@ async function confirmLeaveShow(targetName) {
     defaultId: 1,
     cancelId: 0,
     message: `Switch to ${targetName}?`,
-    detail: 'The windows of the current show close, and the new show starts its own. OBS sources stay in OBS.',
+    detail: 'The windows of the current profile close, and the new profile starts its own. OBS sources stay in OBS.',
   });
   return response === 1;
 }
 
-function showName(id) {
-  const show = configStore.get().shows.find((s) => s.id === id);
-  return show ? show.name : id;
+function profileName(id) {
+  const profile = configStore.get().profiles.find((s) => s.id === id);
+  return profile ? profile.name : id;
 }
 
 // ---------------------------------------------------------------------------
@@ -2943,6 +2944,40 @@ function registerIpc() {
     broadcastStatus();
     return saved;
   });
+  // --- Backups ---
+  ipcMain.handle('backups:list', () => backups.list(app.getPath('userData')));
+  ipcMain.handle('backups:create', () => {
+    const created = backups.create(app.getPath('userData'), 'manual');
+    if (!created) throw new Error('There are no settings to back up yet.');
+    logActivity('Studio', 'Backed up the settings.', 'info');
+    return backups.list(app.getPath('userData'));
+  });
+  ipcMain.handle('backups:reveal', () => {
+    const dir = backups.backupsDir(app.getPath('userData'));
+    fs.mkdirSync(dir, { recursive: true });
+    return shell.openPath(dir);
+  });
+  ipcMain.handle('backups:restore', async (_event, id) => {
+    const target = backups.list(app.getPath('userData')).find((b) => b.id === id);
+    if (!target) throw new Error('That backup no longer exists.');
+    const when = target.created ? new Date(target.created).toLocaleString() : target.id;
+    const { response } = await dialog.showMessageBox(controlWindow, {
+      type: 'warning',
+      buttons: ['Cancel', 'Restore and restart'],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Restore the backup from ${when}?`,
+      detail: 'This replaces your current settings with the ones in that backup, then restarts Showrunner. Your current settings are backed up first, so you can undo this from the same list.',
+    });
+    if (response !== 1) return null;
+    backups.restore(app.getPath('userData'), id);
+    // exit() rather than quit(): closing windows would save the settings now
+    // in memory over the ones just restored.
+    app.relaunch();
+    app.exit(0);
+    return true;
+  });
+
   ipcMain.handle('config:reset', () => {
     const saved = configStore.save({});
     saved.views.forEach(applyViewSettings);
@@ -2953,49 +2988,49 @@ function registerIpc() {
     broadcastStatus();
     return saved;
   });
-  ipcMain.handle('shows:switch', async (_event, id) => {
+  ipcMain.handle('profiles:switch', async (_event, id) => {
     const target = String(id);
-    if (target === configStore.get().activeShow) return configStore.get();
-    if (!(await confirmLeaveShow(showName(target)))) return null;
-    return switchShow(target);
+    if (target === configStore.get().activeProfile) return configStore.get();
+    if (!(await confirmLeaveProfile(profileName(target)))) return null;
+    return switchProfile(target);
   });
-  ipcMain.handle('shows:create', async (_event, name) => {
+  ipcMain.handle('profiles:create', async (_event, name) => {
     const nextName = typeof name === 'string' ? name : '';
     if (viewWindows.size > 0) {
-      const label = nextName.trim() || 'the new show';
-      if (!(await confirmLeaveShow(label))) return null;
+      const label = nextName.trim() || 'the new profile';
+      if (!(await confirmLeaveProfile(label))) return null;
     }
-    const id = configStore.createShow(nextName);
-    return switchShow(id);
+    const id = configStore.createProfile(nextName);
+    return switchProfile(id);
   });
-  ipcMain.handle('shows:duplicate', async (_event, id) => {
-    const copyId = configStore.duplicateShow(String(id));
+  ipcMain.handle('profiles:duplicate', async (_event, id) => {
+    const copyId = configStore.duplicateProfile(String(id));
     buildMenu();
     broadcastStatus();
     return { id: copyId, config: configStore.get() };
   });
-  ipcMain.handle('shows:rename', (_event, id, name) => {
-    configStore.renameShow(String(id), typeof name === 'string' ? name : '');
+  ipcMain.handle('profiles:rename', (_event, id, name) => {
+    configStore.renameProfile(String(id), typeof name === 'string' ? name : '');
     broadcastStatus();
     return configStore.get();
   });
-  ipcMain.handle('shows:delete', async (_event, id) => {
+  ipcMain.handle('profiles:delete', async (_event, id) => {
     const target = String(id);
     const current = configStore.get();
-    const doomed = current.shows.find((s) => s.id === target);
-    if (!doomed) throw new Error(`Unknown show: ${target}`);
-    if (current.shows.length <= 1) throw new Error('The last show cannot be deleted.');
+    const doomed = current.profiles.find((s) => s.id === target);
+    if (!doomed) throw new Error(`Unknown profile: ${target}`);
+    if (current.profiles.length <= 1) throw new Error('The last profile cannot be deleted.');
     const { response } = await dialog.showMessageBox(controlWindow, {
       type: 'warning',
       buttons: ['Cancel', 'Delete'],
       defaultId: 0,
       cancelId: 0,
-      message: `Delete the show "${doomed.name}"?`,
+      message: `Delete the profile "${doomed.name}"?`,
       detail: 'Its windows, Session fields and automation rules are removed from Showrunner. Sources already in OBS stay there. This cannot be undone.',
     });
     if (response !== 1) return null;
-    if (target === current.activeShow) await switchShow(current.shows.find((s) => s.id !== target).id);
-    configStore.deleteShow(target);
+    if (target === current.activeProfile) await switchProfile(current.profiles.find((s) => s.id !== target).id);
+    configStore.deleteProfile(target);
     broadcastStatus();
     return configStore.get();
   });

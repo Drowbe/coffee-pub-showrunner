@@ -24,9 +24,9 @@
 
   <div class="shell">
   <nav class="sidebar" id="tabs" aria-label="Sections">
-    <div class="show-picker" id="show-picker" hidden>
-      <label class="nav-heading" for="show-select">Show</label>
-      <select id="show-select" aria-label="Active show"></select>
+    <div class="profile-picker" id="profile-picker">
+      <label class="nav-heading" for="profile-select">Profile</label>
+      <select id="profile-select" aria-label="Active profile"></select>
     </div>
     <!-- Internal tab key "metadata" is the visible "Session" tab (this session's own data) --
          same mismatch as "tavern" already being labeled "Chameleon". Each .tab keeps its
@@ -104,6 +104,31 @@
       </div>
     </section>
 
+    <section class="tab-panel" id="tab-profiles" hidden>
+      <div class="card">
+        <h2>Manage profiles</h2>
+        <p class="hint">Create, rename, duplicate and delete profiles here, and keep backups of your settings. These apply to the whole app, not to the profile you are in. Switch profiles from the picker at the top of the sidebar.</p>
+      </div>
+      <div class="card" id="profiles-card">
+        <h2>Profiles</h2>
+        <p class="hint">A profile is a saved setup for one kind of recording: its windows, Session fields, filename format, Automations rules and Chameleon settings. Switching closes the current profile's windows and starts the new profile's. The OBS and YouTube connections are shared by every profile, and sources already in OBS stay there.</p>
+        <div class="profiles-list" id="profiles-list"></div>
+        <div class="field field-inline profiles-new">
+          <input id="profile-new-name" type="text" maxlength="40" spellcheck="false" placeholder="New profile name">
+          <button class="btn" id="profile-new" type="button">New profile</button>
+        </div>
+      </div>
+      <div class="card" id="backups-card">
+        <h2>Backups</h2>
+        <p class="hint">A backup is a copy of your settings: the profiles, saved passwords, certificates and the recordings list. Showrunner makes one by itself before it changes the settings format when it updates, and you can make one any time. Restoring replaces your current settings and restarts the app; your current settings are backed up first.</p>
+        <div class="backups-list" id="backups-list"></div>
+        <div class="field field-inline">
+          <button class="btn" id="backup-now" type="button">Back up now</button>
+          <button class="btn" id="backup-reveal" type="button">Show in Finder</button>
+        </div>
+      </div>
+    </section>
+
     <section class="tab-panel" id="tab-configuration">
       <div class="card">
         <h2>Connections</h2>
@@ -135,15 +160,6 @@
         </div>
       </div>
 
-      <div class="card" id="shows-card">
-        <h2>Shows</h2>
-        <p class="hint">A show is a saved setup for one kind of recording: its windows, Session fields, filename format, Automations rules and Chameleon settings. Switching closes the current show's windows and starts the new show's. The OBS and YouTube connections are shared by every show, and sources already in OBS stay there.</p>
-        <div class="shows-list" id="shows-list"></div>
-        <div class="field field-inline shows-new">
-          <input id="show-new-name" type="text" maxlength="40" spellcheck="false" placeholder="New show name">
-          <button class="btn" id="show-new" type="button">New show</button>
-        </div>
-      </div>
       <div class="card">
         <div class="view-head">
           <div class="view-head-left">
