@@ -6,7 +6,7 @@
 
 const EventEmitter = require('events');
 // JSON encoding: human-readable on the wire and easy to test; OBS speaks both.
-const { OBSWebSocket } = require('obs-websocket-js/json');
+const { OBSWebSocket, EventSubscription } = require('obs-websocket-js/json');
 
 const INPUT_KIND = 'screen_capture'; // macOS Screen Capture (ScreenCaptureKit)
 const CAPTURE_TYPE_WINDOW = 1; // settings.type: 0 display, 1 window, 2 application
@@ -417,6 +417,34 @@ class ObsBridge extends EventEmitter {
 
   async setInputMuted(inputName, muted) {
     await this.obs.call('SetInputMute', { inputName, inputMuted: muted });
+  }
+
+  // An input's volume as OBS holds it: the fader in dB and as a multiplier.
+  async getInputVolume(inputName) {
+    const r = await this.obs.call('GetInputVolume', { inputName });
+    return { db: r.inputVolumeDb, mul: r.inputVolumeMul };
+  }
+
+  // Listens to the level meters of some inputs for `ms` milliseconds and returns every frame
+  // heard, keyed by input name. OBS sends meter updates only to a client that asks for them, and
+  // they are a firehose, so the subscription is on for this long and no longer.
+  async collectMeters(inputNames, ms) {
+    const wanted = new Set(inputNames);
+    const frames = Object.fromEntries(inputNames.map((name) => [name, []]));
+    const onMeters = (data) => {
+      for (const input of data.inputs) {
+        if (wanted.has(input.inputName) && input.inputLevelsMul.length) frames[input.inputName].push(input.inputLevelsMul);
+      }
+    };
+    this.obs.on('InputVolumeMeters', onMeters);
+    try {
+      await this.obs.reidentify({ eventSubscriptions: EventSubscription.All | EventSubscription.InputVolumeMeters, rpcVersion: 1 });
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    } finally {
+      this.obs.off('InputVolumeMeters', onMeters);
+      await this.obs.reidentify({ eventSubscriptions: EventSubscription.All, rpcVersion: 1 }).catch(() => {});
+    }
+    return frames;
   }
 
   // Flips an input's mute and returns the new state (true = muted).

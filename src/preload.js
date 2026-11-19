@@ -81,6 +81,7 @@ contextBridge.exposeInMainWorld('coffeePub', {
   tavernUnpublishAll: (removeFromObs) => ipcRenderer.invoke('tavern:unpublishAll', removeFromObs),
   tavernHideAll: () => ipcRenderer.invoke('tavern:hideAll'),
   tavernShowAll: () => ipcRenderer.invoke('tavern:showAll'),
+  tavernCalibrate: (options) => ipcRenderer.invoke('tavern:calibrate', options),
   tavernAddAudioFilters: () => ipcRenderer.invoke('tavern:addAudioFilters'),
   tavernSetChoice: (key, field, on) => ipcRenderer.invoke('tavern:setChoice', key, field, on),
   tavernViewUrl: (key, kind) => ipcRenderer.invoke('tavern:viewUrl', key, kind),

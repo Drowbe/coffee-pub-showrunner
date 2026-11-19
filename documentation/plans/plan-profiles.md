@@ -137,19 +137,30 @@ fixes, in this order, each useful on its own.
      within a limited range, and never during silence. It cannot fix a microphone that is clipping, and it says
      so when it sees clipping.
    - **Target level and range** are settings, with sensible defaults.
-3. **What LiveKit already does in Chameleon.** Chameleon carries audio and video over LiveKit, and the LiveKit
-   JavaScript client's microphone capture options turn on the browser's automatic gain control, noise
-   suppression and echo cancellation by default, so these are probably already active for every participant. They
-   are gentle and work per browser, which is why levels still differ between people. Two things to confirm with
-   the Chameleon project: that Chameleon does not override those defaults (for example by setting
-   `autoGainControl` to false), and which version of the LiveKit client it ships, since the documented defaults
-   are from the current 2.x line. Whether a listener-side volume per participant is available and can
-   boost, not only reduce, is not checked. Showrunner builds nothing here; steps 1 and 2 cover what the
-   built-in processing does not.
+3. **What Chameleon already does.** Its microphone capture has the browser's automatic gain control, noise suppression
+   and echo cancellation on by default, per person, plus a Mic level slider that can boost; see "Audio leveling: as built
+   and what Chameleon does" below. Showrunner builds nothing here; steps 1 and 2 cover what the built-in processing does
+   not.
 
-Open questions: where the calibration result is stored (with the participant's entry in the profile, most
-likely, since the same person at the same desk keeps the same level); whether Keep leveled should also apply to
-sources that are not Chameleon participants; and whether the standard chain's settings should be editable.
+Open: whether a continuous Keep leveled mode is worth building on top of Calibrate, whether it should also apply to sources that are not Chameleon participants, and whether the standard filter chain's settings should be editable.
+
+## Audio leveling: as built and what Chameleon does
+
+- **Calibrate** is built (`src/leveling.js`, `collectMeters` in `src/obs.js`, the Level the participants card). OBS
+  sends level meters only to a client that asks, so Showrunner subscribes for the length of a calibration and no
+  longer. OBS's "magnitude" is an RMS level taken after the volume fader and its "input peak" is taken before it, so
+  the fader setting is subtracted to get a level that does not depend on it (verified: a tone reads the same at -8, 0
+  and +6 dB). Per person, the loudest quarter of the frames above a -55 dB gate is taken as how loud they speak;
+  fewer than about a second of speech is "no speech heard". The volume is the target minus that, limited to -30 to
+  +20 dB. The result is saved as `levelDb` on the player's entry and re-applied when a Participant source is created.
+- Keep leveled (a slow continuous adjustment) is not built.
+- **What Chameleon does** (from the Chameleon project, read from its code, not run): it does not rely on LiveKit's own
+  capture defaults. It opens the microphone itself with `noiseSuppression`, `echoCancellation` and `autoGainControl`,
+  all on by default and each a per-person setting, so the browser's gain control is on unless someone turns it off.
+  The microphone then goes through a gain node (the "Mic level" slider, 0 to 3.0x, default 1.0, applied before it is
+  published) and a noise gate. Playback volume in Chameleon can only reduce, never boost. It ships `livekit-client`
+  2.22.3. So a very quiet person can be raised in two places, their own Mic level in Chameleon or Calibrate in OBS,
+  and Calibrate's "raise their mic level" message points at the first.
 
 ## Backups
 
