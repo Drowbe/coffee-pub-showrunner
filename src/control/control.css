@@ -315,7 +315,7 @@ main {
 
 .field input,
 .field select,
-.profile-row input,
+.profile-row > input,
 select {
   background: var(--bg-input);
   border: 1px solid var(--border);
@@ -327,7 +327,7 @@ select {
 }
 
 .field input:focus,
-.profile-row input:focus,
+.profile-row > input:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
@@ -2121,9 +2121,10 @@ select.automation-step-param-missing {
 .profile-picker .nav-heading { padding: 2px 8px 0; }
 .profile-picker select { width: 100%; }
 .profiles-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.profile-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
+.profile-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
 .profile-row.active { border-color: var(--accent); }
-.profile-row input { flex: 1; min-width: 0; }
+.profile-row > input { flex: 1; min-width: 0; }
+.profile-integrations { display: flex; flex-wrap: wrap; gap: 8px 20px; flex-basis: 100%; padding: 2px 2px 0; }
 .profile-row .badge { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); padding: 2px 8px; }
 .profiles-new input { flex: 1; min-width: 0; }
 .backups-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; max-height: 260px; overflow-y: auto; }

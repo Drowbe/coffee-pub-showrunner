@@ -48,6 +48,8 @@ type a name and click **New profile** to start an empty one, or click **Duplicat
 copy it, windows and regions included. Edit a profile's name in place, click **Switch** to make it the
 active profile, and **Delete** to remove one (the last profile cannot be deleted).
 
+Each profile card also has switches for **Chameleon**, **Automations** and **YouTube**: what the profile uses. Flip them for the profile you are in or for any other one, without switching to it. A profile with YouTube off shows no YouTube page in the rail, so a podcast profile can have all three off while a game profile has them on. The YouTube login and defaults are shared by every profile; only whether it is on belongs to the profile.
+
 Switching closes the windows of the profile you are leaving and starts the new profile's windows, then
 re-syncs OBS. Showrunner asks first when windows are open. Each profile keeps its own Session field values,
 so going back to a profile finds its season and episode counters where you left them.
