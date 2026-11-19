@@ -23,7 +23,7 @@ automation step, for example) is updated to match. After installing, delete the 
   that removes the bar, so OBS sees only the page.
 - Stable window names (`Coffee Pub Showrunner - <your window's label>`) so OBS Window Capture
   always finds them, even if the page itself keeps rewriting its own title.
-- All windows in the same session group share one login. Log in once in any window in the group.
+- All windows in the same login group share one login. Log in once in any window in the group.
 - Rendering is never throttled when a window is behind other windows or unfocused, so the OBS
   source stays smooth.
 - A control panel to set URL, size, position and audio mute per window, with auto-arrange and
@@ -32,7 +32,8 @@ automation step, for example) is updated to match. After installing, delete the 
   every launch, so you never have to re-pick a window in OBS, and creates sources for you.
 - Named regions: mark part of a window, by drawing a rectangle on a snapshot or by naming a
   CSS selector, and the app creates a cropped OBS source for it and keeps the crop current.
-- Session groups: windows in the same group share a login, windows in different groups do not.
+- Login groups: windows in the same group share a login, windows in different groups do not.
+- Shows: save a setup per kind of recording (D&D, a livestream, a podcast) and switch between them; each show has its own windows, Session fields, filename format, Automations rules and Chameleon settings.
 - Coffee Pub Chameleon: sign in to the party's voice and video server and publish each player as
   an OBS Browser Source with one click, kept in sync by the player's stable key.
 - Automations: let a Foundry module (or anything else) trigger an OBS action -- switch scene,

@@ -7,10 +7,12 @@
 const fs = require('fs');
 const path = require('path');
 
-// Version 12 reads only the current field names: the old ones (obsSources,
+// Version 13 stores a list of shows (see the show helpers above ConfigStore);
+// everything outside a show is global. Files from version 12 and earlier
+// become one show. Version 12 reads only the current field names: the old ones (obsSources,
 // openOnLaunch, obs.enabled, the pre-0.1.9 Tavern names) are no longer
 // migrated.
-const CONFIG_VERSION = 12;
+const CONFIG_VERSION = 13;
 
 // Session groups: windows with the same group name share cookies and storage.
 const DEFAULT_GROUP = 'Main';
@@ -810,14 +812,162 @@ function sanitizeConfig(input) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Shows
+//
+// A show is the part of the setup that changes between kinds of recording:
+// its windows, Session fields, filename template, automation rules and the
+// Chameleon settings that depend on the table. Everything else (the OBS and
+// YouTube connections, the dock, preferences, and the Chameleon and
+// Automations connection details) is global.
+//
+// The rest of the app reads and writes one flat config -- the active show's
+// part merged over the global part -- exactly as before shows existed.
+// project() builds that flat config from the stored shape and fold() writes
+// one back, so only this file knows how the file is laid out.
+// ---------------------------------------------------------------------------
+
+const SHOW_LIMITS = { maxShows: 12, maxNameLen: 40 };
+const TAVERN_SHOW_KEYS = ['enabled', 'characterWithPlayer', 'space', 'followAdmin', 'players'];
+
+function pick(obj, keys) {
+  const out = {};
+  for (const k of keys) out[k] = obj[k];
+  return out;
+}
+
+function omit(obj, keys) {
+  const out = {};
+  for (const k of Object.keys(obj)) if (!keys.includes(k)) out[k] = obj[k];
+  return out;
+}
+
+// The per-show part of a (sanitized) flat config.
+function showFromFlat(flat, id, name) {
+  return {
+    id,
+    name,
+    views: flat.views,
+    appWindows: flat.appWindows,
+    metadataFields: flat.metadataFields,
+    session: flat.session,
+    automations: { enabled: flat.automations.enabled, ruleSets: flat.automations.ruleSets },
+    tavern: pick(flat.tavern, TAVERN_SHOW_KEYS),
+  };
+}
+
+// The global part of a (sanitized) flat config.
+function globalFromFlat(flat) {
+  return {
+    version: CONFIG_VERSION,
+    menuBarIcon: flat.menuBarIcon,
+    hideDockIcon: flat.hideDockIcon,
+    wakeAudioDelay: flat.wakeAudioDelay,
+    retinaDouble: flat.retinaDouble,
+    arrangeDisplayId: flat.arrangeDisplayId,
+    dock: flat.dock,
+    obs: flat.obs,
+    youtube: flat.youtube,
+    panel: flat.panel,
+    tavern: omit(flat.tavern, TAVERN_SHOW_KEYS),
+    automations: { port: flat.automations.port, token: flat.automations.token },
+  };
+}
+
+function sanitizeShowName(value, fallback) {
+  const text = typeof value === 'string' ? value.trim().slice(0, SHOW_LIMITS.maxNameLen) : '';
+  return text || fallback;
+}
+
+// The flat config one show produces: the global part with that show's part
+// merged over it.
+function flatFor(stored, show) {
+  return sanitizeConfig({
+    ...stored,
+    tavern: { ...stored.tavern, ...show.tavern },
+    automations: { ...stored.automations, ...show.automations },
+    views: show.views,
+    appWindows: show.appWindows,
+    metadataFields: show.metadataFields,
+    session: show.session,
+  });
+}
+
+// What the rest of the app sees: the active show's flat config, plus the
+// show list and which one is active.
+function project(stored) {
+  const show = stored.shows.find((s) => s.id === stored.activeShow) || stored.shows[0];
+  return {
+    ...flatFor(stored, show),
+    shows: stored.shows.map((s) => ({ id: s.id, name: s.name })),
+    activeShow: show.id,
+  };
+}
+
+// Writes a flat config (an edit of the projection) back into the stored shape.
+function fold(stored, flatInput) {
+  const flat = sanitizeConfig(flatInput);
+  const active = stored.shows.find((s) => s.id === stored.activeShow) || stored.shows[0];
+  return {
+    ...globalFromFlat(flat),
+    shows: stored.shows.map((s) => (s.id === active.id ? showFromFlat(flat, s.id, s.name) : s)),
+    activeShow: active.id,
+  };
+}
+
+// A stored config from a flat one (a version 12 file, or a fresh install).
+function storedFromFlat(input, name) {
+  const flat = sanitizeConfig(input);
+  return {
+    ...globalFromFlat(flat),
+    shows: [showFromFlat(flat, 'show1', name)],
+    activeShow: 'show1',
+  };
+}
+
+// Validates a stored config read from disk: unique ids, sane names, an
+// active show that exists, and every show's part passed through the same
+// sanitizers the flat config uses.
+function sanitizeStored(input) {
+  const src = input && typeof input === 'object' ? input : {};
+  const rawShows = (Array.isArray(src.shows) ? src.shows : []).filter((s) => s && typeof s === 'object').slice(0, SHOW_LIMITS.maxShows);
+  if (rawShows.length === 0) return storedFromFlat(src, 'My Show');
+  const taken = new Set();
+  const clean = rawShows.map((raw, index) => {
+    let id = sanitizeId(raw.id, `show${index + 1}`);
+    let n = 2;
+    const base = id;
+    while (taken.has(id)) id = `${base}-${n++}`;
+    taken.add(id);
+    return { ...raw, id, name: sanitizeShowName(raw.name, `Show ${index + 1}`) };
+  });
+  const flats = clean.map((raw) => flatFor(src, raw));
+  const shows = flats.map((flat, i) => showFromFlat(flat, clean[i].id, clean[i].name));
+  const activeShow = shows.some((s) => s.id === src.activeShow) ? src.activeShow : shows[0].id;
+  return { ...globalFromFlat(flats[0]), shows, activeShow };
+}
+
+// A show with nothing set up yet.
+function blankShow(id, name) {
+  return showFromFlat(sanitizeConfig({}), id, name);
+}
+
+function newShowId(shows) {
+  const taken = new Set(shows.map((s) => s.id));
+  let n = shows.length + 1;
+  while (taken.has(`show${n}`)) n++;
+  return `show${n}`;
+}
+
 class ConfigStore {
   constructor(filePath) {
     this.filePath = filePath;
     this.loadedVersion = null;
-    this.data = this.load();
+    this.stored = this.load();
+    this.data = project(this.stored);
     // Rewrite files saved by an older version so they carry the new shape.
     if (this.loadedVersion !== null && this.loadedVersion !== CONFIG_VERSION) {
-      this.save(this.data);
+      this.write();
     }
   }
 
@@ -826,22 +976,85 @@ class ConfigStore {
       const raw = fs.readFileSync(this.filePath, 'utf8');
       const parsed = JSON.parse(raw);
       this.loadedVersion = parsed && typeof parsed === 'object' ? parsed.version : undefined;
-      return sanitizeConfig(parsed);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.shows)) return sanitizeStored(parsed);
+      // Before shows: the whole file is one show.
+      return storedFromFlat(parsed, 'D&D');
     } catch (err) {
       if (err.code !== 'ENOENT') {
         console.warn(`[config] Could not read ${this.filePath}, using defaults: ${err.message}`);
       }
-      return defaultConfig();
+      return storedFromFlat({}, 'My Show');
     }
   }
 
-  save(next) {
-    this.data = sanitizeConfig(next);
+  write() {
     fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
     const tmp = `${this.filePath}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));
+    fs.writeFileSync(tmp, JSON.stringify(this.stored, null, 2));
     fs.renameSync(tmp, this.filePath);
+  }
+
+  // Saves a flat config (an edit of get()) into the active show and the
+  // global part. The show list itself is changed only by the show methods.
+  save(next) {
+    this.stored = fold(this.stored, next);
+    this.data = project(this.stored);
+    this.write();
     return this.data;
+  }
+
+  // --- Shows ---
+
+  // Replaces the stored config and refreshes the flat view of it.
+  commit(stored) {
+    this.stored = stored;
+    this.data = project(this.stored);
+    this.write();
+    return this.data;
+  }
+
+  listShows() {
+    return this.data.shows.slice();
+  }
+
+  // A new show with nothing set up. Returns the new show's id.
+  createShow(name) {
+    if (this.stored.shows.length >= SHOW_LIMITS.maxShows) throw new Error(`At most ${SHOW_LIMITS.maxShows} shows.`);
+    const id = newShowId(this.stored.shows);
+    const show = blankShow(id, sanitizeShowName(name, `Show ${this.stored.shows.length + 1}`));
+    this.commit({ ...this.stored, shows: [...this.stored.shows, show] });
+    return id;
+  }
+
+  // A copy of a show with everything in it, windows and regions included.
+  duplicateShow(id, name) {
+    if (this.stored.shows.length >= SHOW_LIMITS.maxShows) throw new Error(`At most ${SHOW_LIMITS.maxShows} shows.`);
+    const source = this.stored.shows.find((s) => s.id === id);
+    if (!source) throw new Error(`Unknown show: ${id}`);
+    const copyId = newShowId(this.stored.shows);
+    const copy = { ...JSON.parse(JSON.stringify(source)), id: copyId, name: sanitizeShowName(name, `${source.name} copy`) };
+    this.commit({ ...this.stored, shows: [...this.stored.shows, copy] });
+    return copyId;
+  }
+
+  renameShow(id, name) {
+    if (!this.stored.shows.some((s) => s.id === id)) throw new Error(`Unknown show: ${id}`);
+    const shows = this.stored.shows.map((s) => (s.id === id ? { ...s, name: sanitizeShowName(name, s.name) } : s));
+    return this.commit({ ...this.stored, shows });
+  }
+
+  // The last show cannot be deleted. Deleting the active one activates the first left.
+  deleteShow(id) {
+    if (this.stored.shows.length <= 1) throw new Error('The last show cannot be deleted.');
+    const shows = this.stored.shows.filter((s) => s.id !== id);
+    if (shows.length === this.stored.shows.length) throw new Error(`Unknown show: ${id}`);
+    const activeShow = this.stored.activeShow === id ? shows[0].id : this.stored.activeShow;
+    return this.commit({ ...this.stored, shows, activeShow });
+  }
+
+  switchShow(id) {
+    if (!this.stored.shows.some((s) => s.id === id)) throw new Error(`Unknown show: ${id}`);
+    return this.commit({ ...this.stored, activeShow: id });
   }
 
   get() {
@@ -924,6 +1137,7 @@ module.exports = {
   STUDIO_ACTIONS,
   STUDIO_ACTION_SCHEMA,
   CONFIG_VERSION,
+  SHOW_LIMITS,
   DEFAULT_GROUP,
   RESERVED_FIELD_KEYS,
   METADATA_FIELD_LIMITS,

@@ -860,6 +860,7 @@ function applyConfig(next) {
   dockSideEl.disabled = !config.dock.enabled;
   if (document.activeElement !== dockOverlapEl) dockOverlapEl.value = String(config.dock.overlap);
   renderSessionGroups();
+  renderShows();
   hideDockIconEl.checked = config.hideDockIcon;
   hideDockIconEl.disabled = !config.menuBarIcon;
   retinaDoubleEl.checked = config.retinaDouble;
@@ -894,6 +895,113 @@ function applyConfig(next) {
   }
   renderLabelWarnings();
 }
+
+// ---------------------------------------------------------------------------
+// Shows
+// ---------------------------------------------------------------------------
+
+const showsEls = {
+  picker: $('show-picker'),
+  select: $('show-select'),
+  list: $('shows-list'),
+  newName: $('show-new-name'),
+  newButton: $('show-new'),
+};
+let showsSignature = '';
+
+async function showAction(run) {
+  try {
+    await flushSave();
+    return await run();
+  } catch (err) {
+    showToast(err.message || String(err), { type: 'error' });
+    return null;
+  }
+}
+
+function renderShows() {
+  const signature = JSON.stringify([config.shows, config.activeShow]);
+  if (signature === showsSignature) return;
+  if (isEditing(showsEls.list)) return;
+  showsSignature = signature;
+
+  // The picker appears only once there is something to pick between.
+  showsEls.picker.hidden = config.shows.length < 2;
+  showsEls.select.textContent = '';
+  for (const show of config.shows) {
+    const option = document.createElement('option');
+    option.value = show.id;
+    option.textContent = show.name;
+    showsEls.select.appendChild(option);
+  }
+  showsEls.select.value = config.activeShow;
+
+  showsEls.list.textContent = '';
+  for (const show of config.shows) {
+    const active = show.id === config.activeShow;
+    const row = document.createElement('div');
+    row.className = `show-row${active ? ' active' : ''}`;
+    row.dataset.showId = show.id;
+
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.value = show.name;
+    name.maxLength = 40;
+    name.spellcheck = false;
+    name.setAttribute('aria-label', 'Show name');
+    name.addEventListener('change', () => showAction(() => api.renameShow(show.id, name.value)));
+    row.appendChild(name);
+
+    if (active) {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = 'Active';
+      row.appendChild(badge);
+    } else {
+      const switchButton = document.createElement('button');
+      switchButton.type = 'button';
+      switchButton.className = 'btn btn-small';
+      switchButton.textContent = 'Switch';
+      switchButton.addEventListener('click', () => showAction(() => api.switchShow(show.id)));
+      row.appendChild(switchButton);
+    }
+
+    const duplicate = document.createElement('button');
+    duplicate.type = 'button';
+    duplicate.className = 'btn btn-small';
+    duplicate.textContent = 'Duplicate';
+    duplicate.title = 'A copy of this show, windows and regions included';
+    duplicate.addEventListener('click', () => showAction(() => api.duplicateShow(show.id)));
+    row.appendChild(duplicate);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn btn-small btn-danger';
+    remove.textContent = 'Delete';
+    remove.disabled = config.shows.length < 2;
+    remove.addEventListener('click', () => showAction(() => api.deleteShow(show.id)));
+    row.appendChild(remove);
+
+    showsEls.list.appendChild(row);
+  }
+}
+
+showsEls.select.addEventListener('change', async () => {
+  const wanted = showsEls.select.value;
+  const result = await showAction(() => api.switchShow(wanted));
+  // Cancelled or failed: put the picker back on the active show.
+  if (!result) showsEls.select.value = config.activeShow;
+});
+
+async function createShowFromInput() {
+  const name = showsEls.newName.value.trim();
+  const result = await showAction(() => api.createShow(name));
+  if (result) showsEls.newName.value = '';
+}
+showsEls.newButton.addEventListener('click', createShowFromInput);
+showsEls.newName.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') createShowFromInput();
+});
 
 function renderSessionGroups() {
   const list = $('session-groups');

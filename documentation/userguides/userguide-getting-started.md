@@ -20,7 +20,7 @@ since that is the most common case, but any page works the same way.
 
 Click the **+** tab to add a window (up to five), give it a label such as Game, and set its
 address to your Foundry game's URL. Add a second one labeled Stream if you use a stream-facing
-view. Log in to Foundry once, in the Game window; every window sharing the default session group
+view. Log in to Foundry once, in the Game window; every window sharing the default login group
 uses that same login, so you do not log in twice.
 
 ## Set the size OBS will capture

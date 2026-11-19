@@ -24,6 +24,10 @@
 
   <div class="shell">
   <nav class="sidebar" id="tabs" aria-label="Sections">
+    <div class="show-picker" id="show-picker" hidden>
+      <label class="nav-heading" for="show-select">Show</label>
+      <select id="show-select" aria-label="Active show"></select>
+    </div>
     <!-- Internal tab key "metadata" is the visible "Session" tab (this session's own data) --
          same mismatch as "tavern" already being labeled "Chameleon". Each .tab keeps its
          data-tab key; selectTab() in control.js drives the active state and panels. -->
@@ -131,6 +135,15 @@
         </div>
       </div>
 
+      <div class="card" id="shows-card">
+        <h2>Shows</h2>
+        <p class="hint">A show is a saved setup for one kind of recording: its windows, Session fields, filename format, Automations rules and Chameleon settings. Switching closes the current show's windows and starts the new show's. The OBS and YouTube connections are shared by every show, and sources already in OBS stay there.</p>
+        <div class="shows-list" id="shows-list"></div>
+        <div class="field field-inline shows-new">
+          <input id="show-new-name" type="text" maxlength="40" spellcheck="false" placeholder="New show name">
+          <button class="btn" id="show-new" type="button">New show</button>
+        </div>
+      </div>
       <div class="card">
         <div class="view-head">
           <div class="view-head-left">
@@ -217,7 +230,7 @@
       <div class="card">
         <h2>Reset &amp; Diagnostics</h2>
         <div class="row">
-          <span class="hint">Windows in the same session group log into Foundry together.</span>
+          <span class="hint">Windows in the same login group log into Foundry together.</span>
           <button id="clear-session" class="btn btn-danger" type="button">Sign out (clear cookies)</button>
         </div>
         <div class="row">
@@ -662,7 +675,7 @@
           <input data-field="height" type="number" min="100" max="7680" step="1">
         </label>
         <label class="field">
-          <span>Session group</span>
+          <span>Login group</span>
           <input data-field="session" type="text" list="session-groups" maxlength="40" spellcheck="false" placeholder="Main">
           <small class="hint" data-role="session-note" hidden>Takes effect the next time this window starts.</small>
         </label>
