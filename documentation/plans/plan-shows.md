@@ -1,4 +1,4 @@
-# Shows: one app, many kinds of recording -- draft
+# Shows: one app, many kinds of recording
 
 **Audience:** whoever builds 0.4.0 and 0.4.1, and anyone reviewing the direction before code starts.
 
@@ -91,3 +91,21 @@ keep their current place.
 - **A source that cannot be created** during the sync after a switch is still created in OBS and is
   marked failed. It shows red in the Windows list, and the window's page says what went wrong, the same
   way a disconnected source looks today.
+
+## 0.4.0 as built
+
+- The app still reads one flat config. `project()` and `fold()` in `src/config.js` turn the stored list
+  of shows into the active show's flat config and back, so the code that reads windows, Session fields
+  and rules did not change.
+- Chameleon and Automations are split between global and per show. Global: the Chameleon address,
+  login and source sizes, and the Automations port and token. Per show: whether each is enabled, the
+  rule sets, and the Chameleon space and per-player source choices.
+- Switching a show closes the old show's windows, starts the new one's and re-syncs OBS. Sources that
+  the old show made stay in OBS. OBS profile and scene collection switching, and the warning that goes
+  with it, belong to 0.4.1.
+- A new show starts empty. Duplicate copies everything. A version 12 file becomes one show named
+  "D&D"; a fresh install starts with one named "My Show".
+- The enable switches in 0.4.0 are the ones that already existed: each window's Start on launch,
+  Automations and Chameleon. The OBS switch and YouTube defaults get theirs in 0.4.1.
+- The cookie-sharing "session group" is now called "login group" in the UI and docs. The config field
+  is still `session`.

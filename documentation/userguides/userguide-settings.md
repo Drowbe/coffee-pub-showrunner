@@ -19,9 +19,29 @@ label, so give every window a different label.
 
 If you are running FoundryVTT, log into it in whichever window you use to follow the game, as the
 user you want the recording to follow (a dedicated observer user works well). Windows in the same
-**Session group** share that login; give a window a different group name to give it its own
+**Login group** share that login; give a window a different group name to give it its own
 cookies, for a different login or a different site entirely. Any number of windows can share a
 group. The change applies the next time the window starts.
+
+## Shows
+
+A show is a saved setup for one kind of recording: its windows and regions, its Session fields and
+filename format, its Automations rules, and the Chameleon settings that depend on the table. Use one
+show per kind of recording, such as a D&D campaign, a game livestream or a podcast.
+
+Open **Configuration** and find the **Shows** card. Type a name and click **New show** to start
+an empty one, or click **Duplicate** on an existing show to copy it, windows and regions included. Edit
+a show's name in place, click **Switch** to make it the active show, and **Delete** to remove one (the
+last show cannot be deleted). Once you have two shows, a **Show** picker appears at the top of the
+sidebar, so you can switch without opening Configuration.
+
+Switching closes the windows of the show you are leaving and starts the new show's windows, then
+re-syncs OBS. Showrunner asks first when windows are open. Each show keeps its own Session field values,
+so going back to a show finds its season and episode counters where you left them.
+
+These stay the same for every show: the OBS connection, the YouTube login, the Chameleon address and
+login, the Automations port and token, the dock, and the app preferences. Sources a show created in OBS
+stay in OBS when you switch away; Showrunner does not remove them.
 
 ## Size and position
 

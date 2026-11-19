@@ -2367,6 +2367,61 @@ function removeView(id) {
 }
 
 // ---------------------------------------------------------------------------
+// Shows
+// ---------------------------------------------------------------------------
+
+// Closes the windows of the show being left, makes another show active and
+// brings its setup up: its windows, Session fields, automation rules and
+// Chameleon settings. The OBS and YouTube connections are global and stay as
+// they are.
+let switchingShow = false;
+async function switchShow(id) {
+  if (switchingShow) throw new Error('Already switching shows.');
+  if (id === configStore.get().activeShow) return configStore.get();
+  switchingShow = true;
+  try {
+    closeAllViews();
+    const deadline = Date.now() + 5000;
+    while (viewWindows.size > 0 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
+    parked.clear();
+    const saved = configStore.switchShow(id);
+    if (tavern.connected && !saved.tavern.enabled) await tavern.disconnect().catch(() => {});
+    if (saved.tavern.enabled && saved.tavern.autoConnect && !tavern.connected && saved.tavern.url) await tavern.connect().catch(() => {});
+    await syncAutomationsServer();
+    openLaunchViews();
+    setupTray();
+    setupDock();
+    buildMenu();
+    scheduleObsSync();
+    syncTavern().catch(() => {});
+    logActivity('Studio', `Switched to the show "${saved.shows.find((s) => s.id === saved.activeShow).name}".`, 'info');
+    broadcastStatus();
+    return configStore.get();
+  } finally {
+    switchingShow = false;
+  }
+}
+
+// Asks before leaving a show that has windows open, since they close.
+async function confirmLeaveShow(targetName) {
+  if (viewWindows.size === 0) return true;
+  const { response } = await dialog.showMessageBox(controlWindow, {
+    type: 'question',
+    buttons: ['Cancel', 'Switch'],
+    defaultId: 1,
+    cancelId: 0,
+    message: `Switch to ${targetName}?`,
+    detail: 'The windows of the current show close, and the new show starts its own. OBS sources stay in OBS.',
+  });
+  return response === 1;
+}
+
+function showName(id) {
+  const show = configStore.get().shows.find((s) => s.id === id);
+  return show ? show.name : id;
+}
+
+// ---------------------------------------------------------------------------
 // Parking (the edge dock)
 // ---------------------------------------------------------------------------
 
@@ -2897,6 +2952,52 @@ function registerIpc() {
     scheduleObsSync();
     broadcastStatus();
     return saved;
+  });
+  ipcMain.handle('shows:switch', async (_event, id) => {
+    const target = String(id);
+    if (target === configStore.get().activeShow) return configStore.get();
+    if (!(await confirmLeaveShow(showName(target)))) return null;
+    return switchShow(target);
+  });
+  ipcMain.handle('shows:create', async (_event, name) => {
+    const nextName = typeof name === 'string' ? name : '';
+    if (viewWindows.size > 0) {
+      const label = nextName.trim() || 'the new show';
+      if (!(await confirmLeaveShow(label))) return null;
+    }
+    const id = configStore.createShow(nextName);
+    return switchShow(id);
+  });
+  ipcMain.handle('shows:duplicate', async (_event, id) => {
+    const copyId = configStore.duplicateShow(String(id));
+    buildMenu();
+    broadcastStatus();
+    return { id: copyId, config: configStore.get() };
+  });
+  ipcMain.handle('shows:rename', (_event, id, name) => {
+    configStore.renameShow(String(id), typeof name === 'string' ? name : '');
+    broadcastStatus();
+    return configStore.get();
+  });
+  ipcMain.handle('shows:delete', async (_event, id) => {
+    const target = String(id);
+    const current = configStore.get();
+    const doomed = current.shows.find((s) => s.id === target);
+    if (!doomed) throw new Error(`Unknown show: ${target}`);
+    if (current.shows.length <= 1) throw new Error('The last show cannot be deleted.');
+    const { response } = await dialog.showMessageBox(controlWindow, {
+      type: 'warning',
+      buttons: ['Cancel', 'Delete'],
+      defaultId: 0,
+      cancelId: 0,
+      message: `Delete the show "${doomed.name}"?`,
+      detail: 'Its windows, Session fields and automation rules are removed from Showrunner. Sources already in OBS stay there. This cannot be undone.',
+    });
+    if (response !== 1) return null;
+    if (target === current.activeShow) await switchShow(current.shows.find((s) => s.id !== target).id);
+    configStore.deleteShow(target);
+    broadcastStatus();
+    return configStore.get();
   });
   ipcMain.handle('views:add', () => addView());
   ipcMain.handle('views:remove', (_event, id) => removeView(id));

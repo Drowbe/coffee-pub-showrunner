@@ -315,6 +315,7 @@ main {
 
 .field input,
 .field select,
+.show-row input,
 select {
   background: var(--bg-input);
   border: 1px solid var(--border);
@@ -326,6 +327,7 @@ select {
 }
 
 .field input:focus,
+.show-row input:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
@@ -2068,3 +2070,14 @@ select.automation-step-param-missing {
 .add-menu .btn {
   text-align: left;
 }
+
+/* Shows */
+.show-picker { display: flex; flex-direction: column; gap: 6px; padding: 0 2px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+.show-picker .nav-heading { padding: 2px 8px 0; }
+.show-picker select { width: 100%; }
+.shows-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.show-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
+.show-row.active { border-color: var(--accent); }
+.show-row input { flex: 1; min-width: 0; }
+.show-row .badge { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); padding: 2px 8px; }
+.shows-new input { flex: 1; min-width: 0; }

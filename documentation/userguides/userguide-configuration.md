@@ -7,53 +7,68 @@ Settings are stored as JSON at
 `~/Library/Application Support/Coffee Pub Studio/config.json` (the folder keeps the app's earlier name on purpose, so a rename never loses settings or passwords; the control panel's
 **Show config file** button reveals it in Finder).
 
-This example is trimmed to the window/OBS shape for readability; `tavern` and `automations` are
-separate top-level sections, covered in their own guides:
+Since version 13 the file holds a list of **shows**. Each show owns its `views`, `appWindows`,
+`metadataFields`, `session` (the filename format), `automations` (`enabled` and `ruleSets`) and the
+`tavern` settings that depend on the table (`enabled`, `space`, `followAdmin`,
+`characterWithPlayer`, `players`). `activeShow` names the one in use. Everything else
+(`obs`, `youtube`, `dock`, `panel`, the preferences, the Chameleon connection details such as
+`tavern.url`, and the Automations `port` and `token`) stays at the top level and is shared by every
+show. A version 12 file becomes one show named "D&D" when the app first starts.
+
+The example is trimmed to the window and OBS shape for readability, and shows one show with two
+windows; `tavern` and `automations` are covered in their own guides:
 [Coffee Pub Chameleon in OBS](userguide-chameleon.md) and the
 [Automations API](../api/api-automations.md).
 
 ```json
 {
-  "version": 12,
+  "version": 13,
   "obs": { "autoConnect": false, "host": "127.0.0.1", "port": 4455 },
-  "views": [
+  "activeShow": "show1",
+  "shows": [
     {
-      "id": "window1",
-      "label": "Game",
-      "url": "https://your-server.example/game",
-      "width": 1920,
-      "height": 1080,
-      "x": null,
-      "y": null,
-      "muted": false,
-      "enabled": true,
-      "session": "Main",
-      "windowSource": { "enabled": true, "name": "Window: Game (CPS)" },
-      "regions": []
-    },
-    {
-      "id": "window2",
-      "label": "Stream",
-      "url": "https://your-server.example/stream",
-      "width": 1920,
-      "height": 1080,
-      "x": null,
-      "y": null,
-      "muted": true,
-      "enabled": true,
-      "session": "Main",
-      "windowSource": { "enabled": false, "name": "Window: Stream (CPS)" },
-      "regions": [
+      "id": "show1",
+      "name": "D&D",
+      "views": [
         {
-          "id": "region1",
-          "name": "Scoreboard",
-          "mode": "selector",
-          "selector": "#scoreboard",
-          "x": 0,
-          "y": 0,
-          "width": 600,
-          "height": 200,
-          "obsSource": "Region: Stream>Scoreboard (CPS)"
+          "id": "window1",
+          "label": "Game",
+          "url": "https://your-server.example/game",
+          "width": 1920,
+          "height": 1080,
+          "x": null,
+          "y": null,
+          "muted": false,
+          "enabled": true,
+          "session": "Main",
+          "windowSource": { "enabled": true, "name": "Window: Game (CPS)" },
+          "regions": []
+        },
+        {
+          "id": "window2",
+          "label": "Stream",
+          "url": "https://your-server.example/stream",
+          "width": 1920,
+          "height": 1080,
+          "x": null,
+          "y": null,
+          "muted": true,
+          "enabled": true,
+          "session": "Main",
+          "windowSource": { "enabled": false, "name": "Window: Stream (CPS)" },
+          "regions": [
+            {
+              "id": "region1",
+              "name": "Scoreboard",
+              "mode": "selector",
+              "selector": "#scoreboard",
+              "x": 0,
+              "y": 0,
+              "width": 600,
+              "height": 200,
+              "obsSource": "Region: Stream>Scoreboard (CPS)"
+            }
+          ]
         }
       ]
     }
@@ -61,7 +76,7 @@ separate top-level sections, covered in their own guides:
 }
 ```
 
-`views` holds zero to five entries, in the order they appear in the panel and in the menu.
+A show's `views` holds zero to five entries, in the order they appear in the panel and in the menu.
 
 | Field | Meaning |
 | --- | --- |
@@ -82,4 +97,4 @@ separate top-level sections, covered in their own guides:
 | `enabled` | Open this window when the app launches (**Start on launch**). |
 | `dockOnLaunch` | Slide the window into the dock as soon as its page has loaded at launch (**Dock on launch**). |
 | `wakeAudio` | Send the page a middle-button click after the **Wake audio after** delay, so Foundry can start its audio (**Wake audio after load**, on by default). Browsers keep a page silent until someone interacts with it, and Foundry ignores clicks until it is fully set up; after the delay the app clicks, and keeps clicking every few seconds while Foundry still says its audio is locked, for up to three minutes. The **Wake audio** button on the card and on the dock does the same on demand, and the **Page audio** row says whether the page is making sound right now. |
-| `session` | Session group name (default `Main`). Windows with the same name share cookies and storage. |
+| `session` | Login group name (default `Main`). Windows with the same name share cookies and storage. (Named `session` in the file for compatibility; the control panel calls it the login group.) |
