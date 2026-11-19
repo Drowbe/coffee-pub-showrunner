@@ -151,6 +151,7 @@ class ObsBridge extends EventEmitter {
     this.outputs = { recording: false, recordingPaused: false, recordTime: '', streaming: false, streamTime: '', scene: '' };
     this.lastRecordingPath = ''; // the most recent recording's file -- what uploadToYouTube defaults to; src/main.js restores it across restarts
     this.pollTimer = null;
+    this.meterUsers = 0; // how many callers want OBS's level meters; they are on while this is above zero
 
     this.obs.on('ConnectionClosed', (err) => {
       this.stopPolling();
@@ -284,6 +285,8 @@ class ObsBridge extends EventEmitter {
         await this.refreshInputs();
         this.setState('connected', `Connected to OBS ${this.obsVersion}.`);
         this.startPolling();
+        // A new connection starts on the default subscription; give back the meters if anyone is watching.
+        if (this.meterUsers > 0) await this.setMeterSubscription(true);
         this.emit('connected');
       } catch (err) {
         const text = describeError(err);
@@ -425,24 +428,43 @@ class ObsBridge extends EventEmitter {
     return { db: r.inputVolumeDb, mul: r.inputVolumeMul };
   }
 
+  // OBS sends level meters only to a client that asks for them, and they are a firehose, so they are
+  // on only while somebody needs them. Callers share the subscription: the last one to let go
+  // turns it off, and a reconnect turns it back on (see connect()).
+  async setMeterSubscription(on) {
+    if (!this.connected) return;
+    await this.obs.reidentify({ eventSubscriptions: on ? EventSubscription.All | EventSubscription.InputVolumeMeters : EventSubscription.All, rpcVersion: 1 }).catch(() => {});
+  }
+
+  // Starts watching meters; `handler` gets each InputVolumeMeters event. Returns a function that stops.
+  async watchMeters(handler) {
+    this.obs.on('InputVolumeMeters', handler);
+    this.meterUsers += 1;
+    if (this.meterUsers === 1) await this.setMeterSubscription(true);
+    let stopped = false;
+    return async () => {
+      if (stopped) return;
+      stopped = true;
+      this.obs.off('InputVolumeMeters', handler);
+      this.meterUsers = Math.max(0, this.meterUsers - 1);
+      if (this.meterUsers === 0) await this.setMeterSubscription(false);
+    };
+  }
+
   // Listens to the level meters of some inputs for `ms` milliseconds and returns every frame
-  // heard, keyed by input name. OBS sends meter updates only to a client that asks for them, and
-  // they are a firehose, so the subscription is on for this long and no longer.
+  // heard, keyed by input name.
   async collectMeters(inputNames, ms) {
     const wanted = new Set(inputNames);
     const frames = Object.fromEntries(inputNames.map((name) => [name, []]));
-    const onMeters = (data) => {
+    const stop = await this.watchMeters((data) => {
       for (const input of data.inputs) {
         if (wanted.has(input.inputName) && input.inputLevelsMul.length) frames[input.inputName].push(input.inputLevelsMul);
       }
-    };
-    this.obs.on('InputVolumeMeters', onMeters);
+    });
     try {
-      await this.obs.reidentify({ eventSubscriptions: EventSubscription.All | EventSubscription.InputVolumeMeters, rpcVersion: 1 });
       await new Promise((resolve) => setTimeout(resolve, ms));
     } finally {
-      this.obs.off('InputVolumeMeters', onMeters);
-      await this.obs.reidentify({ eventSubscriptions: EventSubscription.All, rpcVersion: 1 }).catch(() => {});
+      await stop();
     }
     return frames;
   }

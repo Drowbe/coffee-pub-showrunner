@@ -445,7 +445,8 @@ function defaultTavern() {
     enabled: false, url: '', login: '', autoConnect: true,
     playerWidth: 640, playerHeight: 360, lockRatio: true,
     characterWidth: 256, characterHeight: 256, characterWithPlayer: false,
-    levelTargetDb: -20, // Calibrate: the speech level every participant is brought to, in dB
+    autoLevel: false, // keep every participant near levelTargetDb while the session runs (src/autolevel.js)
+    levelTargetDb: -20, // Calibrate and Auto level: the speech level every participant is brought to, in dB
     audioFilters: true, // add the standard noise suppression / compressor / limiter chain to each new participant source
     space: 'lobby', // Chameleon space whose members Chameleon tab shows and OBS sources gate on
     followAdmin: true, // "Enable Asides": mute anyone live in a different space than `space` above
@@ -485,6 +486,7 @@ function sanitizeTavern(input) {
     characterHeight: clamp(toInt(src.characterHeight, d.characterHeight), 32, 2160),
     characterWithPlayer: src.characterWithPlayer === undefined ? d.characterWithPlayer : Boolean(src.characterWithPlayer),
     audioFilters: src.audioFilters === undefined ? d.audioFilters : Boolean(src.audioFilters),
+    autoLevel: src.autoLevel === undefined ? d.autoLevel : Boolean(src.autoLevel),
     levelTargetDb: clamp(Number.isFinite(Number(src.levelTargetDb)) && src.levelTargetDb !== null ? Number(src.levelTargetDb) : d.levelTargetDb, -40, -6),
     // Reads the new `space` key; an existing config.json still has `room`
     // from before this rename, so fall back to that rather than silently
@@ -863,7 +865,7 @@ function sanitizeConfig(input) {
 // ---------------------------------------------------------------------------
 
 const PROFILE_LIMITS = { maxProfiles: 12, maxNameLen: 40 };
-const TAVERN_PROFILE_KEYS = ['enabled', 'characterWithPlayer', 'space', 'followAdmin', 'players'];
+const TAVERN_PROFILE_KEYS = ['enabled', 'characterWithPlayer', 'space', 'followAdmin', 'players', 'autoLevel'];
 // YouTube's login and defaults are global; whether it is on is the profile's.
 const YOUTUBE_PROFILE_KEYS = ['enabled'];
 

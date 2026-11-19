@@ -2030,6 +2030,7 @@ api.onStatus((next) => {
   renderStatus();
   renderTavern();
   renderAutomationsStatus();
+  renderAutoLevel();
   renderAutomationsObs();
   renderYoutubeStatus();
   renderConnectionsBoard();
@@ -2129,7 +2130,11 @@ function applyTavernConfig() {
   if (document.activeElement !== tavernEls.login) tavernEls.login.value = t.login;
   tavernEls.auto.checked = t.autoConnect;
   tavernEls.audioFilters.checked = t.audioFilters;
-  if (document.activeElement !== levelEls.target) levelEls.target.value = String(t.levelTargetDb);
+  if (document.activeElement !== levelEls.target) {
+    levelEls.target.value = String(t.levelTargetDb);
+    levelEls.targetValue.textContent = `${t.levelTargetDb} dB`;
+  }
+  levelEls.auto.checked = t.autoLevel;
   if (document.activeElement !== tavernEls.width) tavernEls.width.value = String(t.playerWidth);
   if (document.activeElement !== tavernEls.height) tavernEls.height.value = String(t.playerHeight);
   tavernEls.lock.checked = t.lockRatio;
@@ -2147,6 +2152,9 @@ tavernEls.height.addEventListener('input', () => {
   if (tavernEls.lock.checked && Number(tavernEls.height.value) > 0) tavernEls.width.value = String(Math.round(Number(tavernEls.height.value) * RATIO_16_9));
 });
 
+// The Level the participants card's controls; declared here because the save listeners below use them.
+const levelEls = { target: $('tavern-level-target'), targetValue: $('tavern-level-target-value'), auto: $('tavern-autolevel'), autoTag: $('tavern-autolevel-tag'), seconds: $('tavern-level-seconds'), run: $('tavern-level-run'), status: $('tavern-level-status'), results: $('tavern-level-results') };
+
 async function saveTavernSettings() {
   await flushSave();
   const next = {
@@ -2158,6 +2166,8 @@ async function saveTavernSettings() {
     playerHeight: Number(tavernEls.height.value) || 360,
     lockRatio: tavernEls.lock.checked,
     characterWithPlayer: tavernEls.indicator.checked,
+    autoLevel: levelEls.auto.checked,
+    levelTargetDb: Number(levelEls.target.value),
     audioFilters: tavernEls.audioFilters.checked,
     characterWidth: Number(tavernEls.statusWidth.value) || 256,
     characterHeight: Number(tavernEls.statusHeight.value) || 256,
@@ -2172,11 +2182,10 @@ async function saveTavernSettings() {
   renderTavern();
   renderConnectionsBoard();
 }
-for (const el of [tavernEls.enabled, tavernEls.url, tavernEls.login, tavernEls.auto, tavernEls.width, tavernEls.height, tavernEls.lock, tavernEls.indicator, tavernEls.audioFilters, tavernEls.statusWidth, tavernEls.statusHeight]) {
+for (const el of [tavernEls.enabled, tavernEls.url, tavernEls.login, tavernEls.auto, tavernEls.width, tavernEls.height, tavernEls.lock, tavernEls.indicator, tavernEls.audioFilters, levelEls.auto, levelEls.target, tavernEls.statusWidth, tavernEls.statusHeight]) {
   el.addEventListener('change', saveTavernSettings);
 }
 // Calibrate: everyone talks, Showrunner listens and sets each person's OBS volume.
-const levelEls = { target: $('tavern-level-target'), seconds: $('tavern-level-seconds'), run: $('tavern-level-run'), status: $('tavern-level-status'), results: $('tavern-level-results') };
 
 function renderLevelResults(done) {
   levelEls.results.textContent = '';
@@ -2209,9 +2218,24 @@ function renderLevelResults(done) {
   }
 }
 
+levelEls.target.addEventListener('input', () => {
+  levelEls.targetValue.textContent = `${levelEls.target.value} dB`;
+});
+
+// Auto level's live state, from each status update: the tag, and what it did last.
+function renderAutoLevel() {
+  const auto = (status && status.autoLevel) || { running: false, watching: 0, last: '' };
+  levelEls.autoTag.hidden = !auto.running;
+  levelEls.autoTag.textContent = auto.running ? `WATCHING ${auto.watching}` : 'AUTO LEVEL';
+  if (levelEls.run.disabled) return; // a calibration is showing its own progress
+  levelEls.status.textContent = auto.running
+    ? `Auto level is on: watching ${auto.watching} participant${auto.watching === 1 ? '' : 's'}.${auto.last ? ` Last change: ${auto.last}.` : ''}`
+    : levelEls.status.textContent.startsWith('Auto level is on') ? '' : levelEls.status.textContent;
+}
+
 levelEls.run.addEventListener('click', async () => {
   const seconds = Math.min(60, Math.max(5, Number(levelEls.seconds.value) || 10));
-  const targetDb = Math.min(-6, Math.max(-40, Number(levelEls.target.value) || -20));
+  const targetDb = Math.min(-6, Math.max(-40, Number(levelEls.target.value)));
   levelEls.run.disabled = true;
   levelEls.results.textContent = '';
   let left = seconds;

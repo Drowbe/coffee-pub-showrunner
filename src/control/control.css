@@ -2134,6 +2134,9 @@ select.automation-step-param-missing {
 .profile-integrations { display: flex; flex-wrap: wrap; gap: 8px 20px; flex-basis: 100%; padding: 2px 2px 0; }
 .profile-row .badge { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); padding: 2px 8px; }
 .profiles-new input { flex: 1; min-width: 0; }
+.level-target { display: flex; align-items: center; gap: 12px; min-width: 320px; }
+.level-target input[type="range"] { flex: 1; accent-color: var(--accent); }
+.level-target output { min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
 .level-results { display: flex; flex-direction: column; gap: 6px; }
 .level-row { display: flex; align-items: baseline; gap: 12px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
 .level-row .level-name { flex: 0 0 150px; font-weight: 600; }

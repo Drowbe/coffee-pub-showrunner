@@ -72,24 +72,38 @@ people to each other, so you may still nudge a volume.
 
 ## Level the participants
 
-The audio filters even out each person; **Calibrate** matches people to each other. On the Chameleon page, under
-**Level the participants**, click **Calibrate** while everyone talks normally. Showrunner listens to the Participant
-sources in OBS for the number of seconds you set (10 by default), measures how loud each person speaks, and sets each
-person's OBS volume so that they all land at the **Target level** (-20 dB by default; speech usually sits around
-there). The volume is saved with the person, so calibrating is a one-time job for each: a new Participant source for
-someone you have calibrated starts at their saved volume.
+The audio filters even out each person; **Calibrate** and **Auto level** match people to each other. Both are on the
+Chameleon page, under **Level the participants** (below the participant list), and both bring everyone's speech to the
+**Target level** slider (-20 dB by default; speech usually sits around there).
 
-What the results say, one line per person:
+**Calibrate** is the manual one. Have everyone talk normally and click **Calibrate**. Showrunner listens to the
+Participant sources in OBS for the number of seconds you set (10 by default), measures how loud each person speaks, and
+sets each person's OBS volume so they land at the target. The volume is saved with the person, so a new Participant source
+for someone you have calibrated starts at their saved volume.
+
+**Auto level** is the same idea running quietly through the whole session. Switch it on (the switch beside the title) and
+Showrunner keeps watching the Participant sources and nudges each person's volume toward the target, so someone who
+joins late, or whose microphone or room changes from one game to the next, is brought in line without you doing anything.
+It is deliberately gentle:
+- It only counts moments when a person is speaking, so silence and background noise do not pull the volume around.
+- It moves slowly: at most 1 dB at a time, or 3 dB when someone is far off, about every two seconds.
+- It leaves anyone within about 1.5 dB of the target alone, so it does not hunt.
+- If you move someone's volume in OBS yourself, it leaves that person alone for a minute, then resumes.
+- Calibrate pauses it while it runs.
+Auto level belongs to the profile (it is on or off per profile), runs only while Chameleon is on and OBS is connected, and
+saves the levels it settles on, like Calibrate does. A tag beside the title shows how many people it is watching, and
+the line below shows its last change.
+
+What Calibrate's results say, one line per person:
 - **Heard about X dB, volume now Y dB:** what was measured and the volume it was set to.
 - **No speech heard:** the person was offline or silent. Their volume is left as it was.
 - **Clipping:** their peaks hit the top. Turning them down in OBS does not fix that; ask them to lower their microphone
   gain.
-- **Very quiet or very loud:** the fix needed more than Calibrate will do (it works within -30 to +20 dB), so ask them
+- **Very quiet or very loud:** the fix needed more than Showrunner will do (it works within -30 to +20 dB), so ask them
   to move closer, or to raise or lower their mic level.
 
-Measuring is independent of where the OBS volume is now, so running Calibrate again gives the same answer. It only listens
-to the people who are speaking, so a short pause does not skew it. It adjusts volume, so it works on top of the filters
-and does not replace them.
+Measuring is independent of where the OBS volume is now, so running Calibrate again gives the same answer. Both only adjust
+volume, so they work on top of the filters and do not replace them.
 
 ## Rooms and Asides
 

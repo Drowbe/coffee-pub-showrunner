@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification } = require('electron');
 const backups = require('./backup');
 const { calibrateInputs } = require('./leveling');
+const { AutoLevelService } = require('./autolevel');
 const { ConfigStore, LIMITS, REGION_LIMITS, DEFAULT_GROUP, AUTOMATIONS_ACTION_SCHEMA, STUDIO_ACTION_SCHEMA, SOURCE_SUFFIX, upgradeSourceName } = require('./config');
 const { ObsBridge, parseWindowChoice } = require('./obs');
 const { TavernBridge } = require('./tavern');
@@ -334,6 +335,7 @@ obs.on('status', (s) => {
   if (s.state !== lastObsState) {
     lastObsState = s.state;
     logActivity('OBS', s.message || s.state, s.state === 'error' ? 'error' : 'info');
+    if (s.state !== 'connected') syncAutoLevel().catch(() => {});
   } else {
     broadcastStatus();
   }
@@ -341,7 +343,37 @@ obs.on('status', (s) => {
 obs.on('connected', () => {
   syncObs().catch(() => {});
   syncTavern().catch(() => {});
+  syncAutoLevel().catch(() => {});
 });
+
+// Auto level: keeps the Chameleon participants near the target loudness while a session runs.
+// It runs only while it is switched on for the profile, Chameleon is on and OBS is connected.
+const autoLevel = new AutoLevelService({
+  bridge: obs,
+  getPeople: () => {
+    const t = configStore.get().tavern;
+    return Object.entries(t.players)
+      .filter(([, entry]) => entry.player && entry.source)
+      .map(([key, entry]) => {
+        const user = tavern.party.find((u) => u.key === key);
+        return { key, input: entry.source, label: user && user.displayName ? user.displayName : entry.source };
+      });
+  },
+  getTargetDb: () => configStore.get().tavern.levelTargetDb,
+  saveLevel: (key, volumeDb) => {
+    const current = configStore.get();
+    const entry = current.tavern.players[key];
+    if (!entry) return;
+    configStore.save({ ...current, tavern: { ...current.tavern, players: { ...current.tavern.players, [key]: { ...entry, levelDb: volumeDb } } } });
+  },
+});
+autoLevel.on('change', () => broadcastStatus());
+async function syncAutoLevel() {
+  const t = configStore.get().tavern;
+  const wanted = Boolean(t.enabled && t.autoLevel && obs.connected);
+  if (wanted && !autoLevel.running) await autoLevel.start();
+  else if (!wanted && autoLevel.running) await autoLevel.stop();
+}
 
 // ---------------------------------------------------------------------------
 // YouTube (uploads a finished recording -- see uploadToYouTube in
@@ -1885,6 +1917,7 @@ function fullStatus() {
     ),
     youtube: { connected: readYoutubeSecret().refreshToken !== '' && !youtubeConnectionExpired, expired: youtubeConnectionExpired, uploading: youtubeUploadActive, pendingDecision: pendingUploadDecision, lastRecording: recordings.last ? { name: path.basename(recordings.last.path), uploaded: recordings.uploads[recordings.last.path] ? { url: recordings.uploads[recordings.last.path].url, at: recordings.uploads[recordings.last.path].at } : null } : null, hasClientSecret: readYoutubeSecret().clientSecret !== '', connecting: youtubeConnectState },
     activity: activityLog,
+    autoLevel: autoLevel.status(),
     collapsed,
     parkedIds: [...parked.keys()],
   };
@@ -2428,6 +2461,7 @@ async function switchProfile(id) {
     buildMenu();
     scheduleObsSync();
     syncTavern().catch(() => {});
+    syncAutoLevel().catch(() => {});
     logActivity('Studio', `Switched to the profile "${saved.profiles.find((s) => s.id === saved.activeProfile).name}".`, 'info');
     broadcastStatus();
     return configStore.get();
@@ -3337,6 +3371,7 @@ function registerIpc() {
     if (next.enabled && next.autoConnect && !tavern.connected && next.url) await tavern.connect().catch(() => {});
     // Size changes reach every published source.
     await syncTavern().catch(() => {});
+    await syncAutoLevel().catch(() => {});
     broadcastStatus();
     return fullStatus().tavern;
   });
@@ -3431,6 +3466,7 @@ function registerIpc() {
       .map(([key, entry]) => ({ key, input: entry.source }));
     if (!people.length) throw new Error('There are no Participant sources in OBS yet. Add the players to OBS on this page first.');
     calibrating = true;
+    autoLevel.pause();
     try {
       const results = await calibrateInputs(obs, people, { seconds, targetDb: target });
       const fresh = configStore.get();
@@ -3452,6 +3488,7 @@ function registerIpc() {
       return { seconds, targetDb: target, results: out };
     } finally {
       calibrating = false;
+      await autoLevel.resume().catch(() => {});
     }
   });
   ipcMain.handle('tavern:setChoice', (_event, key, field, on) => setChoice(String(key), String(field), Boolean(on)));
@@ -3898,6 +3935,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('activate', () => createControlWindow());
   app.on('before-quit', () => {
     quitting = true;
+    autoLevel.stop().catch(() => {});
     obs.stop().catch(() => {});
     tavern.stop().catch(() => {});
     automations.stop().catch(() => {});
