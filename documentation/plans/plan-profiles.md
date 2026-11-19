@@ -137,10 +137,15 @@ fixes, in this order, each useful on its own.
      within a limited range, and never during silence. It cannot fix a microphone that is clipping, and it says
      so when it sees clipping.
    - **Target level and range** are settings, with sensible defaults.
-3. **Automatic gain control in Chameleon.** Each person's browser can apply automatic gain control to their
-   microphone, and Chameleon can set a playback gain per participant. Fixing the level before it reaches OBS
-   also helps the recording. This belongs to the Chameleon project: Showrunner's side is to ask what Chameleon
-   does today and agree what to build there.
+3. **What LiveKit already does in Chameleon.** Chameleon carries audio and video over LiveKit, and the LiveKit
+   JavaScript client's microphone capture options turn on the browser's automatic gain control, noise
+   suppression and echo cancellation by default, so these are probably already active for every participant. They
+   are gentle and work per browser, which is why levels still differ between people. Two things to confirm with
+   the Chameleon project: that Chameleon does not override those defaults (for example by setting
+   `autoGainControl` to false), and which version of the LiveKit client it ships, since the documented defaults
+   are from the current 2.x line. Whether a listener-side volume per participant is available and can
+   boost, not only reduce, is not checked. Showrunner builds nothing here; steps 1 and 2 cover what the
+   built-in processing does not.
 
 Open questions: where the calibration result is stored (with the participant's entry in the profile, most
 likely, since the same person at the same desk keeps the same level); whether Keep leveled should also apply to
