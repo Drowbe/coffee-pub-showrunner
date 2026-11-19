@@ -33,21 +33,23 @@ hardware; see [Known issues](known-issues.md).
 
 ## Screenshots
 
-![The edge dock with live game thumbnails](assets/showrunner-sidebar-dock.png)
+![Profiles: a saved setup for each kind of recording](assets/showrunner-profiles.png)
 
-![OBS with Showrunner's window source and Chameleon participants](assets/showrunner-sidebar-obs-live.png)
+![OBS follows the profile: an OBS profile and scene collection for each Showrunner profile](assets/showrunner-obs-profile.png)
 
-![Connection status and the activity log](assets/showrunner-sidebar-connections.png)
+![Chameleon: each player becomes an OBS source, with audio filters added](assets/showrunner-chameleon.png)
 
-![A window's settings and its OBS source](assets/showrunner-sidebar-window.png)
+![Automations: rule sets that run a numbered sequence when an event arrives](assets/showrunner-automations.png)
 
-![A region cropped out of a window](assets/showrunner-sidebar-regions.png)
+![YouTube: connect once, then upload the recording from a rule set](assets/showrunner-youtube.png)
 
-![Coffee Pub Chameleon participants as OBS sources](assets/showrunner-sidebar-chameleon.png)
+![A window: a game page captured by OBS as its own source](assets/showrunner-window.png)
 
-![Automations rule sets and the recording filename](assets/showrunner-sidebar-automations.png)
+![Status: every connection and what Showrunner just did](assets/showrunner-status.png)
 
-![YouTube upload settings](assets/showrunner-sidebar-youtube.png)
+![OBS with the Showrunner window source and the Chameleon participants live](assets/showrunner-obs-live.png)
+
+![The edge dock with live thumbnails](assets/showrunner-dock.png)
 
 See the [repository README](https://github.com/Drowbe/coffee-pub-showrunner) for requirements and
 how to get the app.
