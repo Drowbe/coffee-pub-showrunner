@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('coffeePub', {
   switchProfile: (id) => ipcRenderer.invoke('profiles:switch', id),
   createProfile: (name) => ipcRenderer.invoke('profiles:create', name),
   duplicateProfile: (id) => ipcRenderer.invoke('profiles:duplicate', id),
+  setProfileIntegration: (id, key, enabled) => ipcRenderer.invoke('profiles:setIntegration', id, key, enabled),
   renameProfile: (id, name) => ipcRenderer.invoke('profiles:rename', id, name),
   deleteProfile: (id) => ipcRenderer.invoke('profiles:delete', id),
   addView: () => ipcRenderer.invoke('views:add'),

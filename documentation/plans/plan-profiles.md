@@ -186,6 +186,9 @@ net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a
   Automations and Chameleon. The OBS switch and YouTube defaults get theirs in 0.4.1.
 - The word "show" shipped in 0.4.0 and was renamed to "profile" in 0.4.1 after feedback; the stored keys
   changed with the version 14 migration.
+- Integration switches are per profile: Chameleon, Automations and YouTube each have one, shown on the Manage
+  profiles page for every profile and at the top of the integration's own page for the active one. YouTube's was
+  global in 0.4.0; a profile saved without its own inherits that value. The login and defaults remain global.
 - The cookie-sharing "session group" is now called "login group" in the UI and docs. The config field
   is still `session`.
 

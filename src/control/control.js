@@ -1063,6 +1063,35 @@ function renderProfiles() {
     remove.addEventListener('click', () => profileAction(() => api.deleteProfile(profile.id)));
     row.appendChild(remove);
 
+    // Which integrations this profile has switched on. The active profile's own
+    // switches go through the real ones so Chameleon, Automations and YouTube
+    // start or stop; any other profile's is stored without switching to it.
+    const integrations = document.createElement('div');
+    integrations.className = 'profile-integrations';
+    for (const [key, label] of [['tavern', 'Chameleon'], ['automations', 'Automations'], ['youtube', 'YouTube']]) {
+      const wrap = document.createElement('label');
+      wrap.className = 'check';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = Boolean(profile.integrations && profile.integrations[key]);
+      box.addEventListener('change', () =>
+        profileAction(async () => {
+          if (profile.id === config.activeProfile) {
+            const real = INTEGRATIONS[key].box();
+            real.checked = box.checked;
+            real.dispatchEvent(new Event('change', { bubbles: true }));
+          } else {
+            await api.setProfileIntegration(profile.id, key, box.checked);
+          }
+        })
+      );
+      const text = document.createElement('span');
+      text.textContent = label;
+      wrap.append(box, text);
+      integrations.appendChild(wrap);
+    }
+    row.appendChild(integrations);
+
     profilesEls.list.appendChild(row);
   }
 }

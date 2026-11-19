@@ -828,8 +828,10 @@ function sanitizeConfig(input) {
 // one back, so only this file knows how the file is laid out.
 // ---------------------------------------------------------------------------
 
-const PROFILE_LIMITS = { maxShows: 12, maxNameLen: 40 };
+const PROFILE_LIMITS = { maxProfiles: 12, maxNameLen: 40 };
 const TAVERN_PROFILE_KEYS = ['enabled', 'characterWithPlayer', 'space', 'followAdmin', 'players'];
+// YouTube's login and defaults are global; whether it is on is the profile's.
+const YOUTUBE_PROFILE_KEYS = ['enabled'];
 
 function pick(obj, keys) {
   const out = {};
@@ -854,6 +856,7 @@ function profileFromFlat(flat, id, name) {
     session: flat.session,
     automations: { enabled: flat.automations.enabled, ruleSets: flat.automations.ruleSets },
     tavern: pick(flat.tavern, TAVERN_PROFILE_KEYS),
+    youtube: pick(flat.youtube, YOUTUBE_PROFILE_KEYS),
   };
 }
 
@@ -868,7 +871,7 @@ function globalFromFlat(flat) {
     arrangeDisplayId: flat.arrangeDisplayId,
     dock: flat.dock,
     obs: flat.obs,
-    youtube: flat.youtube,
+    youtube: omit(flat.youtube, YOUTUBE_PROFILE_KEYS),
     panel: flat.panel,
     tavern: omit(flat.tavern, TAVERN_PROFILE_KEYS),
     automations: { port: flat.automations.port, token: flat.automations.token },
@@ -887,6 +890,7 @@ function flatFor(stored, profile) {
     ...stored,
     tavern: { ...stored.tavern, ...profile.tavern },
     automations: { ...stored.automations, ...profile.automations },
+    youtube: { ...stored.youtube, ...profile.youtube },
     views: profile.views,
     appWindows: profile.appWindows,
     metadataFields: profile.metadataFields,
@@ -900,7 +904,13 @@ function project(stored) {
   const profile = stored.profiles.find((s) => s.id === stored.activeProfile) || stored.profiles[0];
   return {
     ...flatFor(stored, profile),
-    profiles: stored.profiles.map((s) => ({ id: s.id, name: s.name })),
+    // Each profile's name and which integrations it has switched on, so the
+    // Manage profiles page can show and change them for any profile.
+    profiles: stored.profiles.map((s) => ({
+      id: s.id,
+      name: s.name,
+      integrations: { tavern: Boolean(s.tavern.enabled), automations: Boolean(s.automations.enabled), youtube: Boolean(s.youtube && s.youtube.enabled) },
+    })),
     activeProfile: profile.id,
   };
 }
@@ -931,7 +941,7 @@ function storedFromFlat(input, name) {
 // sanitizers the flat config uses.
 function sanitizeStored(input) {
   const src = input && typeof input === 'object' ? input : {};
-  const rawProfiles = (Array.isArray(src.profiles) ? src.profiles : []).filter((s) => s && typeof s === 'object').slice(0, PROFILE_LIMITS.maxShows);
+  const rawProfiles = (Array.isArray(src.profiles) ? src.profiles : []).filter((s) => s && typeof s === 'object').slice(0, PROFILE_LIMITS.maxProfiles);
   if (rawProfiles.length === 0) return storedFromFlat(src, 'My Profile');
   const taken = new Set();
   const clean = rawProfiles.map((raw, index) => {
@@ -940,7 +950,10 @@ function sanitizeStored(input) {
     const base = id;
     while (taken.has(id)) id = `${base}-${n++}`;
     taken.add(id);
-    return { ...raw, id, name: sanitizeProfileName(raw.name, `Profile ${index + 1}`) };
+    // Before YouTube's switch moved into the profile it was global: a profile
+    // saved without its own inherits that value.
+    const youtube = raw.youtube && typeof raw.youtube === 'object' ? raw.youtube : { enabled: Boolean(src.youtube && src.youtube.enabled) };
+    return { ...raw, id, name: sanitizeProfileName(raw.name, `Profile ${index + 1}`), youtube };
   });
   const flats = clean.map((raw) => flatFor(src, raw));
   const profiles = flats.map((flat, i) => profileFromFlat(flat, clean[i].id, clean[i].name));
@@ -1032,7 +1045,7 @@ class ConfigStore {
 
   // A new profile with nothing set up. Returns the new profile's id.
   createProfile(name) {
-    if (this.stored.profiles.length >= PROFILE_LIMITS.maxShows) throw new Error(`At most ${PROFILE_LIMITS.maxShows} profiles.`);
+    if (this.stored.profiles.length >= PROFILE_LIMITS.maxProfiles) throw new Error(`At most ${PROFILE_LIMITS.maxProfiles} profiles.`);
     const id = newProfileId(this.stored.profiles);
     const profile = blankProfile(id, sanitizeProfileName(name, `Profile ${this.stored.profiles.length + 1}`));
     this.commit({ ...this.stored, profiles: [...this.stored.profiles, profile] });
@@ -1041,7 +1054,7 @@ class ConfigStore {
 
   // A copy of a profile with everything in it, windows and regions included.
   duplicateProfile(id, name) {
-    if (this.stored.profiles.length >= PROFILE_LIMITS.maxShows) throw new Error(`At most ${PROFILE_LIMITS.maxShows} profiles.`);
+    if (this.stored.profiles.length >= PROFILE_LIMITS.maxProfiles) throw new Error(`At most ${PROFILE_LIMITS.maxProfiles} profiles.`);
     const source = this.stored.profiles.find((s) => s.id === id);
     if (!source) throw new Error(`Unknown profile: ${id}`);
     const copyId = newProfileId(this.stored.profiles);
@@ -1063,6 +1076,17 @@ class ConfigStore {
     if (profiles.length === this.stored.profiles.length) throw new Error(`Unknown profile: ${id}`);
     const activeProfile = this.stored.activeProfile === id ? profiles[0].id : this.stored.activeProfile;
     return this.commit({ ...this.stored, profiles, activeProfile });
+  }
+
+  // Switches one integration on or off for any profile, the active one or not,
+  // without switching to it. The active profile's own switches also start or
+  // stop the integration itself; use them for that (see the control panel).
+  setProfileIntegration(id, key, enabled) {
+    const group = { tavern: 'tavern', automations: 'automations', youtube: 'youtube' }[key];
+    if (!group) throw new Error(`Unknown integration: ${key}`);
+    if (!this.stored.profiles.some((s) => s.id === id)) throw new Error(`Unknown profile: ${id}`);
+    const profiles = this.stored.profiles.map((s) => (s.id === id ? { ...s, [group]: { ...s[group], enabled: Boolean(enabled) } } : s));
+    return this.commit({ ...this.stored, profiles });
   }
 
   switchProfile(id) {

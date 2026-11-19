@@ -3009,6 +3009,11 @@ function registerIpc() {
     broadcastStatus();
     return { id: copyId, config: configStore.get() };
   });
+  ipcMain.handle('profiles:setIntegration', (_event, id, key, enabled) => {
+    configStore.setProfileIntegration(String(id), String(key), Boolean(enabled));
+    broadcastStatus();
+    return configStore.get();
+  });
   ipcMain.handle('profiles:rename', (_event, id, name) => {
     configStore.renameProfile(String(id), typeof name === 'string' ? name : '');
     broadcastStatus();
