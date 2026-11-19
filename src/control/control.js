@@ -703,17 +703,17 @@ function recallTab() {
     // a value saved before that change would otherwise match nothing below
     // and leave every panel hidden.
     // Older builds saved 'session' or 'configuration' for the page that is now Status.
-    return !saved || saved === 'session' || saved === 'configuration' || saved === 'general' ? 'status' : saved;
+    return !saved || saved === 'session' || saved === 'configuration' || saved === 'general' || saved === 'about' ? 'status' : saved;
   } catch (err) {
     return 'status';
   }
 }
 
 // Every page that has a tab-<key> panel; windows have cards of their own.
-const PANEL_KEYS = ['metadata', 'profiles', 'status', 'obs', 'preferences', 'about', 'tavern', 'automations', 'youtube'];
+const PANEL_KEYS = ['metadata', 'profiles', 'status', 'obs', 'preferences', 'tavern', 'automations', 'youtube'];
 
 function selectTab(name) {
-  if (name === 'general' || name === 'configuration') name = 'status';
+  if (name === 'general' || name === 'configuration' || name === 'about') name = 'status';
   if (name.startsWith('view:') && !config.views.some((v) => `view:${v.id}` === name)) name = 'status';
   if (name === 'tavern' && !config.tavern.enabled) name = 'status';
   if (name === 'automations' && !config.automations.enabled) name = 'status';

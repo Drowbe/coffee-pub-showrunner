@@ -184,6 +184,9 @@ net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a
   "D&D"; a fresh install starts with one named "My Profile".
 - The enable switches in 0.4.0 are the ones that already existed: each window's Start on launch,
   Automations and Chameleon. The OBS switch and YouTube defaults get theirs in 0.4.1.
+- Rail order: the app's own pages (Status, Preferences) sit above the profile picker because they do not follow
+  the profile; below it come Recording (OBS before Session, since Session depends on it), Integrations and Windows.
+  About moved into Status and Reset & Diagnostics into Preferences. An integration's switch sits beside its title.
 - Switches are for turning a whole feature on or off, which today means the three integrations. 0.4.1 first
   restyled every checkbox as a switch; that went too far and ordinary options are checkboxes again. A switch is
   opted into with `class="switch"`.
