@@ -476,6 +476,10 @@
             <label class="check" title="Keep width and height at 16:9, the shape of the camera"><input id="tavern-lock" type="checkbox"><span>Constrain proportions</span></label>
           </div>
           <p class="hint">Their video, or a still image when the camera's off — borders and overlays are set on Chameleon. Audio routes through OBS's own <strong>Control audio via OBS</strong> toggle.</p>
+          <div class="row">
+            <label class="check" title="Adds noise suppression, then a compressor, then a limiter to each new Participant source, so people at different mic levels sound closer together. Filters a source already has are left alone."><input id="tavern-audio-filters" type="checkbox"><span>Add audio filters to new participants</span></label>
+            <button id="tavern-add-filters" class="btn btn-small" type="button" title="Add the filters to the Participant sources already in OBS, skipping any kind a source already has">Add to existing participants</button>
+          </div>
         </div>
 
         <div class="card-subsection">

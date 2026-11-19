@@ -56,6 +56,20 @@ Chameleon's stable key, so renaming someone on Chameleon renames both OBS source
 anything. Muting and kicking players is done on Chameleon's manage page, which **Manage users**
 opens in your browser, along with passwords, links, images and rooms.
 
+## Audio filters
+
+Everyone is at a different microphone level, and OBS has no setting that balances several speakers. With
+**Add audio filters to new participants** on (it is on by default), each new Participant source gets three OBS
+audio filters, in this order: noise suppression, a compressor with makeup gain, and a limiter. The compressor
+evens out loud and quiet moments for that person, and the limiter catches peaks. They are named
+"Showrunner: Noise suppression", "Showrunner: Compressor" and "Showrunner: Limiter", so you can find and tune
+them in OBS under the source's **Filters**.
+
+A source that already has a filter of one of those kinds keeps it, and only the missing kinds are added. Click **Add to
+existing participants** to add the filters to the Participant sources already in OBS. Turning the setting off
+stops new sources from getting them and never removes any. The filters even out each person; they do not match
+people to each other, so you may still nudge a volume.
+
 ## Rooms and Asides
 
 The **Room** card at the top of the Chameleon tab picks which room's users are listed: the

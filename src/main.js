@@ -560,6 +560,11 @@ async function syncTavern() {
       await obs.createBrowserInput(name, wanted);
       inputs.push({ name, ...wanted, rerouteAudio: wanted.audio });
       report.created.push(name);
+      // A new participant gets the standard audio chain, if that is on. A failure
+      // here must not stop the source from being created, so it is only logged.
+      if (wanted.audio && t.audioFilters) {
+        await obs.addLevelingFilters(name).catch((err) => logActivity('Chameleon', `Could not add audio filters to ${name}: ${err.message}`, 'error'));
+      }
     } else if (existing.url !== wanted.url || existing.width !== wanted.width || existing.height !== wanted.height || existing.rerouteAudio !== wanted.audio) {
       await obs.setBrowserInput(name, wanted);
       Object.assign(existing, wanted, { rerouteAudio: wanted.audio });
@@ -3295,6 +3300,23 @@ function registerIpc() {
       if (Object.keys(wanted).length) await applyPublish(user.key, wanted).catch(() => {});
     }
     return fullStatus().tavern;
+  });
+  // Adds the standard audio chain to every participant source that already exists
+  // in OBS, skipping any filter kind a source already has.
+  ipcMain.handle('tavern:addAudioFilters', async () => {
+    if (!obs.connected) throw new Error('OBS is not connected.');
+    const names = Object.values(configStore.get().tavern.players).map((p) => p.source).filter(Boolean);
+    const inputs = new Set((await obs.browserInputs()).map((i) => i.name));
+    let sources = 0;
+    let filters = 0;
+    for (const name of names) {
+      if (!inputs.has(name)) continue;
+      const added = await obs.addLevelingFilters(name);
+      if (added.length) sources += 1;
+      filters += added.length;
+    }
+    logActivity('Chameleon', filters ? `Added ${filters} audio filter${filters === 1 ? '' : 's'} to ${sources} participant source${sources === 1 ? '' : 's'}.` : 'Every participant source already has the audio filters.', 'info');
+    return { sources, filters };
   });
   ipcMain.handle('tavern:setChoice', (_event, key, field, on) => setChoice(String(key), String(field), Boolean(on)));
   ipcMain.handle('tavern:viewUrl', (_event, key, kind) => {

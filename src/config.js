@@ -445,6 +445,7 @@ function defaultTavern() {
     enabled: false, url: '', login: '', autoConnect: true,
     playerWidth: 640, playerHeight: 360, lockRatio: true,
     characterWidth: 256, characterHeight: 256, characterWithPlayer: false,
+    audioFilters: true, // add the standard noise suppression / compressor / limiter chain to each new participant source
     space: 'lobby', // Chameleon space whose members Chameleon tab shows and OBS sources gate on
     followAdmin: true, // "Enable Asides": mute anyone live in a different space than `space` above
     players: {},
@@ -480,6 +481,7 @@ function sanitizeTavern(input) {
     characterWidth: clamp(toInt(src.characterWidth, d.characterWidth), 32, 3840),
     characterHeight: clamp(toInt(src.characterHeight, d.characterHeight), 32, 2160),
     characterWithPlayer: src.characterWithPlayer === undefined ? d.characterWithPlayer : Boolean(src.characterWithPlayer),
+    audioFilters: src.audioFilters === undefined ? d.audioFilters : Boolean(src.audioFilters),
     // Reads the new `space` key; an existing config.json still has `room`
     // from before this rename, so fall back to that rather than silently
     // resetting everyone's chosen room/space to Lobby on upgrade.
