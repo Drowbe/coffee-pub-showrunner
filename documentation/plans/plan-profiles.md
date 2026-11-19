@@ -184,6 +184,9 @@ net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a
   "D&D"; a fresh install starts with one named "My Profile".
 - The enable switches in 0.4.0 are the ones that already existed: each window's Start on launch,
   Automations and Chameleon. The OBS switch and YouTube defaults get theirs in 0.4.1.
+- Switches are for turning a whole feature on or off, which today means the three integrations. 0.4.1 first
+  restyled every checkbox as a switch; that went too far and ordinary options are checkboxes again. A switch is
+  opted into with `class="switch"`.
 - The word "show" shipped in 0.4.0 and was renamed to "profile" in 0.4.1 after feedback; the stored keys
   changed with the version 14 migration.
 - Integration switches are per profile: Chameleon, Automations and YouTube each have one, shown on the Manage

@@ -1073,6 +1073,7 @@ function renderProfiles() {
       wrap.className = 'check';
       const box = document.createElement('input');
       box.type = 'checkbox';
+      box.className = 'switch';
       box.checked = Boolean(profile.integrations && profile.integrations[key]);
       box.addEventListener('change', () =>
         profileAction(async () => {
