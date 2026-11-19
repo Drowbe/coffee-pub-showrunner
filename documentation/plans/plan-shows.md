@@ -62,9 +62,12 @@ Several channels can be connected at once. Each show picks one. A show with no c
 or edit YouTube metadata. The existing login becomes the first connected channel and the migrated D&D
 show points at it.
 
-## Picker visibility
+## The picker
 
-The picker is hidden until a second show exists, so single-show users see no change.
+The picker is always at the top of the sidebar, even with one show, so it is clear which show is
+active. Its last entry, "Manage shows...", opens a page of its own for creating, renaming, duplicating and
+deleting shows and for backups. Those apply to the whole app, so they do not sit on a page that belongs
+to a show.
 
 ## Migration
 
@@ -120,6 +123,8 @@ net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a
 - Switching a show closes the old show's windows, starts the new one's and re-syncs OBS. Sources that
   the old show made stay in OBS. OBS profile and scene collection switching, and the warning that goes
   with it, belong to 0.4.1.
+- Feedback after the 0.4.0 release changed the layout in 0.4.1: the picker is always visible, and the
+  Shows card moved from Configuration to the Manage shows page, with Backups.
 - A new show starts empty. Duplicate copies everything. A version 12 file becomes one show named
   "D&D"; a fresh install starts with one named "My Show".
 - The enable switches in 0.4.0 are the ones that already existed: each window's Start on launch,

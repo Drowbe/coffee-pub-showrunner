@@ -715,10 +715,12 @@ function selectTab(name) {
   if (name === 'automations' && !config.automations.enabled) name = 'configuration';
   if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'configuration';
   activeTab = name;
-  rememberTab(name);
+  if (name !== 'shows') rememberTab(name);
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.tab === name);
   }
+  $('tab-shows').hidden = name !== 'shows';
+  syncShowPicker();
   $('tab-metadata').hidden = name !== 'metadata';
   $('tab-configuration').hidden = name !== 'configuration';
   $('tab-tavern').hidden = name !== 'tavern';
@@ -908,6 +910,13 @@ const showsEls = {
   newButton: $('show-new'),
 };
 let showsSignature = '';
+const MANAGE_SHOWS = '__manage__';
+
+// The picker names the active show, or Manage shows while that page is open.
+function syncShowPicker() {
+  if (!config || !showsEls) return;
+  showsEls.select.value = activeTab === 'shows' ? MANAGE_SHOWS : config.activeShow;
+}
 
 async function showAction(run) {
   try {
@@ -925,8 +934,7 @@ function renderShows() {
   if (isEditing(showsEls.list)) return;
   showsSignature = signature;
 
-  // The picker appears only once there is something to pick between.
-  showsEls.picker.hidden = config.shows.length < 2;
+  // The picker is always there: the shows, then a way into the page that manages them.
   showsEls.select.textContent = '';
   for (const show of config.shows) {
     const option = document.createElement('option');
@@ -934,7 +942,15 @@ function renderShows() {
     option.textContent = show.name;
     showsEls.select.appendChild(option);
   }
-  showsEls.select.value = config.activeShow;
+  const divider = document.createElement('option');
+  divider.disabled = true;
+  divider.textContent = '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';
+  showsEls.select.appendChild(divider);
+  const manage = document.createElement('option');
+  manage.value = MANAGE_SHOWS;
+  manage.textContent = 'Manage shows\u2026';
+  showsEls.select.appendChild(manage);
+  syncShowPicker();
 
   showsEls.list.textContent = '';
   for (const show of config.shows) {
@@ -988,9 +1004,17 @@ function renderShows() {
 
 showsEls.select.addEventListener('change', async () => {
   const wanted = showsEls.select.value;
+  if (wanted === MANAGE_SHOWS) {
+    selectTab('shows');
+    return;
+  }
+  // Picking a show while on the manage page switches to it and leaves the page.
   const result = await showAction(() => api.switchShow(wanted));
-  // Cancelled or failed: put the picker back on the active show.
-  if (!result) showsEls.select.value = config.activeShow;
+  if (result || wanted === config.activeShow) {
+    if (activeTab === 'shows') selectTab('configuration');
+  }
+  // Cancelled or failed: put the picker back where it was.
+  syncShowPicker();
 });
 
 async function createShowFromInput() {

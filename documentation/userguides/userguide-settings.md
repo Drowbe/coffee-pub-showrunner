@@ -29,11 +29,11 @@ A show is a saved setup for one kind of recording: its windows and regions, its 
 filename format, its Automations rules, and the Chameleon settings that depend on the table. Use one
 show per kind of recording, such as a D&D campaign, a game livestream or a podcast.
 
-Open **Configuration** and find the **Shows** card. Type a name and click **New show** to start
-an empty one, or click **Duplicate** on an existing show to copy it, windows and regions included. Edit
-a show's name in place, click **Switch** to make it the active show, and **Delete** to remove one (the
-last show cannot be deleted). Once you have two shows, a **Show** picker appears at the top of the
-sidebar, so you can switch without opening Configuration.
+The **Show** picker at the top of the sidebar names the active show. Pick another show from it to
+switch. The last entry, **Manage shows...**, opens a page of its own, separate from any show's pages. There,
+type a name and click **New show** to start an empty one, or click **Duplicate** on an existing show to
+copy it, windows and regions included. Edit a show's name in place, click **Switch** to make it the
+active show, and **Delete** to remove one (the last show cannot be deleted).
 
 Switching closes the windows of the show you are leaving and starts the new show's windows, then
 re-syncs OBS. Showrunner asks first when windows are open. Each show keeps its own Session field values,
@@ -45,7 +45,7 @@ stay in OBS when you switch away; Showrunner does not remove them.
 
 ## Backups
 
-**Configuration** has a **Backups** card. A backup is a dated copy of your settings: your shows and
+The **Manage shows...** page has a **Backups** card. A backup is a dated copy of your settings: your shows and
 everything in them, the saved passwords, the Automations certificates, the recordings list and the
 renamed-source list. It does not include the browser cache or sign-ins to Foundry.
 
