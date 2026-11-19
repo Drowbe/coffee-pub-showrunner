@@ -954,9 +954,9 @@ input[type="checkbox"].switch:disabled {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  /* 12px on the left is the old 3px accent edge plus 10px, less the 1px border, so the labels stay put. */
+  padding: 8px 10px 8px 12px;
   border: 1px solid transparent;
-  border-left: 3px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--text-dim);
@@ -978,7 +978,6 @@ input[type="checkbox"].switch:disabled {
   color: var(--text);
   background: var(--bg-card);
   border-color: var(--border);
-  border-left-color: var(--accent);
 }
 
 .tab-add {
