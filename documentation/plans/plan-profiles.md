@@ -87,7 +87,7 @@ preceded by an automatic backup.
   and automations, enable switches, the Login group rename, migration to version 13.
 - **0.4.1, profile setup and backups:** OBS profile and scene collection switching with the confirmation
   flow, multiple YouTube channels and per-profile YouTube defaults, templates for D&D, Livestream and
-  Podcast, the backups described below, and the audio actions in "Local sources and audio".
+  Podcast, the backups described below, the audio actions in "Local sources and audio", and the first two steps of "Audio leveling".
 - **Later:** neutral wording for Automations and the Foundry copy, and a Chameleon workspace-sharing
   source (a whiteboard or document shared into a profile) once that module exists.
 
@@ -116,6 +116,40 @@ mutes an input internally. Planned:
 
 Considered and not committed: an action that turns a named OBS filter on or off, and a per-profile list
 of expected OBS sources with a found or missing status.
+
+## Audio leveling
+
+OBS has no loudness normalization. Its filters shape one source at a time, but nothing balances several speakers
+against each other, so each person's volume is adjusted by hand: mic level, distance and room all differ. Three
+fixes, in this order, each useful on its own.
+
+1. **A standard filter chain on every participant.** When Showrunner creates a Chameleon participant source in
+   OBS, it also adds noise suppression, a compressor with makeup gain, and a limiter, in that order, using the
+   same OBS call that adds the crop filter today. The compressor evens out loud and quiet moments within one
+   person. It does not balance people against each other. The chain is on by default and can be turned off, and a
+   source that already has filters of those kinds is left alone.
+2. **Calibrate and keep leveled.** OBS reports a live level for every audio source and Showrunner can set each
+   source's volume.
+   - **Calibrate:** a button on the Chameleon page. Everyone talks for about ten seconds, Showrunner measures each
+     person's level during speech only, and sets each source's volume to reach one target level. The volume is
+     saved with the participant, so calibration is a one-time job per person.
+   - **Keep leveled:** an optional per-profile switch that nudges each volume slowly while the person is speaking,
+     within a limited range, and never during silence. It cannot fix a microphone that is clipping, and it says
+     so when it sees clipping.
+   - **Target level and range** are settings, with sensible defaults.
+3. **What LiveKit already does in Chameleon.** Chameleon carries audio and video over LiveKit, and the LiveKit
+   JavaScript client's microphone capture options turn on the browser's automatic gain control, noise
+   suppression and echo cancellation by default, so these are probably already active for every participant. They
+   are gentle and work per browser, which is why levels still differ between people. Two things to confirm with
+   the Chameleon project: that Chameleon does not override those defaults (for example by setting
+   `autoGainControl` to false), and which version of the LiveKit client it ships, since the documented defaults
+   are from the current 2.x line. Whether a listener-side volume per participant is available and can
+   boost, not only reduce, is not checked. Showrunner builds nothing here; steps 1 and 2 cover what the
+   built-in processing does not.
+
+Open questions: where the calibration result is stored (with the participant's entry in the profile, most
+likely, since the same person at the same desk keeps the same level); whether Keep leveled should also apply to
+sources that are not Chameleon participants; and whether the standard chain's settings should be editable.
 
 ## Backups
 
