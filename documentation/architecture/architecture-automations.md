@@ -14,24 +14,26 @@ topic, in groups. A profile picker sits above the rail; the pages below it are:
 
 | Group | Visible tab | Internal `data-tab` key | Holds |
 | --- | --- | --- | --- |
-| Session | Session | `metadata` | Metadata fields (`config.metadataFields`) and the Recording Filename format |
-| Session | OBS | `obs` | OBS connection settings and OBS Control (manual remote: recording, streaming, scenes) |
+| Showrunner | Status | `status` | Connections (status and the activity log) and About; the page the app opens on |
+| Showrunner | Preferences | `preferences` | Layout & Startup, and Reset & Diagnostics |
+| Recording | OBS | `obs` | OBS connection settings and OBS Control (manual remote: recording, streaming, scenes) |
+| Recording | Session | `metadata` | Metadata fields (`config.metadataFields`) and the Recording Filename format |
 | Integrations | Chameleon | `tavern` | Chameleon settings, then the room, users, participants and characters |
 | Integrations | Automations | `automations` | Automations server settings, then Rule Sets and Test Events |
 | Integrations | YouTube | `youtube` | YouTube connection settings and upload defaults |
-| App | Status | `status` | Connections (status and the activity log); the page the app opens on |
-| App | Preferences | `preferences` | Layout & Startup |
-| App | About | `about` | Reset & Diagnostics and About |
 | Windows | one per window | `view:<id>`, `app:<id>` | The window's card, its OBS sources and regions |
+
+The profile picker sits between the Showrunner group and Recording: what is above it belongs to the app, what is below it
+follows the profile.
 
 Manage profiles (`profiles`) is a page too, but it is reached from the profile picker rather than the rail.
 
-Each integration has an enable switch at the top of its own settings. A tab for an integration shows only
+Each integration has an enable switch beside its title. A tab for an integration shows only
 while its switch is on, and **Add integration** at the end of the group turns one on and opens its page, the same
 way **Add window** works. Turning an integration off keeps its settings. Internally the tab keys and element ids
 stayed where the code already had them (`tavern` for Chameleon), so this was a relocation of cards in
 `src/control/index.html` plus `selectTab` in `src/control/control.js` toggling every `tab-<key>` panel from one
-list (`PANEL_KEYS`). `recallTab()` maps a saved `'session'`, `'configuration'` or `'general'` to `status`, so a
+list (`PANEL_KEYS`). `recallTab()` maps a saved `'session'`, `'configuration'`, `'general'` or `'about'` to `status`, so a
 tab preference saved by an older build still lands on a real page.
 
 Why these moves: OBS Control is something a person does live, so it sits with the OBS connection, available whether

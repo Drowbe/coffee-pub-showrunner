@@ -25,15 +25,17 @@ group. The change applies the next time the window starts.
 
 ## The left rail
 
-The rail on the left groups the control panel into pages. The **Profile** picker is at the top. Below it:
+The rail on the left groups the control panel into pages. The top group belongs to the app itself and does not
+change with the profile; the **Profile** picker below it scopes everything under it.
 
-- **Session:** **Session** (your Session fields and the recording filename format) and **OBS** (the OBS
-  connection, and a remote for recording, streaming and scenes).
-- **Integrations:** **Chameleon**, **Automations** and **YouTube**. Each is off until you switch it on, and each has
-  its own on and off switch at the top of its page. Click **Add integration** to turn one on and open its page.
+- **Showrunner:** **Status** (connections, the activity log and the version details) and **Preferences** (layout, dock
+  and startup, plus reset and diagnostics).
+- **Profile:** the picker. Its last entry, **Manage profiles...**, opens the page for creating profiles and backups.
+- **Recording:** **OBS** (the connection, and a remote for recording, streaming and scenes) and **Session** (your Session
+  fields and the recording filename format). OBS comes first because the Session page depends on it.
+- **Integrations:** **Chameleon**, **Automations** and **YouTube**. Each is off until you switch it on. The switch sits
+  beside the integration's title on its own page. Click **Add integration** to turn one on and open its page.
   Switching one off hides its page and keeps its settings.
-- **App:** **Status** (connections and the activity log, the page the app opens on), **Preferences** (layout, dock and
-  startup) and **About** (reset, diagnostics and version).
 - **Windows:** one page for each window, and **Add window**.
 
 ## Profiles
@@ -45,7 +47,7 @@ profile per kind of recording, such as a D&D campaign, a game livestream or a po
 The **Profile** picker at the top of the sidebar names the active profile. Pick another profile from it to
 switch. The last entry, **Manage profiles...**, opens a page of its own, separate from any profile's pages. There,
 type a name and click **New profile** to start an empty one, or click **Duplicate** on an existing profile to
-copy it, windows and regions included. Edit a profile's name in place, click **Switch** to make it the
+copy it, windows and regions included. Rename a profile by editing its name in place: press Enter or click away to save (a message confirms it and the picker updates at once), or press Escape to cancel. Then click **Switch** to make it the
 active profile, and **Delete** to remove one (the last profile cannot be deleted).
 
 Each profile card also has switches for **Chameleon**, **Automations** and **YouTube**: what the profile uses. Flip them for the profile you are in or for any other one, without switching to it. A profile with YouTube off shows no YouTube page in the rail, so a podcast profile can have all three off while a game profile has them on. The YouTube login and defaults are shared by every profile; only whether it is on belongs to the profile.

@@ -24,17 +24,22 @@
 
   <div class="shell">
   <nav class="sidebar" id="tabs" aria-label="Sections">
+    <!-- What belongs to the app, not to the profile, sits above the profile picker; everything below
+         the picker follows the profile. Internal tab keys stay where the code has them: "metadata" is the
+         visible Session page, "preferences" the visible Preferences page, "tavern" Chameleon. -->
+    <div class="nav-group">
+      <div class="nav-heading">Showrunner</div>
+      <button class="tab" data-tab="status" type="button"><span class="dot ghost"></span>Status</button>
+      <button class="tab" data-tab="preferences" type="button"><span class="dot ghost"></span>Preferences</button>
+    </div>
     <div class="profile-picker" id="profile-picker">
       <label class="nav-heading" for="profile-select">Profile</label>
       <select id="profile-select" aria-label="Active profile"></select>
     </div>
-    <!-- Internal tab key "metadata" is the visible "Session" tab (this session's own data) --
-         same mismatch as "tavern" already being labeled "Chameleon". Each .tab keeps its
-         data-tab key; selectTab() in control.js drives the active state and panels. -->
     <div class="nav-group">
-      <div class="nav-heading">Session</div>
-      <button class="tab" data-tab="metadata" type="button"><span class="dot ghost"></span>Session</button>
+      <div class="nav-heading">Recording</div>
       <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS</button>
+      <button class="tab" data-tab="metadata" type="button"><span class="dot ghost"></span>Session</button>
     </div>
     <div class="nav-group" id="nav-integrations">
       <div class="nav-heading">Integrations</div>
@@ -42,12 +47,6 @@
       <button class="tab" data-tab="automations" id="automations-tab" type="button" hidden><span class="dot" id="automations-dot" title="Automations server"></span>Automations</button>
       <button class="tab" data-tab="youtube" id="youtube-tab" type="button" hidden><span class="dot" id="youtube-dot" title="YouTube connection"></span>YouTube</button>
       <button class="tab tab-add" data-tab="add-integration" id="add-integration" type="button" title="Switch an integration on for this profile"><i class="fa-solid fa-plus" aria-hidden="true"></i>Add integration</button>
-    </div>
-    <div class="nav-group">
-      <div class="nav-heading">App</div>
-      <button class="tab" data-tab="status" type="button"><span class="dot ghost"></span>Status</button>
-      <button class="tab" data-tab="preferences" type="button"><span class="dot ghost"></span>Preferences</button>
-      <button class="tab" data-tab="about" type="button"><span class="dot ghost"></span>About</button>
     </div>
     <div class="nav-group">
       <div class="nav-heading">Windows</div>
@@ -182,6 +181,24 @@
           <p class="hint" id="connections-activity-empty">No activity yet.</p>
         </div>
       </div>
+
+      <div class="card about">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>About</h2>
+          </div>
+        </div>
+        <dl class="about-list">
+          <dt>Version</dt>
+          <dd id="about-version"></dd>
+          <dt>Build</dt>
+          <dd id="about-build"></dd>
+          <dt>Electron</dt>
+          <dd id="about-electron"></dd>
+          <dt>Chromium</dt>
+          <dd id="about-chromium"></dd>
+        </dl>
+      </div>
     </section>
 
     <section class="tab-panel" id="tab-obs" hidden>
@@ -309,9 +326,7 @@
           <span class="hint">Foundry ignores clicks until fully loaded; this is how long to wait first.</span>
         </div>
       </div>
-    </section>
 
-    <section class="tab-panel" id="tab-about" hidden>
       <div class="card">
         <h2>Reset &amp; Diagnostics</h2>
         <div class="row">
@@ -323,24 +338,6 @@
           <button id="reset-config" class="btn" type="button">Reset to defaults</button>
         </div>
       </div>
-
-      <div class="card about">
-        <div class="view-head">
-          <div class="view-head-left">
-            <h2>About</h2>
-          </div>
-        </div>
-        <dl class="about-list">
-          <dt>Version</dt>
-          <dd id="about-version"></dd>
-          <dt>Build</dt>
-          <dd id="about-build"></dd>
-          <dt>Electron</dt>
-          <dd id="about-electron"></dd>
-          <dt>Chromium</dt>
-          <dd id="about-chromium"></dd>
-        </dl>
-      </div>
     </section>
 
     <section class="tab-panel" id="tab-youtube" hidden>
@@ -348,6 +345,7 @@
         <div class="view-head">
           <div class="view-head-left">
             <h2>YouTube</h2>
+            <input id="youtube-enabled" class="switch" type="checkbox" aria-label="Enable YouTube for this profile" title="YouTube is on for this profile">
             <span class="tag" id="youtube-tag" hidden>CONNECTED</span>
           </div>
         </div>
@@ -363,12 +361,6 @@
             <li><strong>Before you connect:</strong> back on the consent screen (<strong>Audience</strong> tab in the newer layout), click <strong>Publish app</strong> to move <strong>Publishing status</strong> to <strong>In production</strong>. No Google review is needed for your own use -- you'll just see a "Google hasn't verified this app" screen once when you connect. This matters: an app left in <strong>Testing</strong> gets a sign-in that Google expires after 7 days, and uploads then fail with "Bad Request" until you reconnect.</li>
           </ol>
         </details>
-        <div class="row">
-          <label class="check">
-            <input id="youtube-enabled" type="checkbox">
-            <span>Enable YouTube upload</span>
-          </label>
-        </div>
         <div id="youtube-settings">
           <div class="row">
             <label class="field field-inline field-wide">
@@ -415,6 +407,7 @@
         <div class="view-head">
           <div class="view-head-left">
             <h2>Chameleon</h2>
+            <input id="tavern-enabled" class="switch" type="checkbox" aria-label="Enable Chameleon for this profile" title="Chameleon is on for this profile">
             <span class="tag" id="tavern-tag" hidden>SIGNED IN</span>
           </div>
           <div class="view-actions">
@@ -426,12 +419,6 @@
           Coffee Pub Chameleon is the voice and video server for the people at your table. Sign in with an admin account and the
           <strong>Chameleon</strong> tab lists everyone; publish a player to give them their own OBS Browser Source.
         </p>
-        <div class="row">
-          <label class="check">
-            <input id="tavern-enabled" type="checkbox">
-            <span>Enable Coffee Pub Chameleon</span>
-          </label>
-        </div>
         <div id="tavern-settings" hidden>
         <div class="row">
           <label class="check">
@@ -557,6 +544,7 @@
         <div class="view-head">
           <div class="view-head-left">
             <h2>Automations</h2>
+            <input id="automations-enabled" class="switch" type="checkbox" aria-label="Enable Automations for this profile" title="Automations is on for this profile">
             <span class="tag" id="automations-tag" hidden>LISTENING</span>
           </div>
         </div>
@@ -566,12 +554,6 @@
           show or hide a source, or start/stop recording. Foundry usually runs on a different machine, so this
           listens on your network, not just this Mac — the token is what keeps that port private.
         </p>
-        <div class="row">
-          <label class="check">
-            <input id="automations-enabled" type="checkbox">
-            <span>Enable Automations</span>
-          </label>
-        </div>
         <div id="automations-settings" hidden>
           <div class="row">
             <label class="field field-inline">
