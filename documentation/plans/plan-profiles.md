@@ -87,7 +87,7 @@ preceded by an automatic backup.
   and automations, enable switches, the Login group rename, migration to version 13.
 - **0.4.1, profile setup and backups:** OBS profile and scene collection switching with the confirmation
   flow, multiple YouTube channels and per-profile YouTube defaults, templates for D&D, Livestream and
-  Podcast, and the backups described below.
+  Podcast, the backups described below, and the audio actions in "Local sources and audio".
 - **Later:** neutral wording for Automations and the Foundry copy, and a Chameleon workspace-sharing
   source (a whiteboard or document shared into a profile) once that module exists.
 
@@ -100,6 +100,22 @@ preceded by an automatic backup.
 - **A source that cannot be created** during the sync after a switch is still created in OBS and is
   marked failed. It shows red in the Windows list, and the window's page says what went wrong, the same
   way a disconnected source looks today.
+
+## Local sources and audio
+
+Showrunner does not set up cameras, capture cards or microphones. OBS does that better, with its own
+filters and per-device settings, and a profile's pinned scene collection carries whatever the user
+set up there. Video into a profile comes from Chameleon, application windows or web windows.
+
+What the automations lack is control of audio. They can show, hide and toggle any source, but they
+cannot mute or unmute an OBS audio source or change its volume, although the OBS connection already
+mutes an input internally. Planned:
+
+- **Audio actions:** mute, unmute and toggle mute for any OBS audio source, and set its volume. They use
+  the same source picker the other source actions use.
+
+Considered and not committed: an action that turns a named OBS filter on or off, and a per-profile list
+of expected OBS sources with a found or missing status.
 
 ## Backups
 
