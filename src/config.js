@@ -207,6 +207,7 @@ const AUTOMATIONS_LIMITS = {
 };
 const AUTOMATIONS_ACTIONS = [
   'sceneSwitch', 'sourceShow', 'sourceHide', 'sourceToggle', 'setText',
+  'sourceMute', 'sourceUnmute', 'sourceToggleMute', 'setVolume',
   'startRecording', 'pauseRecording', 'resumeRecording', 'stopRecording',
   'startStreaming', 'stopStreaming',
 ];
@@ -225,6 +226,13 @@ const AUTOMATIONS_ACTION_SCHEMA = [
   { action: 'sourceHide', param: 'source name', paramType: 'source', group: 'Sources' },
   { action: 'sourceToggle', param: 'source name', paramType: 'source', group: 'Sources' },
   { action: 'setText', param: 'source name', paramType: 'source', group: 'Sources' },
+  // Audio: `param` names an OBS audio source. setVolume also needs a level in
+  // dB (OBS accepts -100 to 26; 0 is unchanged), read the way setText reads its
+  // text: a typed value, a file, or a Data Field.
+  { action: 'sourceMute', param: 'source name', paramType: 'source', group: 'Audio' },
+  { action: 'sourceUnmute', param: 'source name', paramType: 'source', group: 'Audio' },
+  { action: 'sourceToggleMute', param: 'source name', paramType: 'source', group: 'Audio' },
+  { action: 'setVolume', param: 'source name', paramType: 'source', group: 'Audio' },
   { action: 'startRecording', param: null, paramType: 'none', group: 'Controls' },
   { action: 'pauseRecording', param: null, paramType: 'none', group: 'Controls' },
   { action: 'resumeRecording', param: null, paramType: 'none', group: 'Controls' },

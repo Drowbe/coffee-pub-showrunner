@@ -2381,6 +2381,10 @@ const AUTOMATION_ACTIONS = [
   { value: 'sourceHide', label: 'Hide source', paramType: 'source', group: 'Sources' },
   { value: 'sourceToggle', label: 'Toggle source', paramType: 'source', group: 'Sources' },
   { value: 'setText', label: 'Set text on source', paramType: 'source', group: 'Sources' },
+  { value: 'sourceMute', label: 'Mute source', paramType: 'source', group: 'Audio' },
+  { value: 'sourceUnmute', label: 'Unmute source', paramType: 'source', group: 'Audio' },
+  { value: 'sourceToggleMute', label: 'Toggle mute on source', paramType: 'source', group: 'Audio' },
+  { value: 'setVolume', label: 'Set volume of source', paramType: 'source', group: 'Audio' },
   { value: 'startRecording', label: 'Start recording', paramType: 'none', group: 'Controls' },
   { value: 'pauseRecording', label: 'Pause recording', paramType: 'none', group: 'Controls' },
   { value: 'resumeRecording', label: 'Resume recording', paramType: 'none', group: 'Controls' },
@@ -2931,7 +2935,7 @@ function collectRequiredPromptsPreview(ruleSet, allRuleSets, metadataFields, see
 
   for (const step of ruleSet.steps) {
     if (step.type !== 'action') continue;
-    if ((step.action === 'setText' || step.action === 'setMetadataField') && step.valueType === 'dataField') {
+    if ((step.action === 'setText' || step.action === 'setVolume' || step.action === 'setMetadataField') && step.valueType === 'dataField') {
       addKey(step.dataField || (step.action === 'setMetadataField' ? 'value' : 'text'));
     } else if (step.action === 'applySessionFilename') {
       addTemplate((config && config.session && config.session.filenameFormat) || '');
@@ -3455,7 +3459,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
     // setMetadataField shares this exact block -- same three-source shape,
     // just writing into a Metadata field's stored value instead of an OBS
     // text source (see resolveMetadataFieldValue, src/main.js).
-    if (step.action === 'setText' || step.action === 'setMetadataField') {
+    if (step.action === 'setText' || step.action === 'setVolume' || step.action === 'setMetadataField') {
       const valueTypeSelect = document.createElement('select');
       valueTypeSelect.className = 'automation-step-valuetype';
       valueTypeSelect.dataset.sfield = 'valueType';
@@ -3473,7 +3477,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
         const valueInput = document.createElement('input');
         valueInput.type = 'text';
         valueInput.className = 'automation-step-value';
-        valueInput.placeholder = 'Text to set';
+        valueInput.placeholder = step.action === 'setVolume' ? 'Level in dB, e.g. -6' : 'Text to set';
         valueInput.value = step.value || '';
         valueInput.dataset.sfield = 'value';
         mainRow.appendChild(valueInput);
@@ -3782,7 +3786,7 @@ automationsEls.rulesets.addEventListener('click', async (event) => {
     const fields = [
       ...new Set(
         ruleSet.steps
-          .filter((s) => s.type === 'action' && (s.action === 'setText' || s.action === 'setMetadataField') && s.valueType === 'dataField')
+          .filter((s) => s.type === 'action' && (s.action === 'setText' || s.action === 'setVolume' || s.action === 'setMetadataField') && s.valueType === 'dataField')
           .map((s) => s.dataField || (s.action === 'setMetadataField' ? 'value' : 'text'))
       ),
     ];

@@ -407,6 +407,18 @@ class ObsBridge extends EventEmitter {
     await this.obs.call('SetInputMute', { inputName, inputMuted: muted });
   }
 
+  // Flips an input's mute and returns the new state (true = muted).
+  async toggleInputMuted(inputName) {
+    const { inputMuted } = await this.obs.call('ToggleInputMute', { inputName });
+    return inputMuted;
+  }
+
+  // Sets an input's volume in dB. OBS accepts -100 (silent) to 26; 0 is the
+  // level the source arrives at.
+  async setInputVolumeDb(inputName, db) {
+    await this.obs.call('SetInputVolume', { inputName, inputVolumeDb: Math.min(26, Math.max(-100, db)) });
+  }
+
   // Show or hide every scene item that references a source, in top-level
   // scenes and inside groups. Returns how many items were changed.
   async setSourceVisible(sourceName, visible) {
