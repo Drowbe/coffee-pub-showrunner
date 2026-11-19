@@ -731,6 +731,7 @@ function selectTab(name) {
   // automationsScenes/automationsSources, so either tab arriving is worth
   // a fresh read.
   if (name === 'obs' || name === 'automations') refreshAutomationsScenes();
+  if (name === 'obs') refreshObsPinChoices();
   for (const [id, card] of cards) card.hidden = name !== `view:${id}`;
   for (const [id, card] of appWinCards) card.hidden = name !== `app:${id}`;
   refreshStatusBar();
@@ -952,6 +953,7 @@ function applyConfig(next) {
   applyAutomationsConfig(firstLoad);
   applyYoutubeConfig();
   syncIntegrationNav();
+  renderObsPins();
   if (!sameViews) {
     renderViewCards();
     return;
@@ -1122,6 +1124,14 @@ function renderProfiles() {
       wrap.append(box, text);
       integrations.appendChild(wrap);
     }
+    // Which OBS profile and scene collection this profile switches OBS to, when it does.
+    const pins = profile.obsPins;
+    if (pins && pins.enabled && (pins.profile || pins.collection)) {
+      const obsText = document.createElement('span');
+      obsText.className = 'hint profile-obs';
+      obsText.textContent = `OBS: ${[pins.profile && `profile \u201c${pins.profile}\u201d`, pins.collection && `scenes \u201c${pins.collection}\u201d`].filter(Boolean).join(', ')}`;
+      integrations.appendChild(obsText);
+    }
     row.appendChild(integrations);
 
     profilesEls.list.appendChild(row);
@@ -1151,6 +1161,92 @@ async function createProfileFromInput() {
 profilesEls.newButton.addEventListener('click', createProfileFromInput);
 profilesEls.newName.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') createProfileFromInput();
+});
+
+// ---------------------------------------------------------------------------
+// OBS for this profile: the OBS profile and scene collection a Showrunner profile switches OBS to
+// ---------------------------------------------------------------------------
+
+const obsPinEls = {
+  enabled: $('obs-pins-enabled'),
+  settings: $('obs-pins-settings'),
+  profile: $('obs-pins-profile'),
+  collection: $('obs-pins-collection'),
+  apply: $('obs-pins-apply'),
+  status: $('obs-pins-status'),
+};
+let obsPinsProfile = null;
+let obsPinChoices = { connected: false, profiles: [], currentProfile: '', collections: [], currentCollection: '' };
+
+function fillPinSelect(select, names, current, pinned) {
+  const keep = document.activeElement === select;
+  if (keep) return;
+  select.textContent = '';
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = 'Leave OBS as it is';
+  select.appendChild(none);
+  for (const name of names) {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name === current ? `${name} (current)` : name;
+    select.appendChild(option);
+  }
+  // A pinned name OBS does not have (renamed, deleted, or another machine's) stays visible.
+  if (pinned && !names.includes(pinned)) {
+    const missing = document.createElement('option');
+    missing.value = pinned;
+    missing.textContent = obsPinChoices.connected ? `${pinned} (not in OBS)` : pinned;
+    select.appendChild(missing);
+  }
+  select.value = pinned || '';
+}
+
+function renderObsPins() {
+  if (!config) return;
+  const pins = config.obsPins;
+  obsPinEls.enabled.checked = pins.enabled;
+  obsPinEls.settings.hidden = !pins.enabled;
+  fillPinSelect(obsPinEls.profile, obsPinChoices.profiles, obsPinChoices.currentProfile, pins.profile);
+  fillPinSelect(obsPinEls.collection, obsPinChoices.collections, obsPinChoices.currentCollection, pins.collection);
+  obsPinEls.apply.disabled = !obsPinChoices.connected || (!pins.profile && !pins.collection);
+  obsPinEls.status.textContent = obsPinChoices.connected
+    ? `OBS is on the profile \u201c${obsPinChoices.currentProfile}\u201d and the scene collection \u201c${obsPinChoices.currentCollection}\u201d.`
+    : 'Connect to OBS to pick from its profiles and scene collections.';
+}
+
+async function refreshObsPinChoices() {
+  try {
+    obsPinChoices = await api.obsPinChoices();
+  } catch (err) {
+    obsPinChoices = { connected: false, profiles: [], currentProfile: '', collections: [], currentCollection: '' };
+  }
+  renderObsPins();
+}
+
+async function saveObsPins() {
+  const pins = { enabled: obsPinEls.enabled.checked, profile: obsPinEls.profile.value, collection: obsPinEls.collection.value };
+  config.obsPins = pins;
+  try {
+    await api.obsSetPins(pins);
+  } catch (err) {
+    reportError(err);
+  }
+  renderObsPins();
+}
+for (const el of [obsPinEls.enabled, obsPinEls.profile, obsPinEls.collection]) el.addEventListener('change', saveObsPins);
+
+obsPinEls.apply.addEventListener('click', async () => {
+  try {
+    await flushSave();
+    const result = await api.obsApplyPins();
+    if (!result) return;
+    if (result.failed.length) showToast(result.failed.join(' '), { type: 'error' });
+    else showToast(result.applied.length ? `OBS switched: ${result.applied.join(', ')}.` : result.note || 'OBS is already on those.');
+  } catch (err) {
+    showToast(err.message || String(err), { type: 'error' });
+  }
+  refreshObsPinChoices();
 });
 
 // ---------------------------------------------------------------------------
@@ -1924,6 +2020,11 @@ document.addEventListener('focusout', (event) => {
 api.onStatus((next) => {
   status = next;
   if (next.config && !isDirty()) applyConfig(next.config);
+  // Switching profile can switch OBS, so what OBS is on has changed.
+  if (next.config && next.config.activeProfile !== obsPinsProfile) {
+    obsPinsProfile = next.config.activeProfile;
+    refreshObsPinChoices();
+  }
   renderDisplays();
   renderObs();
   renderStatus();
@@ -1935,7 +2036,10 @@ api.onStatus((next) => {
   updateRulesetRunState();
   if (config) updateAppWindowStatus();
   const obsConnected = Boolean(next.obs && next.obs.state === 'connected');
-  if (obsConnected && !automationsObsWasConnected) refreshAutomationsScenes();
+  if (obsConnected && !automationsObsWasConnected) {
+    refreshAutomationsScenes();
+    refreshObsPinChoices();
+  }
   automationsObsWasConnected = obsConnected;
 });
 

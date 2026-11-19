@@ -46,6 +46,28 @@ ones, and the same linking, cropping and scaling apply. Windows support is new; 
 at the wrong window, the OBS card's **Copy capture report** button copies what OBS and Showrunner each
 see, which is what to include when reporting it.
 
+## Switch OBS with the profile
+
+Different kinds of recording often want different things in OBS. An OBS **profile** holds output and stream
+settings (stream key, encoder, recording path), and a **scene collection** holds your scenes and sources. A
+Showrunner profile can switch OBS to a pair of them when you switch to it.
+
+On the **OBS** page, find **OBS for this profile** and turn its switch on. Pick an **OBS profile** and a **Scene
+collection** from the lists, which come from OBS itself (the ones OBS is on now are marked "current"). Leave
+either on "Leave OBS as it is" to not touch it. The pair belongs to the profile you are in, so each profile can
+have its own, or two profiles can share an OBS profile and use different scene collections. **Apply now** switches
+OBS to the pair straight away, without switching Showrunner profile.
+
+When you switch Showrunner profile, the confirmation lists what OBS is about to change, for example the
+OBS profile and the scene collection, each from and to. Showrunner changes the OBS profile first and then the scene
+collection, and reports a failure on one without hiding the other. If a name no longer exists in OBS, it says so
+and carries on with the rest. Afterwards it re-syncs its window and Chameleon sources into the scene collection
+OBS is now on.
+
+Showrunner will not switch OBS while OBS is recording or streaming, because that would change the scenes and
+output settings of a session in progress. Stop first. If OBS is not connected, only Showrunner switches and the
+message says OBS was left alone. A profile with the switch off never touches OBS.
+
 ## The whole window as an OBS source
 
 Under each window's card sits a **Whole window** card: a switch, the OBS source name, and the

@@ -242,6 +242,24 @@
         <p class="hint" id="obs-status">Not connected.</p>
       </div>
 
+      <div class="card" id="obs-pins-card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>OBS for this profile</h2>
+            <input id="obs-pins-enabled" class="switch" type="checkbox" aria-label="Switch OBS when this profile is switched to" title="Switch OBS to the profile and scene collection below when you switch to this profile">
+          </div>
+        </div>
+        <p class="hint">Switch OBS to the profile and scene collection below whenever you switch to this Showrunner profile. An OBS <strong>profile</strong> holds output and stream settings (stream key, encoder, recording path); a <strong>scene collection</strong> holds your scenes and sources. Leave either on &ldquo;Leave OBS as it is&rdquo; to not touch it. Showrunner will not switch OBS while it is recording or streaming.</p>
+        <div id="obs-pins-settings">
+          <div class="row">
+            <label class="field field-inline"><span>OBS profile</span><select id="obs-pins-profile"></select></label>
+            <label class="field field-inline"><span>Scene collection</span><select id="obs-pins-collection"></select></label>
+            <button id="obs-pins-apply" class="btn" type="button" title="Switch OBS to these now, without switching Showrunner profile">Apply now</button>
+          </div>
+          <p class="hint" id="obs-pins-status"></p>
+        </div>
+      </div>
+
       <div class="card">
         <div class="view-head">
           <div class="view-head-left">
