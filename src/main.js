@@ -5,6 +5,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification } = require('electron');
 const backups = require('./backup');
+const { calibrateInputs } = require('./leveling');
 const { ConfigStore, LIMITS, REGION_LIMITS, DEFAULT_GROUP, AUTOMATIONS_ACTION_SCHEMA, STUDIO_ACTION_SCHEMA, SOURCE_SUFFIX, upgradeSourceName } = require('./config');
 const { ObsBridge, parseWindowChoice } = require('./obs');
 const { TavernBridge } = require('./tavern');
@@ -562,6 +563,10 @@ async function syncTavern() {
       report.created.push(name);
       // A new participant gets the standard audio chain, if that is on. A failure
       // here must not stop the source from being created, so it is only logged.
+      // ...and the volume Calibrate settled on for this person, if they have been calibrated.
+      if (wanted.audio && entry.levelDb !== null && entry.levelDb !== undefined) {
+        await obs.setInputVolumeDb(name, entry.levelDb).catch(() => {});
+      }
       if (wanted.audio && t.audioFilters) {
         await obs.addLevelingFilters(name).catch((err) => logActivity('Chameleon', `Could not add audio filters to ${name}: ${err.message}`, 'error'));
       }
@@ -3002,6 +3007,8 @@ function setupTray() {
 // IPC
 // ---------------------------------------------------------------------------
 
+let calibrating = false;
+
 function registerIpc() {
   ipcMain.handle('config:get', () => configStore.get());
   ipcMain.handle('config:save', (_event, next) => {
@@ -3408,6 +3415,44 @@ function registerIpc() {
     }
     logActivity('Chameleon', filters ? `Added ${filters} audio filter${filters === 1 ? '' : 's'} to ${sources} participant source${sources === 1 ? '' : 's'}.` : 'Every participant source already has the audio filters.', 'info');
     return { sources, filters };
+  });
+  // Listens to the Participant sources for a few seconds while everyone talks, then sets each
+  // person's OBS volume so they all land at the target level and remembers it with the person.
+  ipcMain.handle('tavern:calibrate', async (_event, options) => {
+    if (calibrating) throw new Error('A calibration is already running.');
+    if (!obs.connected) throw new Error('OBS is not connected.');
+    const opts = options && typeof options === 'object' ? options : {};
+    const seconds = Math.min(60, Math.max(5, Math.round(Number(opts.seconds)) || 10));
+    const target = Math.min(-6, Math.max(-40, Number.isFinite(Number(opts.targetDb)) ? Number(opts.targetDb) : -20));
+    const current = configStore.get();
+    const inObs = new Set((await obs.browserInputs()).map((i) => i.name));
+    const people = Object.entries(current.tavern.players)
+      .filter(([, entry]) => entry.player && entry.source && inObs.has(entry.source))
+      .map(([key, entry]) => ({ key, input: entry.source }));
+    if (!people.length) throw new Error('There are no Participant sources in OBS yet. Add the players to OBS on this page first.');
+    calibrating = true;
+    try {
+      const results = await calibrateInputs(obs, people, { seconds, targetDb: target });
+      const fresh = configStore.get();
+      const players = { ...fresh.tavern.players };
+      for (const r of results) {
+        if (r.volumeDb === null) continue;
+        await obs.setInputVolumeDb(r.input, r.volumeDb);
+        players[r.key] = { ...players[r.key], levelDb: r.volumeDb };
+      }
+      configStore.save({ ...fresh, tavern: { ...fresh.tavern, players, levelTargetDb: target } });
+      const labelFor = (r) => {
+        const user = tavern.party.find((u) => u.key === r.key);
+        return user ? user.displayName || r.input : r.input;
+      };
+      const out = results.map((r) => ({ ...r, label: labelFor(r) }));
+      const done = out.filter((r) => r.volumeDb !== null).length;
+      logActivity('Chameleon', `Calibrated ${done} of ${out.length} participant${out.length === 1 ? '' : 's'} to ${target} dB.`, 'info');
+      broadcastStatus();
+      return { seconds, targetDb: target, results: out };
+    } finally {
+      calibrating = false;
+    }
   });
   ipcMain.handle('tavern:setChoice', (_event, key, field, on) => setChoice(String(key), String(field), Boolean(on)));
   ipcMain.handle('tavern:viewUrl', (_event, key, kind) => {

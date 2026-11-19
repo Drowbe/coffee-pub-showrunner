@@ -2129,6 +2129,7 @@ function applyTavernConfig() {
   if (document.activeElement !== tavernEls.login) tavernEls.login.value = t.login;
   tavernEls.auto.checked = t.autoConnect;
   tavernEls.audioFilters.checked = t.audioFilters;
+  if (document.activeElement !== levelEls.target) levelEls.target.value = String(t.levelTargetDb);
   if (document.activeElement !== tavernEls.width) tavernEls.width.value = String(t.playerWidth);
   if (document.activeElement !== tavernEls.height) tavernEls.height.value = String(t.playerHeight);
   tavernEls.lock.checked = t.lockRatio;
@@ -2174,6 +2175,66 @@ async function saveTavernSettings() {
 for (const el of [tavernEls.enabled, tavernEls.url, tavernEls.login, tavernEls.auto, tavernEls.width, tavernEls.height, tavernEls.lock, tavernEls.indicator, tavernEls.audioFilters, tavernEls.statusWidth, tavernEls.statusHeight]) {
   el.addEventListener('change', saveTavernSettings);
 }
+// Calibrate: everyone talks, Showrunner listens and sets each person's OBS volume.
+const levelEls = { target: $('tavern-level-target'), seconds: $('tavern-level-seconds'), run: $('tavern-level-run'), status: $('tavern-level-status'), results: $('tavern-level-results') };
+
+function renderLevelResults(done) {
+  levelEls.results.textContent = '';
+  for (const r of done.results) {
+    const row = document.createElement('div');
+    row.className = 'level-row';
+    const name = document.createElement('span');
+    name.className = 'level-name';
+    name.textContent = r.label;
+    const detail = document.createElement('span');
+    detail.className = 'level-detail';
+    if (r.state === 'ok') {
+      detail.textContent = `heard about ${r.speechDb} dB, volume now ${r.volumeDb > 0 ? '+' : ''}${r.volumeDb} dB`;
+    } else if (r.state === 'quiet') {
+      detail.textContent = 'barely any speech heard, left as it was';
+    } else {
+      detail.textContent = 'no speech heard (offline or silent), left as it was';
+    }
+    row.append(name, detail);
+    const flags = [];
+    if (r.clipping) flags.push('clipping: ask them to lower their mic');
+    if (r.clamped) flags.push(r.volumeDb >= 20 ? 'very quiet: raise their mic level' : 'very loud: lower their mic level');
+    if (flags.length) {
+      const flag = document.createElement('span');
+      flag.className = 'level-flag';
+      flag.textContent = flags.join('; ');
+      row.appendChild(flag);
+    }
+    levelEls.results.appendChild(row);
+  }
+}
+
+levelEls.run.addEventListener('click', async () => {
+  const seconds = Math.min(60, Math.max(5, Number(levelEls.seconds.value) || 10));
+  const targetDb = Math.min(-6, Math.max(-40, Number(levelEls.target.value) || -20));
+  levelEls.run.disabled = true;
+  levelEls.results.textContent = '';
+  let left = seconds;
+  levelEls.status.textContent = `Listening... ${left}s. Everyone talk normally.`;
+  const tick = setInterval(() => {
+    left -= 1;
+    if (left > 0) levelEls.status.textContent = `Listening... ${left}s. Everyone talk normally.`;
+    else levelEls.status.textContent = 'Working out the levels...';
+  }, 1000);
+  try {
+    const done = await api.tavernCalibrate({ seconds, targetDb });
+    const set = done.results.filter((r) => r.volumeDb !== null).length;
+    levelEls.status.textContent = set ? `Done. ${set} of ${done.results.length} set to ${done.targetDb} dB.` : 'Nobody was heard, so nothing changed.';
+    renderLevelResults(done);
+  } catch (err) {
+    levelEls.status.textContent = '';
+    showToast(err.message || String(err), { type: 'error' });
+  } finally {
+    clearInterval(tick);
+    levelEls.run.disabled = false;
+  }
+});
+
 $('tavern-add-filters').addEventListener('click', async () => {
   try {
     const { sources, filters } = await api.tavernAddAudioFilters();

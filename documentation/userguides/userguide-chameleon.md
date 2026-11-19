@@ -70,6 +70,27 @@ existing participants** to add the filters to the Participant sources already in
 stops new sources from getting them and never removes any. The filters even out each person; they do not match
 people to each other, so you may still nudge a volume.
 
+## Level the participants
+
+The audio filters even out each person; **Calibrate** matches people to each other. On the Chameleon page, under
+**Level the participants**, click **Calibrate** while everyone talks normally. Showrunner listens to the Participant
+sources in OBS for the number of seconds you set (10 by default), measures how loud each person speaks, and sets each
+person's OBS volume so that they all land at the **Target level** (-20 dB by default; speech usually sits around
+there). The volume is saved with the person, so calibrating is a one-time job for each: a new Participant source for
+someone you have calibrated starts at their saved volume.
+
+What the results say, one line per person:
+- **Heard about X dB, volume now Y dB:** what was measured and the volume it was set to.
+- **No speech heard:** the person was offline or silent. Their volume is left as it was.
+- **Clipping:** their peaks hit the top. Turning them down in OBS does not fix that; ask them to lower their microphone
+  gain.
+- **Very quiet or very loud:** the fix needed more than Calibrate will do (it works within -30 to +20 dB), so ask them
+  to move closer, or to raise or lower their mic level.
+
+Measuring is independent of where the OBS volume is now, so running Calibrate again gives the same answer. It only listens
+to the people who are speaking, so a short pause does not skew it. It adjusts volume, so it works on top of the filters
+and does not replace them.
+
 ## Rooms and Asides
 
 The **Room** card at the top of the Chameleon tab picks which room's users are listed: the

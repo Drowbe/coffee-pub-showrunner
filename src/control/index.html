@@ -510,6 +510,22 @@
         </div>
       </div>
 
+      <div class="card" id="tavern-level-card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Level the participants</h2>
+          </div>
+        </div>
+        <p class="hint">Everyone sounds a different loudness. Click <strong>Calibrate</strong> while everyone talks normally: Showrunner listens to each Participant source in OBS, then sets each person's volume so they all land at the same level. It sets the OBS volume, so a quiet mic is turned up and a loud one down, and it is saved with the person: a one-time job for each. A mic that is clipping, or very quiet, still needs adjusting at the source, and the results say so.</p>
+        <div class="row">
+          <label class="field field-inline"><span>Target level (dB)</span><input id="tavern-level-target" type="number" min="-40" max="-6" step="1" size="4" title="The average speech level every participant is brought to. Speech usually sits around -20."></label>
+          <label class="field field-inline"><span>Listen for (seconds)</span><input id="tavern-level-seconds" type="number" min="5" max="60" step="1" size="3" value="10"></label>
+          <button id="tavern-level-run" class="btn btn-primary" type="button">Calibrate</button>
+        </div>
+        <p class="hint" id="tavern-level-status"></p>
+        <div id="tavern-level-results" class="level-results"></div>
+      </div>
+
       <div class="card">
         <div class="view-head">
           <div class="view-head-left">
