@@ -77,8 +77,9 @@ keep their current place.
 
 - **0.4.0, shows foundation:** show list and picker, per-show windows, Session fields, filename template
   and automations, enable switches, the Login group rename, migration to version 13.
-- **0.4.1, show setup:** OBS profile and scene collection switching with the confirmation flow,
-  multiple YouTube channels and per-show YouTube defaults, templates for D&D, Livestream and Podcast.
+- **0.4.1, show setup and backups:** OBS profile and scene collection switching with the confirmation
+  flow, multiple YouTube channels and per-show YouTube defaults, templates for D&D, Livestream and
+  Podcast, and the backups described below.
 - **Later:** neutral wording for Automations and the Foundry copy, and a Chameleon workspace-sharing
   source (a whiteboard or document shared into a show) once that module exists.
 
@@ -91,6 +92,22 @@ keep their current place.
 - **A source that cannot be created** during the sync after a switch is still created in OBS and is
   marked failed. It shows red in the Windows list, and the window's page says what went wrong, the same
   way a disconnected source looks today.
+
+## Backups
+
+Moving to version 13 rewrote the config in a format older builds cannot read, and the only safety
+net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a setup.
+
+- **Automatic backup before a migration.** The first time a new version changes the config format, the
+  old files are copied into a dated folder next to the config (for example
+  `backups/config-v13-2026-11-19.json`) before anything is rewritten. This comes first.
+- **Back up now.** A button on Configuration that makes the same kind of copy on demand.
+- **Restore.** A list of backups with a Restore button. A restore first backs up the current
+  settings, so it cannot be a one-way trip, and warns that it replaces the current setup.
+- **Show in Finder.** Opens the backups folder.
+- **What is included:** `config.json` and the files holding the passwords, certificates and
+  recordings list. The browser cache is not.
+- **Later:** export and import a single show, which also makes shows shareable.
 
 ## 0.4.0 as built
 
