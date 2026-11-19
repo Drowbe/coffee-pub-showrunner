@@ -975,9 +975,11 @@ input[type="checkbox"].switch:disabled {
 }
 
 .tab.active {
-  color: var(--text);
-  background: var(--bg-card);
-  border-color: var(--border);
+  color: #FFFFFF;
+  font-weight: 600;
+  /* Tinted with the accent and outlined by it, so the selected page reads at a glance without an edge bar. */
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
 }
 
 .tab-add {
