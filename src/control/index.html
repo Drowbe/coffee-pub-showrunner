@@ -33,13 +33,21 @@
          data-tab key; selectTab() in control.js drives the active state and panels. -->
     <div class="nav-group">
       <div class="nav-heading">Session</div>
-      <button class="tab" data-tab="configuration" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>Configuration</button>
       <button class="tab" data-tab="metadata" type="button"><span class="dot ghost"></span>Session</button>
+      <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS</button>
     </div>
     <div class="nav-group" id="nav-integrations">
       <div class="nav-heading">Integrations</div>
-      <button class="tab" data-tab="automations" id="automations-tab" type="button" hidden><span class="dot" id="automations-dot" title="Automations server"></span>Automations</button>
       <button class="tab" data-tab="tavern" id="tavern-tab" type="button" hidden><span class="dot" id="tavern-dot" title="Chameleon connection"></span>Chameleon</button>
+      <button class="tab" data-tab="automations" id="automations-tab" type="button" hidden><span class="dot" id="automations-dot" title="Automations server"></span>Automations</button>
+      <button class="tab" data-tab="youtube" id="youtube-tab" type="button" hidden><span class="dot" id="youtube-dot" title="YouTube connection"></span>YouTube</button>
+      <button class="tab tab-add" data-tab="add-integration" id="add-integration" type="button" title="Switch an integration on for this profile"><i class="fa-solid fa-plus" aria-hidden="true"></i>Add integration</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-heading">App</div>
+      <button class="tab" data-tab="status" type="button"><span class="dot ghost"></span>Status</button>
+      <button class="tab" data-tab="preferences" type="button"><span class="dot ghost"></span>Preferences</button>
+      <button class="tab" data-tab="about" type="button"><span class="dot ghost"></span>About</button>
     </div>
     <div class="nav-group">
       <div class="nav-heading">Windows</div>
@@ -102,6 +110,20 @@
           <button id="metadata-add" class="btn btn-small" type="button">New</button>
         </div>
       </div>
+
+      <div class="card">
+        <h2>Recording Filename</h2>
+        <p class="hint">The Studio Control action <strong>Apply the session filename format to OBS</strong> writes the format below into OBS's own Filename Formatting setting whenever a rule set (or a direct API call) runs it -- add it as a step wherever you want it applied. <code>{title}</code>/<code>{campaign}</code> come from whatever triggered the rule set, any Metadata field on the Session tab works too by its own data field key (<code>{sessionCampaign}</code>, <code>{sessionDaysLeft}</code>, ...), and OBS's own <code>%</code>-style macros pass through untouched.</p>
+        <div class="row">
+          <label class="field field-inline field-wide">
+            <span>Filename format</span>
+            <input id="session-filename-format" type="text" spellcheck="false" placeholder="{sessionCampaign} - {campaign} - %CCYY-%MM-%DD">
+          </label>
+          <button id="session-filename-fields-toggle" class="btn btn-small btn-icon" type="button" title="Insert a Data Field" aria-label="Insert a Data Field"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>
+        </div>
+        <div class="datafield-picker" id="session-filename-fields-panel" hidden></div>
+        <p class="hint filename-preview" id="session-filename-preview"></p>
+      </div>
     </section>
 
     <section class="tab-panel" id="tab-profiles" hidden>
@@ -129,7 +151,8 @@
       </div>
     </section>
 
-    <section class="tab-panel" id="tab-configuration">
+
+    <section class="tab-panel" id="tab-status">
       <div class="card">
         <h2>Connections</h2>
         <div class="connections-board" id="connections-board">
@@ -158,6 +181,48 @@
           <div id="connections-activity" class="activity-log"></div>
           <p class="hint" id="connections-activity-empty">No activity yet.</p>
         </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-obs" hidden>
+      <div class="card obs">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>OBS</h2>
+            <span class="tag" id="obs-tag" hidden>CONNECTED</span>
+          </div>
+          <div class="view-actions">
+            <button id="obs-connect" class="btn btn-primary" type="button">Connect</button>
+            <button id="obs-sync" class="btn" type="button">Sync sources</button>
+            <button id="obs-capture-report" class="btn" type="button" title="Copy what OBS reports about window capture -- for checking Windows support or reporting a source that points at the wrong window">Copy capture report</button>
+          </div>
+        </div>
+        <p class="hint">
+          Keeps your OBS window-capture sources pointed at these windows after every launch, so you never re-pick a window.
+          In OBS: Tools &gt; WebSocket Server Settings, enable the server and set a password.
+        </p>
+        <div class="row">
+          <label class="check">
+            <input id="obs-auto" type="checkbox">
+            <span>Connect automatically at launch and reconnect if the link drops</span>
+          </label>
+        </div>
+        <div class="row">
+          <label class="field field-inline">
+            <span>Host</span>
+            <input id="obs-host" type="text" size="14" spellcheck="false">
+          </label>
+          <label class="field field-inline">
+            <span>Port</span>
+            <input id="obs-port" type="number" min="1" max="65535" step="1" size="6">
+          </label>
+          <label class="field field-inline">
+            <span>Password</span>
+            <input id="obs-password" type="password" size="16" autocomplete="off" placeholder="not set">
+          </label>
+          <button id="obs-save-password" class="btn" type="button" hidden>Save password</button>
+        </div>
+        <p class="hint" id="obs-status">Not connected.</p>
       </div>
 
       <div class="card">
@@ -188,7 +253,9 @@
         <div class="row automations-scene-buttons" id="automations-scenes"></div>
         <p class="hint" id="automations-obs-status">OBS is not connected.</p>
       </div>
+    </section>
 
+    <section class="tab-panel" id="tab-preferences" hidden>
       <div class="card">
         <h2>Layout &amp; Startup</h2>
         <div class="row">
@@ -242,7 +309,9 @@
           <span class="hint">Foundry ignores clicks until fully loaded; this is how long to wait first.</span>
         </div>
       </div>
+    </section>
 
+    <section class="tab-panel" id="tab-about" hidden>
       <div class="card">
         <h2>Reset &amp; Diagnostics</h2>
         <div class="row">
@@ -255,46 +324,93 @@
         </div>
       </div>
 
-      <div class="card obs">
+      <div class="card about">
         <div class="view-head">
           <div class="view-head-left">
-            <h2>OBS</h2>
-            <span class="tag" id="obs-tag" hidden>CONNECTED</span>
-          </div>
-          <div class="view-actions">
-            <button id="obs-connect" class="btn btn-primary" type="button">Connect</button>
-            <button id="obs-sync" class="btn" type="button">Sync sources</button>
-            <button id="obs-capture-report" class="btn" type="button" title="Copy what OBS reports about window capture -- for checking Windows support or reporting a source that points at the wrong window">Copy capture report</button>
+            <h2>About</h2>
           </div>
         </div>
-        <p class="hint">
-          Keeps your OBS window-capture sources pointed at these windows after every launch, so you never re-pick a window.
-          In OBS: Tools &gt; WebSocket Server Settings, enable the server and set a password.
-        </p>
+        <dl class="about-list">
+          <dt>Version</dt>
+          <dd id="about-version"></dd>
+          <dt>Build</dt>
+          <dd id="about-build"></dd>
+          <dt>Electron</dt>
+          <dd id="about-electron"></dd>
+          <dt>Chromium</dt>
+          <dd id="about-chromium"></dd>
+        </dl>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-youtube" hidden>
+      <div class="card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>YouTube</h2>
+            <span class="tag" id="youtube-tag" hidden>CONNECTED</span>
+          </div>
+        </div>
+        <p class="hint">The Studio Control action <strong>Upload the recording to YouTube</strong> uploads the most recent recording (or a specific file, per step) using whichever Metadata fields you wire to that step's Title/Description/Category/"Made for kids"/Visibility slots -- Category and Visibility fall back to the defaults below when left unset. Add it as a rule-set step on the Automations tab wherever you want it; it never runs on its own. There is no playlist option: adding a video to a playlist needs a broader permission Google's sign-in flow rejects outright for this kind of app ("Invalid device flow scope", confirmed live) -- add uploads to a playlist by hand afterward in YouTube Studio.</p>
+        <details class="cert-trust-help">
+          <summary>How to get a Client ID and Secret (Google Cloud Console, one-time setup)</summary>
+          <ol class="hint">
+            <li>Open <a href="#" id="youtube-open-api-library">console.cloud.google.com</a> and pick or create a project, then click <strong>Enable</strong> for the <strong>YouTube Data API v3</strong>.</li>
+            <li>Open the <a href="#" id="youtube-open-consent-screen">OAuth consent screen</a> page for that project. Fill in an app name and your email, and add the scope <code>.../auth/youtube.upload</code>. You can leave <strong>Publishing status</strong> as <strong>Testing</strong> while you set this up, but see the last step: left in Testing, Google expires the saved sign-in every 7 days and uploads start failing with "Bad Request".</li>
+            <li>Add your own Google account as a <strong>Test user</strong> -- Google has two different layouts for this depending on your account, so look in both places: the classic page has a <strong>Test users</strong> section right there; the newer "Google Auth Platform" redesign moves it to a separate <strong>Audience</strong> tab in its left sidebar. <strong>Skipping this step is the single most common failure</strong> -- without it, signing in fails with "Error 403: access_denied" even though everything else is set up correctly.</li>
+            <li>Open the <a href="#" id="youtube-open-credentials">Credentials</a> page (or, in the newer layout, the <strong>Clients</strong> tab in that same left sidebar) → <strong>Create Credentials</strong> → <strong>OAuth client ID</strong>. For <strong>Application type</strong>, choose <strong>"TVs and Limited Input devices"</strong> specifically -- "Desktop app" and "Web application" won't work with the sign-in flow below.</li>
+            <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> it gives you into the two fields below.</li>
+            <li><strong>Before you connect:</strong> back on the consent screen (<strong>Audience</strong> tab in the newer layout), click <strong>Publish app</strong> to move <strong>Publishing status</strong> to <strong>In production</strong>. No Google review is needed for your own use -- you'll just see a "Google hasn't verified this app" screen once when you connect. This matters: an app left in <strong>Testing</strong> gets a sign-in that Google expires after 7 days, and uploads then fail with "Bad Request" until you reconnect.</li>
+          </ol>
+        </details>
         <div class="row">
           <label class="check">
-            <input id="obs-auto" type="checkbox">
-            <span>Connect automatically at launch and reconnect if the link drops</span>
+            <input id="youtube-enabled" type="checkbox">
+            <span>Enable YouTube upload</span>
           </label>
         </div>
-        <div class="row">
-          <label class="field field-inline">
-            <span>Host</span>
-            <input id="obs-host" type="text" size="14" spellcheck="false">
-          </label>
-          <label class="field field-inline">
-            <span>Port</span>
-            <input id="obs-port" type="number" min="1" max="65535" step="1" size="6">
-          </label>
-          <label class="field field-inline">
-            <span>Password</span>
-            <input id="obs-password" type="password" size="16" autocomplete="off" placeholder="not set">
-          </label>
-          <button id="obs-save-password" class="btn" type="button" hidden>Save password</button>
+        <div id="youtube-settings">
+          <div class="row">
+            <label class="field field-inline field-wide">
+              <span>Client ID</span>
+              <input id="youtube-client-id" type="text" spellcheck="false" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com">
+            </label>
+            <button id="youtube-open-credentials-2" class="btn btn-small btn-icon" type="button" title="Open the Google Cloud Console credentials page" aria-label="Open the Google Cloud Console credentials page"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i></button>
+          </div>
+          <div class="row">
+            <label class="field field-inline field-wide">
+              <span>Client Secret</span>
+              <input id="youtube-client-secret" type="password" autocomplete="off" placeholder="not set">
+            </label>
+            <button id="youtube-save-secret" class="btn btn-small" type="button" hidden>Save secret</button>
+          </div>
+          <div class="row">
+            <button id="youtube-connect" class="btn btn-primary" type="button">Connect</button>
+            <button id="youtube-disconnect" class="btn btn-danger" type="button" hidden>Disconnect</button>
+            <span class="hint" id="youtube-status"></span>
+          </div>
+          <p class="hint" id="youtube-last-recording" hidden></p>
+          <p class="hint" id="youtube-device-code" hidden></p>
+          <div class="row">
+            <label class="field field-inline">
+              <span>Default privacy</span>
+              <select id="youtube-privacy">
+                <option value="private">Private</option>
+                <option value="unlisted">Unlisted</option>
+                <option value="public">Public</option>
+              </select>
+            </label>
+            <label class="field field-inline">
+              <span>Category ID</span>
+              <input id="youtube-category" type="text" size="4" spellcheck="false" placeholder="20">
+            </label>
+            <span class="hint">Both are defaults -- a step's own Visibility/Category fields, when set, override these for that run. 20 = Gaming, 24 = Entertainment, 27 = Education.</span>
+          </div>
         </div>
-        <p class="hint" id="obs-status">Not connected.</p>
       </div>
+    </section>
 
+    <section class="tab-panel" id="tab-tavern" hidden>
       <div class="card tavern">
         <div class="view-head">
           <div class="view-head-left">
@@ -385,6 +501,54 @@
         </div>
       </div>
 
+      <div class="card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2 id="tavern-title">Room</h2>
+          </div>
+          <div class="view-actions">
+            <label class="check" title="While on, OBS mutes and dims anyone live in a different room than the one picked below -- an aside pulled out of it, most likely. It never changes which room is picked; that's always this dropdown's own choice. Offline users are always muted and dimmed regardless of this setting."><input type="checkbox" id="tavern-follow-admin"> Enable Asides</label>
+            <select id="tavern-room" title="The room whose users are listed below"></select>
+          </div>
+        </div>
+        <div class="room-card" id="tavern-room-card">
+          <img class="room-image" id="tavern-room-image" alt="" hidden>
+          <div class="room-text">
+            <span id="tavern-room-desc"></span>
+            <span class="hint" id="tavern-room-count"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2 id="tavern-users-title">Users</h2>
+            <span class="hint" id="tavern-summary"></span>
+          </div>
+          <div class="view-actions">
+            <button id="tavern-show-all" class="btn btn-primary" type="button" title="Show every already-added source in this room that's currently hidden">Show All in OBS</button>
+            <button id="tavern-hide-all" class="btn" type="button" title="Hide every source in this room that's currently showing, without deleting it">Hide All in OBS</button>
+            <button id="tavern-publish-all" class="btn" type="button" title="Add to OBS everyone in this room who is ticked but not there yet">Add All in OBS</button>
+            <button id="tavern-unpublish-all" class="btn btn-danger" type="button" title="Delete every Chameleon source from OBS">Delete All from OBS</button>
+            <button id="tavern-sync" class="btn" type="button" title="Make OBS match: create, re-point and rename Chameleon sources">Sync OBS</button>
+          </div>
+        </div>
+        <p class="hint" id="tavern-empty">Sign in to Chameleon on the Session tab to see its users here.</p>
+      </div>
+
+      <div class="card" id="tavern-participants-section">
+        <h2>Participants</h2>
+        <div id="tavern-participants" class="party"></div>
+      </div>
+
+      <div class="card" id="tavern-characters-section">
+        <h2>Characters</h2>
+        <div id="tavern-characters" class="party"></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-automations" hidden>
       <div class="card automations">
         <div class="view-head">
           <div class="view-head-left">
@@ -452,152 +616,6 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="view-head">
-          <div class="view-head-left">
-            <h2>YouTube</h2>
-            <span class="tag" id="youtube-tag" hidden>CONNECTED</span>
-          </div>
-        </div>
-        <p class="hint">The Studio Control action <strong>Upload the recording to YouTube</strong> uploads the most recent recording (or a specific file, per step) using whichever Metadata fields you wire to that step's Title/Description/Category/"Made for kids"/Visibility slots -- Category and Visibility fall back to the defaults below when left unset. Add it as a rule-set step on the Automations tab wherever you want it; it never runs on its own. There is no playlist option: adding a video to a playlist needs a broader permission Google's sign-in flow rejects outright for this kind of app ("Invalid device flow scope", confirmed live) -- add uploads to a playlist by hand afterward in YouTube Studio.</p>
-        <details class="cert-trust-help">
-          <summary>How to get a Client ID and Secret (Google Cloud Console, one-time setup)</summary>
-          <ol class="hint">
-            <li>Open <a href="#" id="youtube-open-api-library">console.cloud.google.com</a> and pick or create a project, then click <strong>Enable</strong> for the <strong>YouTube Data API v3</strong>.</li>
-            <li>Open the <a href="#" id="youtube-open-consent-screen">OAuth consent screen</a> page for that project. Fill in an app name and your email, and add the scope <code>.../auth/youtube.upload</code>. You can leave <strong>Publishing status</strong> as <strong>Testing</strong> while you set this up, but see the last step: left in Testing, Google expires the saved sign-in every 7 days and uploads start failing with "Bad Request".</li>
-            <li>Add your own Google account as a <strong>Test user</strong> -- Google has two different layouts for this depending on your account, so look in both places: the classic page has a <strong>Test users</strong> section right there; the newer "Google Auth Platform" redesign moves it to a separate <strong>Audience</strong> tab in its left sidebar. <strong>Skipping this step is the single most common failure</strong> -- without it, signing in fails with "Error 403: access_denied" even though everything else is set up correctly.</li>
-            <li>Open the <a href="#" id="youtube-open-credentials">Credentials</a> page (or, in the newer layout, the <strong>Clients</strong> tab in that same left sidebar) → <strong>Create Credentials</strong> → <strong>OAuth client ID</strong>. For <strong>Application type</strong>, choose <strong>"TVs and Limited Input devices"</strong> specifically -- "Desktop app" and "Web application" won't work with the sign-in flow below.</li>
-            <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> it gives you into the two fields below.</li>
-            <li><strong>Before you connect:</strong> back on the consent screen (<strong>Audience</strong> tab in the newer layout), click <strong>Publish app</strong> to move <strong>Publishing status</strong> to <strong>In production</strong>. No Google review is needed for your own use -- you'll just see a "Google hasn't verified this app" screen once when you connect. This matters: an app left in <strong>Testing</strong> gets a sign-in that Google expires after 7 days, and uploads then fail with "Bad Request" until you reconnect.</li>
-          </ol>
-        </details>
-        <div class="row">
-          <label class="check">
-            <input id="youtube-enabled" type="checkbox">
-            <span>Enable YouTube upload</span>
-          </label>
-        </div>
-        <div id="youtube-settings">
-          <div class="row">
-            <label class="field field-inline field-wide">
-              <span>Client ID</span>
-              <input id="youtube-client-id" type="text" spellcheck="false" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com">
-            </label>
-            <button id="youtube-open-credentials-2" class="btn btn-small btn-icon" type="button" title="Open the Google Cloud Console credentials page" aria-label="Open the Google Cloud Console credentials page"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i></button>
-          </div>
-          <div class="row">
-            <label class="field field-inline field-wide">
-              <span>Client Secret</span>
-              <input id="youtube-client-secret" type="password" autocomplete="off" placeholder="not set">
-            </label>
-            <button id="youtube-save-secret" class="btn btn-small" type="button" hidden>Save secret</button>
-          </div>
-          <div class="row">
-            <button id="youtube-connect" class="btn btn-primary" type="button">Connect</button>
-            <button id="youtube-disconnect" class="btn btn-danger" type="button" hidden>Disconnect</button>
-            <span class="hint" id="youtube-status"></span>
-          </div>
-          <p class="hint" id="youtube-last-recording" hidden></p>
-          <p class="hint" id="youtube-device-code" hidden></p>
-          <div class="row">
-            <label class="field field-inline">
-              <span>Default privacy</span>
-              <select id="youtube-privacy">
-                <option value="private">Private</option>
-                <option value="unlisted">Unlisted</option>
-                <option value="public">Public</option>
-              </select>
-            </label>
-            <label class="field field-inline">
-              <span>Category ID</span>
-              <input id="youtube-category" type="text" size="4" spellcheck="false" placeholder="20">
-            </label>
-            <span class="hint">Both are defaults -- a step's own Visibility/Category fields, when set, override these for that run. 20 = Gaming, 24 = Entertainment, 27 = Education.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="card about">
-        <div class="view-head">
-          <div class="view-head-left">
-            <h2>About</h2>
-          </div>
-        </div>
-        <dl class="about-list">
-          <dt>Version</dt>
-          <dd id="about-version"></dd>
-          <dt>Build</dt>
-          <dd id="about-build"></dd>
-          <dt>Electron</dt>
-          <dd id="about-electron"></dd>
-          <dt>Chromium</dt>
-          <dd id="about-chromium"></dd>
-        </dl>
-      </div>
-    </section>
-
-    <section class="tab-panel" id="tab-tavern" hidden>
-      <div class="card">
-        <div class="view-head">
-          <div class="view-head-left">
-            <h2 id="tavern-title">Room</h2>
-          </div>
-          <div class="view-actions">
-            <label class="check" title="While on, OBS mutes and dims anyone live in a different room than the one picked below -- an aside pulled out of it, most likely. It never changes which room is picked; that's always this dropdown's own choice. Offline users are always muted and dimmed regardless of this setting."><input type="checkbox" id="tavern-follow-admin"> Enable Asides</label>
-            <select id="tavern-room" title="The room whose users are listed below"></select>
-          </div>
-        </div>
-        <div class="room-card" id="tavern-room-card">
-          <img class="room-image" id="tavern-room-image" alt="" hidden>
-          <div class="room-text">
-            <span id="tavern-room-desc"></span>
-            <span class="hint" id="tavern-room-count"></span>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="view-head">
-          <div class="view-head-left">
-            <h2 id="tavern-users-title">Users</h2>
-            <span class="hint" id="tavern-summary"></span>
-          </div>
-          <div class="view-actions">
-            <button id="tavern-show-all" class="btn btn-primary" type="button" title="Show every already-added source in this room that's currently hidden">Show All in OBS</button>
-            <button id="tavern-hide-all" class="btn" type="button" title="Hide every source in this room that's currently showing, without deleting it">Hide All in OBS</button>
-            <button id="tavern-publish-all" class="btn" type="button" title="Add to OBS everyone in this room who is ticked but not there yet">Add All in OBS</button>
-            <button id="tavern-unpublish-all" class="btn btn-danger" type="button" title="Delete every Chameleon source from OBS">Delete All from OBS</button>
-            <button id="tavern-sync" class="btn" type="button" title="Make OBS match: create, re-point and rename Chameleon sources">Sync OBS</button>
-          </div>
-        </div>
-        <p class="hint" id="tavern-empty">Sign in to Chameleon on the Session tab to see its users here.</p>
-      </div>
-
-      <div class="card" id="tavern-participants-section">
-        <h2>Participants</h2>
-        <div id="tavern-participants" class="party"></div>
-      </div>
-
-      <div class="card" id="tavern-characters-section">
-        <h2>Characters</h2>
-        <div id="tavern-characters" class="party"></div>
-      </div>
-    </section>
-
-    <section class="tab-panel" id="tab-automations" hidden>
-      <div class="card">
-        <h2>Recording Filename</h2>
-        <p class="hint">The Studio Control action <strong>Apply the session filename format to OBS</strong> writes the format below into OBS's own Filename Formatting setting whenever a rule set (or a direct API call) runs it -- add it as a step wherever you want it applied. <code>{title}</code>/<code>{campaign}</code> come from whatever triggered the rule set, any Metadata field on the Session tab works too by its own data field key (<code>{sessionCampaign}</code>, <code>{sessionDaysLeft}</code>, ...), and OBS's own <code>%</code>-style macros pass through untouched.</p>
-        <div class="row">
-          <label class="field field-inline field-wide">
-            <span>Filename format</span>
-            <input id="session-filename-format" type="text" spellcheck="false" placeholder="{sessionCampaign} - {campaign} - %CCYY-%MM-%DD">
-          </label>
-          <button id="session-filename-fields-toggle" class="btn btn-small btn-icon" type="button" title="Insert a Data Field" aria-label="Insert a Data Field"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>
-        </div>
-        <div class="datafield-picker" id="session-filename-fields-panel" hidden></div>
-        <p class="hint filename-preview" id="session-filename-preview"></p>
-      </div>
 
       <div class="card">
         <div class="view-head">
@@ -620,7 +638,7 @@
             <h2>Test Events</h2>
           </div>
         </div>
-        <p class="hint">Smoke test one of the events above to simulate the end-to-end connection. Recent activity, including this, shows in Connections on the Session tab.</p>
+        <p class="hint">Smoke test one of the events above to simulate the end-to-end connection. Recent activity, including this, shows on the Status tab.</p>
         <div class="row">
           <label class="field field-inline">
             <span>Event</span>
@@ -641,6 +659,12 @@
   <div id="add-menu" class="add-menu" hidden>
     <button type="button" class="btn" data-kind="web"><i class="fa-solid fa-globe" aria-hidden="true"></i> Web window</button>
     <button type="button" class="btn" data-kind="app"><i class="fa-solid fa-window-maximize" aria-hidden="true"></i> App window</button>
+  </div>
+
+  <div id="integration-menu" class="add-menu" hidden>
+    <button type="button" class="btn" data-integration="tavern">Chameleon</button>
+    <button type="button" class="btn" data-integration="automations">Automations</button>
+    <button type="button" class="btn" data-integration="youtube">YouTube</button>
   </div>
 
   <footer class="statusbar">

@@ -645,7 +645,7 @@ let limits = { minViews: 1, maxViews: 5 };
 /** @type {Map<string, HTMLElement>} */
 const cards = new Map();
 let saveTimer = null;
-let activeTab = 'configuration';
+let activeTab = 'status';
 
 const NUMBER_FIELDS = new Set(['width', 'height']);
 const BOOL_FIELDS = new Set(['enabled', 'dockOnLaunch', 'muted', 'wakeAudio']);
@@ -702,34 +702,35 @@ function recallTab() {
     // 'session' was this tab's key before the Configuration/Session split;
     // a value saved before that change would otherwise match nothing below
     // and leave every panel hidden.
-    return saved === 'session' ? 'configuration' : saved || 'configuration';
+    // Older builds saved 'session' or 'configuration' for the page that is now Status.
+    return !saved || saved === 'session' || saved === 'configuration' || saved === 'general' ? 'status' : saved;
   } catch (err) {
-    return 'configuration';
+    return 'status';
   }
 }
 
+// Every page that has a tab-<key> panel; windows have cards of their own.
+const PANEL_KEYS = ['metadata', 'profiles', 'status', 'obs', 'preferences', 'about', 'tavern', 'automations', 'youtube'];
+
 function selectTab(name) {
-  if (name === 'general' || name === 'obs') name = 'configuration';
-  if (name.startsWith('view:') && !config.views.some((v) => `view:${v.id}` === name)) name = 'configuration';
-  if (name === 'tavern' && !config.tavern.enabled) name = 'configuration';
-  if (name === 'automations' && !config.automations.enabled) name = 'configuration';
-  if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'configuration';
+  if (name === 'general' || name === 'configuration') name = 'status';
+  if (name.startsWith('view:') && !config.views.some((v) => `view:${v.id}` === name)) name = 'status';
+  if (name === 'tavern' && !config.tavern.enabled) name = 'status';
+  if (name === 'automations' && !config.automations.enabled) name = 'status';
+  if (name === 'youtube' && !config.youtube.enabled) name = 'status';
+  if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'status';
   activeTab = name;
   if (name !== 'profiles') rememberTab(name);
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.tab === name);
   }
-  $('tab-profiles').hidden = name !== 'profiles';
+  for (const key of PANEL_KEYS) $(`tab-${key}`).hidden = name !== key;
   syncProfilePicker();
-  $('tab-metadata').hidden = name !== 'metadata';
-  $('tab-configuration').hidden = name !== 'configuration';
-  $('tab-tavern').hidden = name !== 'tavern';
-  $('tab-automations').hidden = name !== 'automations';
-  // OBS Control (scene/source pickers) lives on Configuration; Rule Sets'
+  // OBS Control (scene/source pickers) lives on the OBS page; Rule Sets'
   // own scene/source pickers live on Automations -- both read the same
   // automationsScenes/automationsSources, so either tab arriving is worth
   // a fresh read.
-  if (name === 'configuration' || name === 'automations') refreshAutomationsScenes();
+  if (name === 'obs' || name === 'automations') refreshAutomationsScenes();
   for (const [id, card] of cards) card.hidden = name !== `view:${id}`;
   for (const [id, card] of appWinCards) card.hidden = name !== `app:${id}`;
   refreshStatusBar();
@@ -798,12 +799,75 @@ addMenuEl.addEventListener('click', (event) => {
   else addAppWindow();
 });
 
+// ---------------------------------------------------------------------------
+// Integrations: switched on per profile; a tab appears for each one that is on
+// ---------------------------------------------------------------------------
+
+const integrationMenuEl = $('integration-menu');
+const INTEGRATIONS = {
+  tavern: { enabled: () => config.tavern.enabled, box: () => tavernEls.enabled },
+  automations: { enabled: () => config.automations.enabled, box: () => automationsEls.enabled },
+  youtube: { enabled: () => config.youtube.enabled, box: () => youtubeEls.enabled },
+};
+
+function closeIntegrationMenu() {
+  integrationMenuEl.hidden = true;
+  document.removeEventListener('mousedown', onIntegrationMenuOutside, true);
+  document.removeEventListener('keydown', onIntegrationMenuKey, true);
+}
+function onIntegrationMenuOutside(event) {
+  if (!integrationMenuEl.contains(event.target)) closeIntegrationMenu();
+}
+function onIntegrationMenuKey(event) {
+  if (event.key === 'Escape') closeIntegrationMenu();
+}
+function openIntegrationMenu(anchor) {
+  const rect = anchor.getBoundingClientRect();
+  integrationMenuEl.style.top = `${Math.max(8, rect.top - 4)}px`;
+  integrationMenuEl.style.left = `${rect.right + 6}px`;
+  // Only the ones that are still off are worth offering.
+  for (const btn of integrationMenuEl.querySelectorAll('[data-integration]')) {
+    btn.hidden = INTEGRATIONS[btn.dataset.integration].enabled();
+  }
+  integrationMenuEl.hidden = false;
+  document.addEventListener('mousedown', onIntegrationMenuOutside, true);
+  document.addEventListener('keydown', onIntegrationMenuKey, true);
+}
+
+// Turns the integration on through its own switch, so it saves exactly as if the
+// switch on its page had been clicked, then opens its page.
+async function enableIntegration(key) {
+  const integration = INTEGRATIONS[key];
+  const box = integration.box();
+  box.checked = true;
+  box.dispatchEvent(new Event('change', { bubbles: true }));
+  for (let waited = 0; waited < 3000 && !integration.enabled(); waited += 50) await new Promise((resolve) => setTimeout(resolve, 50));
+  selectTab(key);
+}
+
+integrationMenuEl.addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-integration]');
+  if (!btn) return;
+  closeIntegrationMenu();
+  enableIntegration(btn.dataset.integration);
+});
+
+// The Add integration row only shows while there is something left to add.
+function syncIntegrationNav() {
+  $('add-integration').hidden = Object.values(INTEGRATIONS).every((i) => i.enabled());
+}
+
 $('tabs').addEventListener('click', (event) => {
   const tab = event.target.closest('.tab');
   if (!tab) return;
   if (tab.dataset.tab === 'add') {
     if (addMenuEl.hidden) openAddMenu(tab);
     else closeAddMenu();
+    return;
+  }
+  if (tab.dataset.tab === 'add-integration') {
+    if (integrationMenuEl.hidden) openIntegrationMenu(tab);
+    else closeIntegrationMenu();
     return;
   }
   selectTab(tab.dataset.tab);
@@ -887,6 +951,7 @@ function applyConfig(next) {
   applyTavernConfig();
   applyAutomationsConfig(firstLoad);
   applyYoutubeConfig();
+  syncIntegrationNav();
   if (!sameViews) {
     renderViewCards();
     return;
@@ -1011,7 +1076,7 @@ profilesEls.select.addEventListener('change', async () => {
   // Picking a profile while on the manage page switches to it and leaves the page.
   const result = await profileAction(() => api.switchProfile(wanted));
   if (result || wanted === config.activeProfile) {
-    if (activeTab === 'profiles') selectTab('configuration');
+    if (activeTab === 'profiles') selectTab('status');
   }
   // Cancelled or failed: put the picker back where it was.
   syncProfilePicker();
@@ -1604,7 +1669,7 @@ async function onCardClick(event) {
         break;
       case 'remove-view':
         if (window.confirm(`Delete the "${view.label}" window and its settings?`)) {
-          activeTab = 'configuration';
+          activeTab = 'status';
           await api.removeView(id);
         }
         break;
@@ -1725,7 +1790,7 @@ $('reset-config').addEventListener('click', async () => {
   if (!window.confirm('Reset URLs, sizes and positions to the defaults?')) return;
   const saved = await api.resetConfig();
   setSaveState('All changes saved');
-  activeTab = 'configuration';
+  activeTab = 'status';
   applyConfig(saved);
   renderStatus();
 });
@@ -1893,7 +1958,7 @@ function applyTavernConfig() {
   tavernEls.tab.hidden = !t.enabled;
   $('tavern-manage').hidden = !t.enabled;
   $('tavern-connect').hidden = !t.enabled;
-  if (!t.enabled && activeTab === 'tavern') selectTab('configuration');
+  if (!t.enabled && activeTab === 'tavern') selectTab('status');
   if (document.activeElement !== tavernEls.url) tavernEls.url.value = t.url;
   if (document.activeElement !== tavernEls.login) tavernEls.login.value = t.login;
   tavernEls.auto.checked = t.autoConnect;
@@ -2127,7 +2192,7 @@ function renderTavern() {
   $('tavern-users-title').textContent = room ? `Users in ${room.name}` : 'Users';
   $('tavern-room-count').textContent = room ? `${room.members.length} member${room.members.length === 1 ? '' : 's'}` : '';
   tavernEls.empty.hidden = connected;
-  tavernEls.empty.textContent = t.state === 'error' ? t.message : 'Sign in to Chameleon on the Configuration tab to see who is at the table.';
+  tavernEls.empty.textContent = t.state === 'error' ? t.message : 'Sign in to Chameleon (the Sign in button above) to see who is at the table.';
   // A room's profile gates which sources it offers: 'participants' drops
   // Character, 'characters' drops Participant, 'roleplaying' (or no
   // profile, for an older server) offers both. Every user in `party` is a
@@ -2429,7 +2494,7 @@ function applyAutomationsConfig(firstLoad) {
   automationsEls.enabled.checked = a.enabled;
   automationsEls.settings.hidden = !a.enabled;
   automationsEls.tab.hidden = !a.enabled;
-  if (!a.enabled && activeTab === 'automations') selectTab('configuration');
+  if (!a.enabled && activeTab === 'automations') selectTab('status');
   if (document.activeElement !== automationsEls.port) automationsEls.port.value = String(a.port);
   if (document.activeElement !== automationsEls.token) automationsEls.token.value = a.token;
   // Every status push -- including the one an OBS action like "Time it"
@@ -2461,6 +2526,8 @@ function applyYoutubeConfig() {
   const y = config.youtube;
   youtubeEls.enabled.checked = y.enabled;
   youtubeEls.settings.hidden = !y.enabled;
+  $('youtube-tab').hidden = !y.enabled;
+  if (!y.enabled && activeTab === 'youtube') selectTab('status');
   if (document.activeElement !== youtubeEls.clientId) youtubeEls.clientId.value = y.clientId;
   youtubeEls.privacy.value = y.privacyStatus;
   if (document.activeElement !== youtubeEls.category) youtubeEls.category.value = y.categoryId;
@@ -4026,7 +4093,7 @@ function renderAppWindows() {
       if (alsoObs) await api.obsRemoveSource(cur().sourceName).catch(reportError);
       config.appWindows = config.appWindows.filter((a) => a.id !== app.id);
       renderAppWindows();
-      if (activeTab === `app:${app.id}`) selectTab('configuration');
+      if (activeTab === `app:${app.id}`) selectTab('status');
       scheduleSave();
     });
     const actions = document.createElement('div');

@@ -13,7 +13,7 @@ is built.
 
 Foundry usually runs on a different machine than Showrunner, so the server listens on every network
 interface Showrunner's Mac has, not just localhost, and is reachable at
-`https://<studio-host>:<port>` -- the address and port are shown on Showrunner's Configuration tab,
+`https://<studio-host>:<port>` -- the address and port are shown on Showrunner's Automations tab,
 under Automations, once it is enabled. The port defaults to 9500 and is configurable there.
 
 Every request needs a Bearer token, generated and shown in the same place. There is no

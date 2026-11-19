@@ -23,6 +23,19 @@ user you want the recording to follow (a dedicated observer user works well). Wi
 cookies, for a different login or a different site entirely. Any number of windows can share a
 group. The change applies the next time the window starts.
 
+## The left rail
+
+The rail on the left groups the control panel into pages. The **Profile** picker is at the top. Below it:
+
+- **Session:** **Session** (your Session fields and the recording filename format) and **OBS** (the OBS
+  connection, and a remote for recording, streaming and scenes).
+- **Integrations:** **Chameleon**, **Automations** and **YouTube**. Each is off until you switch it on, and each has
+  its own on and off switch at the top of its page. Click **Add integration** to turn one on and open its page.
+  Switching one off hides its page and keeps its settings.
+- **App:** **Status** (connections and the activity log, the page the app opens on), **Preferences** (layout, dock and
+  startup) and **About** (reset, diagnostics and version).
+- **Windows:** one page for each window, and **Add window**.
+
 ## Profiles
 
 A profile is a saved setup for one kind of recording: its windows and regions, its Session fields and

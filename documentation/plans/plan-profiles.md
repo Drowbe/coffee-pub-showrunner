@@ -159,7 +159,7 @@ net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a
 - **Automatic backup before a migration.** The first time a new version changes the config format, the
   old files are copied into a dated folder next to the config (for example
   `backups/config-v13-2026-11-19.json`) before anything is rewritten. This comes first.
-- **Back up now.** A button on Configuration that makes the same kind of copy on demand.
+- **Back up now.** A button on the Manage profiles page that makes the same kind of copy on demand.
 - **Restore.** A list of backups with a Restore button. A restore first backs up the current
   settings, so it cannot be a one-way trip, and warns that it replaces the current setup.
 - **Show in Finder.** Opens the backups folder.

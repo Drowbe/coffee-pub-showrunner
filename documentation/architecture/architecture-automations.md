@@ -8,57 +8,38 @@ reading the code.
 
 ## Where things live in the control panel's tabs
 
-Cards moved, on purpose, away from where the code that runs them (`runAutomationAction`) or their
-own internal names suggested they belonged. The visible tab labels and the internal `data-tab`
-keys/`src/control/control.js` identifiers no longer match one-for-one for "Session" -- same kind of
-mismatch "Chameleon" already had with its internal key `tavern`, deliberately *not* repeated for
-"Configuration": that key was `session` immediately after the Session/Configuration split, which
-inverted rather than just abbreviated -- `data-tab="session"`/`tab-session` meant Configuration,
-while the actual Session tab was keyed `metadata` -- confirmed as a real hygiene problem (a `grep
-session` while working on the Session tab would land on the wrong code) and renamed to
-`configuration` the same session it was introduced. `recallTab()` maps a `localStorage` value of
-the old `'session'` key to `'configuration'`, so anyone who had a tab preference saved before the
-rename still lands somewhere real instead of every panel hidden:
+The control panel used to have one large Configuration page holding connection status, OBS, Chameleon,
+Automations and YouTube settings, layout preferences and diagnostics. With the left rail it is one page per
+topic, in groups. A profile picker sits above the rail; the pages below it are:
 
-| Visible tab | Internal `data-tab` key | Holds |
-| --- | --- | --- |
-| Configuration | `configuration` | Connections (status + activity log), OBS Control (manual remote), YouTube (connection/auth settings), Layout & Startup, Reset & Diagnostics |
-| Session | `metadata` | Metadata only -- this session's own data (`config.metadataFields`) |
-| Automations | `automations` | Recording Filename, Rule Sets, Test Events |
+| Group | Visible tab | Internal `data-tab` key | Holds |
+| --- | --- | --- | --- |
+| Session | Session | `metadata` | Metadata fields (`config.metadataFields`) and the Recording Filename format |
+| Session | OBS | `obs` | OBS connection settings and OBS Control (manual remote: recording, streaming, scenes) |
+| Integrations | Chameleon | `tavern` | Chameleon settings, then the room, users, participants and characters |
+| Integrations | Automations | `automations` | Automations server settings, then Rule Sets and Test Events |
+| Integrations | YouTube | `youtube` | YouTube connection settings and upload defaults |
+| App | Status | `status` | Connections (status and the activity log); the page the app opens on |
+| App | Preferences | `preferences` | Layout & Startup |
+| App | About | `about` | Reset & Diagnostics and About |
+| Windows | one per window | `view:<id>`, `app:<id>` | The window's card, its OBS sources and regions |
 
-Nav order matches this table left to right, then Chameleon (only once connected) and each
-window's own tab -- Configuration first since `recallTab()`'s fresh-install default is
-`'configuration'`, the same key. `config.session` (`filenameFormat`, on disk) is a separate,
-untouched thing -- a data key, not a tab key; it just no longer lives on a tab of the same name.
+Manage profiles (`profiles`) is a page too, but it is reached from the profile picker rather than the rail.
 
-Why: OBS Control (start/pause/stop recording and streaming, scene buttons) is something a person
-does live, during a session -- it was never really about automation, just built alongside the
-Automations feature and left there out of proximity, not because it belonged there, so it moved to
-Configuration and is always available regardless of whether the separate Automations *feature* is
-even turned on. Recording Filename is the opposite kind of move: its one and only consumer is
-`applySessionFilename`, a Studio Control action -- nothing works with its `filenameFormat` template
-except by adding that action as a rule-set step -- so it now sits at the top of the Automations tab,
-next to the thing that actually uses it, rather than sitting somewhere with no visible connection to
-how it gets applied at all (exactly the confusion that originally led to this). Metadata got split
-out to its own tab (labelled "Session", internal key `metadata`) once it became the *only* thing on
-the old Session tab that was actual session data rather than status or configuration -- everything
-else remaining there (Connections, OBS Control, Layout & Startup, Reset & Diagnostics) is either
-live status/action or settings, hence that tab's new label, "Configuration".
+Each integration has an enable switch at the top of its own settings. A tab for an integration shows only
+while its switch is on, and **Add integration** at the end of the group turns one on and opens its page, the same
+way **Add window** works. Turning an integration off keeps its settings. Internally the tab keys and element ids
+stayed where the code already had them (`tavern` for Chameleon), so this was a relocation of cards in
+`src/control/index.html` plus `selectTab` in `src/control/control.js` toggling every `tab-<key>` panel from one
+list (`PANEL_KEYS`). `recallTab()` maps a saved `'session'`, `'configuration'` or `'general'` to `status`, so a
+tab preference saved by an older build still lands on a real page.
 
-YouTube's card is a third pattern, distinct from both: it's connection/auth setup (Client ID/Secret,
-Connect/Disconnect), the same kind of thing OBS's host/port/password and Automations' port/token
-already are, so it lives on Configuration alongside them -- moved there after first being placed on
-Automations (reasoning by proximity to `uploadToYouTube`, the same mistake OBS Control's original
-placement made). The *action* itself is still only ever added as a step from the Automations tab's
-rule-set editor, same as every other Showrunner action; only where you connect the account moved.
-
-None of this touched `session.filenameFormat`, `config.metadataFields`, or any element id --
-`src/control/control.js` lookups (`$('metadata-fields')`, `$('session-filename-format')`, ...) are
-unchanged, so this was purely a `src/control/index.html` relocation plus `selectTab`
-(`src/control/control.js`) gaining a fourth `hidden`-toggle branch for `tab-metadata`. One real
-behavior fix rode along: `refreshAutomationsScenes()` used to run only when the Automations *tab*
-was selected; now that OBS Control's scene/source pickers live on Configuration, selecting either
-tab triggers a refresh, since both read the same `automationsScenes`/`automationsSources`.
+Why these moves: OBS Control is something a person does live, so it sits with the OBS connection, available whether
+or not the Automations feature is on. The Recording Filename format's one consumer is `applySessionFilename`, a
+Studio Control action, but it is a property of the session, so it sits on the Session page beside the Metadata
+fields it can reference. YouTube and Chameleon are connection setup, which is why each has a page of its own
+instead of a card on a shared one. One behavior fix: `refreshAutomationsScenes()` runs when either the OBS or the
+Automations page is selected, since both read the same `automationsScenes` and `automationsSources`.
 
 ## Why a server, not a client
 
