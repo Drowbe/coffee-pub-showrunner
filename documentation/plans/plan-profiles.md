@@ -1,4 +1,4 @@
-# Shows: one app, many kinds of recording
+# Profiles: one app, many kinds of recording
 
 **Audience:** whoever builds 0.4.0 and 0.4.1, and anyone reviewing the direction before code starts.
 
@@ -11,20 +11,20 @@ after that has to rewire windows, fields, automations, OBS and YouTube by hand e
 
 ## The idea
 
-A **show** is a saved bundle of everything that changes between kinds of recording. One show is active.
-Switching the active show swaps the setup, including the OBS profile and scene collection.
+A **profile** is a saved bundle of everything that changes between kinds of recording. One profile is active.
+Switching the active profile swaps the setup, including the OBS profile and scene collection.
 
 "Session" stays the word for one recording and for the Session page. The cookie-sharing "session group"
 on windows is renamed **Login group** in the UI so the two meanings stop colliding. It is a label
 change only; saved configs keep their field names.
 
-## What belongs to a show
+## What belongs to a profile
 
 - Name.
 - Session fields and the recording filename template.
 - Windows, their sources and regions, and each window's audio-wake setting.
 - Automation rules.
-- Chameleon: which users and rooms feed this show.
+- Chameleon: which users and rooms feed this profile.
 - OBS profile (stream key, encoder, output settings), optional.
 - OBS scene collection (scenes and sources), optional.
 - YouTube channel and defaults (category, privacy, playlist, title and description templates).
@@ -42,55 +42,60 @@ Every optional piece has its own on/off toggle: Chameleon, Automations, the OBS 
 scene collection switch, YouTube defaults, and each window. An empty field means "not set up yet". A
 disabled piece keeps its settings and does nothing. The sidebar hides a disabled integration.
 
-## Switching shows
+## Switching profiles
 
-1. The user picks a show in the sidebar picker.
-2. A confirmation names the show, the OBS profile, the OBS scene collection and the YouTube channel,
+1. The user picks a profile in the sidebar picker.
+2. A confirmation names the profile, the OBS profile, the OBS scene collection and the YouTube channel,
    and says the current scenes close but are not deleted.
 3. If OBS is streaming or recording, the switch is blocked with an explanation and an offer to stop
    first. OBS may refuse a profile change while active anyway.
 4. If OBS is not connected, only the app's own settings change, and the message says OBS was left alone.
 5. OBS profile and scene collection are set with separate websocket calls, so a failure on one is
    reported without hiding the other.
-6. After the scene collection changes, Showrunner syncs the show's windows, regions and Chameleon
-   sources into it, so they exist in the collection the show owns.
+6. After the scene collection changes, Showrunner syncs the profile's windows, regions and Chameleon
+   sources into it, so they exist in the collection the profile owns.
 7. "Don't ask again" skips the confirmation only when nothing is recording.
 
-## YouTube per show
+## YouTube per profile
 
-Several channels can be connected at once. Each show picks one. A show with no channel set cannot upload
+Several channels can be connected at once. Each profile picks one. A profile with no channel set cannot upload
 or edit YouTube metadata. The existing login becomes the first connected channel and the migrated D&D
-show points at it.
+profile points at it.
 
 ## The picker
 
-The picker is always at the top of the sidebar, even with one show, so it is clear which show is
-active. Its last entry, "Manage shows...", opens a page of its own for creating, renaming, duplicating and
-deleting shows and for backups. Those apply to the whole app, so they do not sit on a page that belongs
-to a show.
+The picker is always at the top of the sidebar, even with one profile, so it is clear which profile is
+active. Its last entry, "Manage profiles...", opens a page of its own for creating, renaming, duplicating and
+deleting profiles and for backups. Those apply to the whole app, so they do not sit on a page that belongs
+to a profile.
 
 ## Migration
 
-Config version 12 to 13. A `shows` list and an `activeShow` id are added. Existing windows, Session
-fields, filename template, automations and Chameleon settings move into one show named "D&D". The
-existing YouTube login becomes the first connected channel. Nothing is deleted; fields that stay global
-keep their current place.
+Config version 12 to 13 added a list of shows and an `activeShow` id, and 0.4.0 shipped that. Existing
+windows, Session fields, filename template, automations and Chameleon settings moved into one show named
+"D&D", and the existing YouTube login stays global for now. Nothing was deleted; fields that stay global keep
+their current place.
+
+The product calls these **profiles**: "show" implied making a show, when someone may be recording for a
+website or a product review. Version 14 renames the stored keys, `shows` to `profiles` and `activeShow` to
+`activeProfile`, and converts a version 13 file the first time the app starts. Like every format change it is
+preceded by an automatic backup.
 
 ## Releases
 
-- **0.4.0, shows foundation:** show list and picker, per-show windows, Session fields, filename template
+- **0.4.0, profiles foundation:** profile list and picker, per-profile windows, Session fields, filename template
   and automations, enable switches, the Login group rename, migration to version 13.
-- **0.4.1, show setup and backups:** OBS profile and scene collection switching with the confirmation
-  flow, multiple YouTube channels and per-show YouTube defaults, templates for D&D, Livestream and
+- **0.4.1, profile setup and backups:** OBS profile and scene collection switching with the confirmation
+  flow, multiple YouTube channels and per-profile YouTube defaults, templates for D&D, Livestream and
   Podcast, and the backups described below.
 - **Later:** neutral wording for Automations and the Foundry copy, and a Chameleon workspace-sharing
-  source (a whiteboard or document shared into a show) once that module exists.
+  source (a whiteboard or document shared into a profile) once that module exists.
 
 ## Decisions
 
-- **Duplicate show** copies everything, including windows and regions.
-- **Session field values** belong to the show. Each show keeps its own counters and text, so switching
-  away and back leaves the D&D show at its last season and episode. Prompt fields keep their existing
+- **Duplicate profile** copies everything, including windows and regions.
+- **Session field values** belong to the profile. Each profile keeps its own counters and text, so switching
+  away and back leaves the D&D profile at its last season and episode. Prompt fields keep their existing
   behaviour of clearing after use.
 - **A source that cannot be created** during the sync after a switch is still created in OBS and is
   marked failed. It shows red in the Windows list, and the window's page says what went wrong, the same
@@ -110,25 +115,27 @@ net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a
 - **Show in Finder.** Opens the backups folder.
 - **What is included:** `config.json` and the files holding the passwords, certificates and
   recordings list. The browser cache is not.
-- **Later:** export and import a single show, which also makes shows shareable.
+- **Later:** export and import a single profile, which also makes profiles shareable.
 
 ## 0.4.0 as built
 
 - The app still reads one flat config. `project()` and `fold()` in `src/config.js` turn the stored list
-  of shows into the active show's flat config and back, so the code that reads windows, Session fields
+  of profiles into the active profile's flat config and back, so the code that reads windows, Session fields
   and rules did not change.
-- Chameleon and Automations are split between global and per show. Global: the Chameleon address,
-  login and source sizes, and the Automations port and token. Per show: whether each is enabled, the
+- Chameleon and Automations are split between global and per profile. Global: the Chameleon address,
+  login and source sizes, and the Automations port and token. Per profile: whether each is enabled, the
   rule sets, and the Chameleon space and per-player source choices.
-- Switching a show closes the old show's windows, starts the new one's and re-syncs OBS. Sources that
-  the old show made stay in OBS. OBS profile and scene collection switching, and the warning that goes
+- Switching a profile closes the old profile's windows, starts the new one's and re-syncs OBS. Sources that
+  the old profile made stay in OBS. OBS profile and scene collection switching, and the warning that goes
   with it, belong to 0.4.1.
 - Feedback after the 0.4.0 release changed the layout in 0.4.1: the picker is always visible, and the
-  Shows card moved from Configuration to the Manage shows page, with Backups.
-- A new show starts empty. Duplicate copies everything. A version 12 file becomes one show named
-  "D&D"; a fresh install starts with one named "My Show".
+  Profiles card moved from Configuration to the Manage profiles page, with Backups.
+- A new profile starts empty. Duplicate copies everything. A version 12 file becomes one profile named
+  "D&D"; a fresh install starts with one named "My Profile".
 - The enable switches in 0.4.0 are the ones that already existed: each window's Start on launch,
   Automations and Chameleon. The OBS switch and YouTube defaults get theirs in 0.4.1.
+- The word "show" shipped in 0.4.0 and was renamed to "profile" in 0.4.1 after feedback; the stored keys
+  changed with the version 14 migration.
 - The cookie-sharing "session group" is now called "login group" in the UI and docs. The config field
   is still `session`.
 

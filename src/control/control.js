@@ -715,12 +715,12 @@ function selectTab(name) {
   if (name === 'automations' && !config.automations.enabled) name = 'configuration';
   if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'configuration';
   activeTab = name;
-  if (name !== 'shows') rememberTab(name);
+  if (name !== 'profiles') rememberTab(name);
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.tab === name);
   }
-  $('tab-shows').hidden = name !== 'shows';
-  syncShowPicker();
+  $('tab-profiles').hidden = name !== 'profiles';
+  syncProfilePicker();
   $('tab-metadata').hidden = name !== 'metadata';
   $('tab-configuration').hidden = name !== 'configuration';
   $('tab-tavern').hidden = name !== 'tavern';
@@ -862,7 +862,7 @@ function applyConfig(next) {
   dockSideEl.disabled = !config.dock.enabled;
   if (document.activeElement !== dockOverlapEl) dockOverlapEl.value = String(config.dock.overlap);
   renderSessionGroups();
-  renderShows();
+  renderProfiles();
   hideDockIconEl.checked = config.hideDockIcon;
   hideDockIconEl.disabled = !config.menuBarIcon;
   retinaDoubleEl.checked = config.retinaDouble;
@@ -899,26 +899,26 @@ function applyConfig(next) {
 }
 
 // ---------------------------------------------------------------------------
-// Shows
+// Profiles
 // ---------------------------------------------------------------------------
 
-const showsEls = {
-  picker: $('show-picker'),
-  select: $('show-select'),
-  list: $('shows-list'),
-  newName: $('show-new-name'),
-  newButton: $('show-new'),
+const profilesEls = {
+  picker: $('profile-picker'),
+  select: $('profile-select'),
+  list: $('profiles-list'),
+  newName: $('profile-new-name'),
+  newButton: $('profile-new'),
 };
-let showsSignature = '';
-const MANAGE_SHOWS = '__manage__';
+let profilesSignature = '';
+const MANAGE_PROFILES = '__manage__';
 
-// The picker names the active show, or Manage shows while that page is open.
-function syncShowPicker() {
-  if (!config || !showsEls) return;
-  showsEls.select.value = activeTab === 'shows' ? MANAGE_SHOWS : config.activeShow;
+// The picker names the active profile, or Manage profiles while that page is open.
+function syncProfilePicker() {
+  if (!config || !profilesEls) return;
+  profilesEls.select.value = activeTab === 'profiles' ? MANAGE_PROFILES : config.activeProfile;
 }
 
-async function showAction(run) {
+async function profileAction(run) {
   try {
     await flushSave();
     return await run();
@@ -928,44 +928,44 @@ async function showAction(run) {
   }
 }
 
-function renderShows() {
-  const signature = JSON.stringify([config.shows, config.activeShow]);
-  if (signature === showsSignature) return;
-  if (isEditing(showsEls.list)) return;
-  showsSignature = signature;
+function renderProfiles() {
+  const signature = JSON.stringify([config.profiles, config.activeProfile]);
+  if (signature === profilesSignature) return;
+  if (isEditing(profilesEls.list)) return;
+  profilesSignature = signature;
 
-  // The picker is always there: the shows, then a way into the page that manages them.
-  showsEls.select.textContent = '';
-  for (const show of config.shows) {
+  // The picker is always there: the profiles, then a way into the page that manages them.
+  profilesEls.select.textContent = '';
+  for (const profile of config.profiles) {
     const option = document.createElement('option');
-    option.value = show.id;
-    option.textContent = show.name;
-    showsEls.select.appendChild(option);
+    option.value = profile.id;
+    option.textContent = profile.name;
+    profilesEls.select.appendChild(option);
   }
   const divider = document.createElement('option');
   divider.disabled = true;
   divider.textContent = '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500';
-  showsEls.select.appendChild(divider);
+  profilesEls.select.appendChild(divider);
   const manage = document.createElement('option');
-  manage.value = MANAGE_SHOWS;
-  manage.textContent = 'Manage shows\u2026';
-  showsEls.select.appendChild(manage);
-  syncShowPicker();
+  manage.value = MANAGE_PROFILES;
+  manage.textContent = 'Manage profiles\u2026';
+  profilesEls.select.appendChild(manage);
+  syncProfilePicker();
 
-  showsEls.list.textContent = '';
-  for (const show of config.shows) {
-    const active = show.id === config.activeShow;
+  profilesEls.list.textContent = '';
+  for (const profile of config.profiles) {
+    const active = profile.id === config.activeProfile;
     const row = document.createElement('div');
-    row.className = `show-row${active ? ' active' : ''}`;
-    row.dataset.showId = show.id;
+    row.className = `profile-row${active ? ' active' : ''}`;
+    row.dataset.profileId = profile.id;
 
     const name = document.createElement('input');
     name.type = 'text';
-    name.value = show.name;
+    name.value = profile.name;
     name.maxLength = 40;
     name.spellcheck = false;
-    name.setAttribute('aria-label', 'Show name');
-    name.addEventListener('change', () => showAction(() => api.renameShow(show.id, name.value)));
+    name.setAttribute('aria-label', 'Profile name');
+    name.addEventListener('change', () => profileAction(() => api.renameProfile(profile.id, name.value)));
     row.appendChild(name);
 
     if (active) {
@@ -978,7 +978,7 @@ function renderShows() {
       switchButton.type = 'button';
       switchButton.className = 'btn btn-small';
       switchButton.textContent = 'Switch';
-      switchButton.addEventListener('click', () => showAction(() => api.switchShow(show.id)));
+      switchButton.addEventListener('click', () => profileAction(() => api.switchProfile(profile.id)));
       row.appendChild(switchButton);
     }
 
@@ -986,45 +986,45 @@ function renderShows() {
     duplicate.type = 'button';
     duplicate.className = 'btn btn-small';
     duplicate.textContent = 'Duplicate';
-    duplicate.title = 'A copy of this show, windows and regions included';
-    duplicate.addEventListener('click', () => showAction(() => api.duplicateShow(show.id)));
+    duplicate.title = 'A copy of this profile, windows and regions included';
+    duplicate.addEventListener('click', () => profileAction(() => api.duplicateProfile(profile.id)));
     row.appendChild(duplicate);
 
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'btn btn-small btn-danger';
     remove.textContent = 'Delete';
-    remove.disabled = config.shows.length < 2;
-    remove.addEventListener('click', () => showAction(() => api.deleteShow(show.id)));
+    remove.disabled = config.profiles.length < 2;
+    remove.addEventListener('click', () => profileAction(() => api.deleteProfile(profile.id)));
     row.appendChild(remove);
 
-    showsEls.list.appendChild(row);
+    profilesEls.list.appendChild(row);
   }
 }
 
-showsEls.select.addEventListener('change', async () => {
-  const wanted = showsEls.select.value;
-  if (wanted === MANAGE_SHOWS) {
-    selectTab('shows');
+profilesEls.select.addEventListener('change', async () => {
+  const wanted = profilesEls.select.value;
+  if (wanted === MANAGE_PROFILES) {
+    selectTab('profiles');
     return;
   }
-  // Picking a show while on the manage page switches to it and leaves the page.
-  const result = await showAction(() => api.switchShow(wanted));
-  if (result || wanted === config.activeShow) {
-    if (activeTab === 'shows') selectTab('configuration');
+  // Picking a profile while on the manage page switches to it and leaves the page.
+  const result = await profileAction(() => api.switchProfile(wanted));
+  if (result || wanted === config.activeProfile) {
+    if (activeTab === 'profiles') selectTab('configuration');
   }
   // Cancelled or failed: put the picker back where it was.
-  syncShowPicker();
+  syncProfilePicker();
 });
 
-async function createShowFromInput() {
-  const name = showsEls.newName.value.trim();
-  const result = await showAction(() => api.createShow(name));
-  if (result) showsEls.newName.value = '';
+async function createProfileFromInput() {
+  const name = profilesEls.newName.value.trim();
+  const result = await profileAction(() => api.createProfile(name));
+  if (result) profilesEls.newName.value = '';
 }
-showsEls.newButton.addEventListener('click', createShowFromInput);
-showsEls.newName.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') createShowFromInput();
+profilesEls.newButton.addEventListener('click', createProfileFromInput);
+profilesEls.newName.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') createProfileFromInput();
 });
 
 // ---------------------------------------------------------------------------

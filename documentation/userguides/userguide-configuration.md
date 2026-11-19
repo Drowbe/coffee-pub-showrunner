@@ -10,27 +10,27 @@ Settings are stored as JSON at
 Backups of this file and the other settings files are kept in a `backups` folder beside it; see
 [Settings, windows and the edge dock](userguide-settings.md#backups).
 
-Since version 13 the file holds a list of **shows**. Each show owns its `views`, `appWindows`,
+Since version 13 the file holds a list of **profiles**. Each profile owns its `views`, `appWindows`,
 `metadataFields`, `session` (the filename format), `automations` (`enabled` and `ruleSets`) and the
 `tavern` settings that depend on the table (`enabled`, `space`, `followAdmin`,
-`characterWithPlayer`, `players`). `activeShow` names the one in use. Everything else
+`characterWithPlayer`, `players`). `activeProfile` names the one in use. Everything else
 (`obs`, `youtube`, `dock`, `panel`, the preferences, the Chameleon connection details such as
 `tavern.url`, and the Automations `port` and `token`) stays at the top level and is shared by every
-show. A version 12 file becomes one show named "D&D" when the app first starts.
+profile. A version 12 file becomes one profile named "D&D" when the app first starts. Version 13 called profiles `shows` (with `activeShow`); a version 13 file is converted when the app first starts, after an automatic backup.
 
-The example is trimmed to the window and OBS shape for readability, and shows one show with two
+The example is trimmed to the window and OBS shape for readability, and shows one profile with two
 windows; `tavern` and `automations` are covered in their own guides:
 [Coffee Pub Chameleon in OBS](userguide-chameleon.md) and the
 [Automations API](../api/api-automations.md).
 
 ```json
 {
-  "version": 13,
+  "version": 14,
   "obs": { "autoConnect": false, "host": "127.0.0.1", "port": 4455 },
-  "activeShow": "show1",
-  "shows": [
+  "activeProfile": "profile1",
+  "profiles": [
     {
-      "id": "show1",
+      "id": "profile1",
       "name": "D&D",
       "views": [
         {
@@ -79,7 +79,7 @@ windows; `tavern` and `automations` are covered in their own guides:
 }
 ```
 
-A show's `views` holds zero to five entries, in the order they appear in the panel and in the menu.
+A profile's `views` holds zero to five entries, in the order they appear in the panel and in the menu.
 
 | Field | Meaning |
 | --- | --- |

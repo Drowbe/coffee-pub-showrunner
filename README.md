@@ -34,7 +34,7 @@ automation step, for example) is updated to match. After installing, delete the 
   CSS selector, and the app creates a cropped OBS source for it and keeps the crop current.
 - Login groups: windows in the same group share a login, windows in different groups do not.
 - Backups: an automatic copy of your settings before an update changes their format, a Back up now button, and one-click restore.
-- Shows: save a setup per kind of recording (D&D, a livestream, a podcast) and switch between them; each show has its own windows, Session fields, filename format, Automations rules and Chameleon settings.
+- Profiles: save a setup per kind of recording (D&D, a livestream, a podcast, a product review) and switch between them; each profile has its own windows, Session fields, filename format, Automations rules and Chameleon settings.
 - Coffee Pub Chameleon: sign in to the party's voice and video server and publish each player as
   an OBS Browser Source with one click, kept in sync by the player's stable key.
 - Automations: let a Foundry module (or anything else) trigger an OBS action -- switch scene,
