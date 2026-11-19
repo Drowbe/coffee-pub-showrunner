@@ -2411,6 +2411,9 @@ async function switchProfile(id) {
     while (viewWindows.size > 0 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
     parked.clear();
     const saved = configStore.switchProfile(id);
+    // The new profile's OBS profile and scene collection, if it has them switched on. A failure here is
+    // logged and does not stop the switch.
+    if (saved.obsPins && saved.obsPins.enabled) await applyObsPins(saved.obsPins);
     if (tavern.connected && !saved.tavern.enabled) await tavern.disconnect().catch(() => {});
     if (saved.tavern.enabled && saved.tavern.autoConnect && !tavern.connected && saved.tavern.url) await tavern.connect().catch(() => {});
     await syncAutomationsServer();
@@ -2428,16 +2431,68 @@ async function switchProfile(id) {
   }
 }
 
+// What switching OBS to a profile's pins would change, given what OBS is on now.
+// null when the profile does not switch OBS; { note } when it cannot be planned.
+async function planObsPins(pins) {
+  if (!pins || !pins.enabled || (!pins.profile && !pins.collection)) return null;
+  if (!obs.connected) return { changes: [], note: 'OBS is not connected, so OBS is left as it is.' };
+  const [p, c] = await Promise.all([obs.listProfiles(), obs.listSceneCollections()]);
+  const changes = [];
+  if (pins.profile && pins.profile !== p.current) changes.push({ kind: 'OBS profile', from: p.current, to: pins.profile, exists: p.profiles.includes(pins.profile) });
+  if (pins.collection && pins.collection !== c.current) changes.push({ kind: 'Scene collection', from: c.current, to: pins.collection, exists: c.collections.includes(pins.collection) });
+  return { changes, note: '' };
+}
+
+function describeObsPlan(plan) {
+  if (!plan) return '';
+  if (plan.note) return plan.note;
+  return plan.changes.map((c) => `${c.kind}: ${c.from} \u2192 ${c.to}${c.exists ? '' : ' (OBS has no such name)'}`).join('\n');
+}
+
+// OBS itself allows a profile or collection change mid-recording, but that would swap the scenes
+// and output settings of a session in progress, so Showrunner refuses; say so before anything
+// else is touched.
+function assertObsCanSwitch(plan) {
+  if (plan && plan.changes.length && obs.outputActive) {
+    throw new Error('OBS is recording or streaming. Showrunner will not switch its profile or scene collection mid-session; stop first.');
+  }
+}
+
+// Switches OBS to a profile's pins. The profile first, then the scene collection, each on its own,
+// so a failure on one is reported without hiding the other. Never throws.
+async function applyObsPins(pins) {
+  const plan = await planObsPins(pins);
+  const result = { applied: [], failed: [], note: plan ? plan.note : '' };
+  if (!plan || !plan.changes.length) return result;
+  for (const change of plan.changes) {
+    try {
+      if (!change.exists) throw new Error(`OBS has no ${change.kind === 'OBS profile' ? 'profile' : 'scene collection'} called "${change.to}".`);
+      if (change.kind === 'OBS profile') await obs.setProfile(change.to);
+      else await obs.setSceneCollection(change.to);
+      result.applied.push(`${change.kind}: ${change.to}`);
+      logActivity('OBS', `Switched ${change.kind === 'OBS profile' ? 'the OBS profile' : 'the scene collection'} to "${change.to}".`, 'info');
+    } catch (err) {
+      result.failed.push(`${change.kind}: ${err.message}`);
+      logActivity('OBS', `Could not switch ${change.kind === 'OBS profile' ? 'the OBS profile' : 'the scene collection'} to "${change.to}": ${err.message}`, 'error');
+    }
+  }
+  return result;
+}
+
 // Asks before leaving a profile that has windows open, since they close.
-async function confirmLeaveProfile(targetName) {
-  if (viewWindows.size === 0) return true;
+async function confirmLeaveProfile(targetName, obsPlan) {
+  const obsText = describeObsPlan(obsPlan);
+  if (viewWindows.size === 0 && !(obsPlan && obsPlan.changes.length)) return true;
   const { response } = await dialog.showMessageBox(controlWindow, {
     type: 'question',
     buttons: ['Cancel', 'Switch'],
     defaultId: 1,
     cancelId: 0,
     message: `Switch to ${targetName}?`,
-    detail: 'The windows of the current profile close, and the new profile starts its own. OBS sources stay in OBS.',
+    detail: [
+      viewWindows.size > 0 ? 'The windows of the current profile close, and the new profile starts its own.' : '',
+      obsText ? `OBS will switch:\n${obsText}` : 'OBS sources stay in OBS.',
+    ].filter(Boolean).join('\n\n'),
   });
   return response === 1;
 }
@@ -3016,7 +3071,10 @@ function registerIpc() {
   ipcMain.handle('profiles:switch', async (_event, id) => {
     const target = String(id);
     if (target === configStore.get().activeProfile) return configStore.get();
-    if (!(await confirmLeaveProfile(profileName(target)))) return null;
+    const targetProfile = configStore.get().profiles.find((p) => p.id === target);
+    const obsPlan = await planObsPins(targetProfile && targetProfile.obsPins);
+    assertObsCanSwitch(obsPlan);
+    if (!(await confirmLeaveProfile(profileName(target), obsPlan))) return null;
     return switchProfile(target);
   });
   ipcMain.handle('profiles:create', async (_event, name) => {
@@ -3033,6 +3091,39 @@ function registerIpc() {
     buildMenu();
     broadcastStatus();
     return { id: copyId, config: configStore.get() };
+  });
+  // The OBS profile and scene collection this OBS has, for the OBS page's pickers.
+  ipcMain.handle('obs:pinChoices', async () => {
+    if (!obs.connected) return { connected: false, profiles: [], currentProfile: '', collections: [], currentCollection: '' };
+    const [p, c] = await Promise.all([obs.listProfiles(), obs.listSceneCollections()]);
+    return { connected: true, profiles: p.profiles, currentProfile: p.current, collections: c.collections, currentCollection: c.current };
+  });
+  ipcMain.handle('obs:setPins', (_event, pins) => {
+    const current = configStore.get();
+    const saved = configStore.save({ ...current, obsPins: pins });
+    broadcastStatus();
+    return saved.obsPins;
+  });
+  // Switch OBS to the names in the OBS page's pickers now, whether or not the profile's switch is on.
+  ipcMain.handle('obs:applyPins', async () => {
+    const pins = { ...configStore.get().obsPins, enabled: true };
+    if (!pins.profile && !pins.collection) throw new Error('Pick an OBS profile or a scene collection first.');
+    const plan = await planObsPins(pins);
+    if (plan && plan.note) throw new Error(plan.note);
+    if (!plan || plan.changes.length === 0) return { applied: [], failed: [], note: 'OBS is already on those.' };
+    assertObsCanSwitch(plan);
+    const { response } = await dialog.showMessageBox(controlWindow, {
+      type: 'question',
+      buttons: ['Cancel', 'Switch OBS'],
+      defaultId: 1,
+      cancelId: 0,
+      message: 'Switch OBS now?',
+      detail: `OBS will switch:\n${describeObsPlan(plan)}\n\nShowrunner then re-syncs its sources into the scene collection.`,
+    });
+    if (response !== 1) return null;
+    const result = await applyObsPins(pins);
+    scheduleObsSync();
+    return result;
   });
   ipcMain.handle('profiles:setIntegration', (_event, id, key, enabled) => {
     configStore.setProfileIntegration(String(id), String(key), Boolean(enabled));

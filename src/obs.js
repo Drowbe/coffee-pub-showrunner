@@ -172,6 +172,8 @@ class ObsBridge extends EventEmitter {
     this.obs.on('InputCreated', () => this.refreshInputs().catch(() => {}));
     this.obs.on('InputRemoved', () => this.refreshInputs().catch(() => {}));
     this.obs.on('InputNameChanged', () => this.refreshInputs().catch(() => {}));
+    // A different scene collection has different inputs.
+    this.obs.on('CurrentSceneCollectionChanged', () => this.refreshInputs().catch(() => {}));
   }
 
   status() {
@@ -608,6 +610,34 @@ class ObsBridge extends EventEmitter {
       added.push(spec.name);
     }
     return added;
+  }
+
+  // OBS's profiles (output and stream settings) and scene collections (scenes
+  // and sources), and which of each is current.
+  async listProfiles() {
+    const r = await this.obs.call('GetProfileList');
+    return { profiles: r.profiles, current: r.currentProfileName };
+  }
+
+  async listSceneCollections() {
+    const r = await this.obs.call('GetSceneCollectionList');
+    return { collections: r.sceneCollections, current: r.currentSceneCollectionName };
+  }
+
+  async setProfile(profileName) {
+    await this.obs.call('SetCurrentProfile', { profileName });
+  }
+
+  // OBS finishes the change before it answers, so the inputs are read afterwards.
+  async setSceneCollection(sceneCollectionName) {
+    await this.obs.call('SetCurrentSceneCollection', { sceneCollectionName });
+    await this.refreshInputs();
+  }
+
+  // True while OBS is recording or streaming. OBS would still allow a profile or collection change,
+  // so callers check this to refuse one.
+  get outputActive() {
+    return Boolean(this.outputs.recording || this.outputs.streaming);
   }
 
   async renameInput(inputName, newInputName) {

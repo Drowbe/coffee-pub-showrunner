@@ -11,7 +11,7 @@ Backups of this file and the other settings files are kept in a `backups` folder
 [Settings, windows and the edge dock](userguide-settings.md#backups).
 
 Since version 13 the file holds a list of **profiles**. Each profile owns its `views`, `appWindows`,
-`metadataFields`, `session` (the filename format), `automations` (`enabled` and `ruleSets`), `youtube` (`enabled` only; the login and defaults stay global) and the
+`metadataFields`, `session` (the filename format), `automations` (`enabled` and `ruleSets`), `youtube` (`enabled` only; the login and defaults stay global), `obsPins` (`enabled`, `profile`, `collection`: the OBS profile and scene collection to switch OBS to; either name can be empty to leave that part alone) and the
 `tavern` settings that depend on the table (`enabled`, `space`, `followAdmin`,
 `characterWithPlayer`, `players`). `activeProfile` names the one in use. Everything else
 (`obs`, `youtube`, `dock`, `panel`, the preferences, the Chameleon connection details such as

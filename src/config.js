@@ -502,6 +502,24 @@ function sanitizeTavern(input) {
 // retired once Metadata fields could do the same job without a second,
 // parallel system -- confirmed unused in practice ("too confusing") before
 // removal.
+// Which OBS profile and scene collection a profile switches OBS to when it is
+// switched to. Off by default; each name can be left empty to leave that part
+// of OBS alone. The names are whatever OBS calls them.
+function defaultObsPins() {
+  return { enabled: false, profile: '', collection: '' };
+}
+
+function sanitizeObsPins(input) {
+  const d = defaultObsPins();
+  const src = input && typeof input === 'object' ? input : {};
+  const name = (v) => (typeof v === 'string' ? v.trim().slice(0, 200) : '');
+  return {
+    enabled: src.enabled === undefined ? d.enabled : Boolean(src.enabled),
+    profile: name(src.profile),
+    collection: name(src.collection),
+  };
+}
+
 function defaultSession() {
   return {
     filenameFormat: '',
@@ -704,6 +722,7 @@ function defaultConfig() {
     tavern: defaultTavern(),
     automations: defaultAutomations(),
     session: defaultSession(),
+    obsPins: defaultObsPins(),
     // No metadata fields on a fresh install -- created by hand via "New" on
     // the Session tab's Metadata card.
     metadataFields: [],
@@ -816,6 +835,7 @@ function sanitizeConfig(input) {
     automations: sanitizeAutomations(src.automations),
     youtube: sanitizeYoutube(src.youtube),
     session: sanitizeSession(src.session),
+    obsPins: sanitizeObsPins(src.obsPins),
     metadataFields: sanitizeMetadataFields(src.metadataFields),
     appWindows: sanitizeAppWindows(src.appWindows),
     panel: sanitizePanel(src.panel),
@@ -864,6 +884,7 @@ function profileFromFlat(flat, id, name) {
     appWindows: flat.appWindows,
     metadataFields: flat.metadataFields,
     session: flat.session,
+    obsPins: flat.obsPins,
     automations: { enabled: flat.automations.enabled, ruleSets: flat.automations.ruleSets },
     tavern: pick(flat.tavern, TAVERN_PROFILE_KEYS),
     youtube: pick(flat.youtube, YOUTUBE_PROFILE_KEYS),
@@ -905,6 +926,7 @@ function flatFor(stored, profile) {
     appWindows: profile.appWindows,
     metadataFields: profile.metadataFields,
     session: profile.session,
+    obsPins: profile.obsPins,
   });
 }
 
@@ -920,6 +942,7 @@ function project(stored) {
       id: s.id,
       name: s.name,
       integrations: { tavern: Boolean(s.tavern.enabled), automations: Boolean(s.automations.enabled), youtube: Boolean(s.youtube && s.youtube.enabled) },
+      obsPins: s.obsPins ? { enabled: Boolean(s.obsPins.enabled), profile: s.obsPins.profile || '', collection: s.obsPins.collection || '' } : defaultObsPins(),
     })),
     activeProfile: profile.id,
   };
