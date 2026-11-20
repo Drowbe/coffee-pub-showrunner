@@ -9,7 +9,7 @@ in use at the time, except where noted.
 
 Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
-## Unreleased
+## 0.4.7 -- 2026-11-20
 
 ### Added
 - **Teleprompter window.** A presenter-only window, never an OBS source, that shows a Markdown file, resizable by dragging, with
