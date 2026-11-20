@@ -101,19 +101,7 @@ function toggleEvents(force) {
 
 const dirty = () => Boolean(ed) && ed.revision() !== baseRevision;
 
-let flagTimer = null;
-const editFlag = $('edit-flag');
-
-// The bar's status line, and a small marker that stays visible when the bar is hidden: it stays while there are unsaved
-// changes or an error, and shows "Saved" for a moment after a save.
-function say(text) {
-  editStatus.textContent = text;
-  clearTimeout(flagTimer);
-  editFlag.textContent = text;
-  editFlag.hidden = !text;
-  editFlag.classList.toggle('warn', Boolean(text) && text !== 'Saved' && text !== 'Unsaved changes');
-  if (text === 'Saved') flagTimer = setTimeout(() => { if (editStatus.textContent === 'Saved') editFlag.hidden = true; }, 1500);
-}
+function say(text) { editStatus.textContent = text; }
 
 function paint() {
   if (!ed) return;
@@ -176,7 +164,6 @@ function leave() {
   editorView = null;
   toggleEvents(false);
   editBar.hidden = true;
-  editFlag.hidden = true;
   document.body.classList.remove('editing');
   if (heldContent) { showContent(heldContent); heldContent = null; }
   requestAnimationFrame(() => { window.scrollTo(0, readingY); pos = window.scrollY; resetCues(); });
