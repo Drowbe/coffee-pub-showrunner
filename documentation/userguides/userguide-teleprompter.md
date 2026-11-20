@@ -13,10 +13,7 @@ Open **Teleprompter** in the left rail, under Recording. Click **Choose file...*
 `.markdown` or `.txt`, up to 2 MB), then **Open**. Tick **Open when this profile starts** to have it ready every time. Each
 profile has its own script, settings and window position, so a podcast profile and a D&D profile can each open their own.
 
-**New...** creates a script file, and the **Script** card on the same page edits it in the app: write the text, press
-**Insert cue** to add a `<!-- cue: ... -->` line at the cursor (the name is selected so you can type over it), and **Save**
-(or Cmd/Ctrl+S). Under the editor is the list of events your headings and cues will fire, ready to use in a rule set.
-**Revert** reads the file again and drops unsaved changes.
+**New...** creates a script file to start from. The script is edited in the teleprompter window itself, below.
 
 **In the window.** Press **Edit** on the window's controls, or E, to edit the script where it is read. The text looks as it
 does when reading, in the same size and width, and you type into it: `# `, `- `, `1. ` and `> ` at the start of a line make

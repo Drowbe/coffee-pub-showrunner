@@ -3436,7 +3436,7 @@ function registerIpc() {
     watchPrompter(t);
     return { content: await prompterContent(t), settings: prompterSettings(t) };
   });
-  // The script editor on the Teleprompter page: read the file, save it back, list the cues in the text.
+  // The script editor in the teleprompter window (src/teleprompter/edit.js): read the file and save it back.
   ipcMain.handle('prompter:readScript', async () => {
     const t = configStore.get().teleprompter;
     if (!t.script) return { text: '', path: '', error: '' };
@@ -3475,10 +3475,6 @@ function registerIpc() {
     saveTeleprompter({ script: filePath });
     syncPrompter();
     return configStore.get();
-  });
-  ipcMain.handle('prompter:cues', async (_event, text) => {
-    if (typeof text !== 'string' || Buffer.byteLength(text) > MAX_SCRIPT_BYTES) return [];
-    try { return (await renderScript(text)).cues; } catch (err) { return []; }
   });
   // The reading line reached a cue or a heading: tell Automations, exactly as if a module had.
   ipcMain.on('prompter:cue', (event, cue) => {
