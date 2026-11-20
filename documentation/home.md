@@ -37,7 +37,9 @@ hardware; see [Known issues](known-issues.md).
 
 ![OBS follows the profile: an OBS profile and scene collection for each Showrunner profile](assets/showrunner-obs-profile.png)
 
-![Chameleon: each player becomes an OBS source, with audio filters added](assets/showrunner-chameleon.png)
+![Chameleon: each person's Participant and Character grouped in one box](assets/showrunner-chameleon.png)
+
+![Audio: Calibrate and Auto level bring everyone to one target level](assets/showrunner-audio.png)
 
 ![Automations: rule sets that run a numbered sequence when an event arrives](assets/showrunner-automations.png)
 
