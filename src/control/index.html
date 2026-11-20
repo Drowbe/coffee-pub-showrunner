@@ -17,6 +17,7 @@
     <div class="topbar-actions">
       <button id="open-all" class="btn btn-primary" type="button">Start All</button>
       <button id="close-all" class="btn" type="button">Stop All</button>
+      <button id="prompter-open" class="btn" type="button" title="Open or close the teleprompter window">Open Teleprompter</button>
       <button id="collapse" class="btn" type="button" title="Slide the windows off screen into the dock; OBS keeps capturing them">Dock Windows</button>
       <button id="quit-app" class="btn" type="button" title="Quit Coffee Pub Showrunner (also in the app menu, or the menu bar icon's menu if it's on)">Quit</button>
     </div>
@@ -40,7 +41,10 @@
       <div class="nav-heading">Recording</div>
       <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS</button>
       <button class="tab" data-tab="metadata" type="button"><span class="dot" id="session-dot" title="Session fields"></span>Session</button>
-      <button class="tab" data-tab="teleprompter" type="button"><span class="dot" id="prompter-dot" title="Teleprompter window"></span>Teleprompter</button>
+      <div class="tab-row">
+        <button class="tab" data-tab="teleprompter" type="button"><span class="dot" id="prompter-dot" title="Teleprompter window"></span>Teleprompter</button>
+        <button class="tab-action" id="prompter-nav-toggle" type="button" title="Open the teleprompter" aria-label="Open the teleprompter"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i></button>
+      </div>
       <button class="tab" data-tab="automations" id="automations-tab" type="button"><span class="dot" id="automations-dot" title="Rule sets on, or listening for Foundry modules"></span>Automations</button>
     </div>
     <div class="nav-group" id="nav-integrations">
@@ -364,26 +368,16 @@
         </div>
         <p class="hint">A window for the presenter that shows a Markdown script. It looks like the capture windows but is not one: it is never an OBS source, so it stays off the stream. Drag its edges to the size you want. Each profile has its own scripts and settings.</p>
 
-        <div class="prompter-scripts">
-          <div class="view-head">
-            <div class="view-head-left">
-              <span class="field-label">Scripts</span>
-            </div>
-            <div class="view-actions">
-              <button class="btn" id="prompter-choose" type="button" title="Add a Markdown file to this profile's scripts">Add script...</button>
-              <button class="btn" id="prompter-new" type="button" title="Create a new script file and add it">New...</button>
-            </div>
-          </div>
-          <p class="hint" id="prompter-now"></p>
-          <ul class="script-list" id="prompter-scripts"></ul>
-          <p class="hint" id="prompter-scripts-empty">No scripts yet. Add a Markdown file, or create a new one.</p>
-          <small class="hint">These are the scripts this profile can show. The <strong>Start Up</strong> script is the one the window opens with; a rule set's <strong>Teleprompter: load a script</strong> step picks from this list, or browses for a file and adds it here. Edit the script showing in the teleprompter window (the Edit button, or E). Saving a file in another editor reloads it there too.</small>
-        </div>
-
         <div class="checks">
           <label class="check"><input id="prompter-enabled" type="checkbox"><span>Open when this profile starts</span></label>
           <label class="check" title="Flip the text left to right, for a prompter that is read in a mirror"><input id="prompter-mirror" type="checkbox"><span>Mirror</span></label>
         </div>
+      </div>
+
+      <div class="card">
+        <h2>Cues</h2>
+        <p class="hint">A heading in the script, or a line on its own like <code>&lt;!-- cue: Be Right Back --&gt;</code>, fires an Automations event when the reading line reaches it: <code>teleprompter:heading:act-two</code> for a heading called Act Two, <code>teleprompter:be-right-back</code> for that cue. Make a rule set on the Automations page that listens for the event and it can switch the scene, show or hide a source, or start or stop recording. Each cue shows in the Status log as it fires.</p>
+        <p class="hint">In the window: Space plays or pauses, <code>[</code> and <code>]</code> change the speed, <code>-</code> and <code>=</code> change the text size, N and P jump between headings, Home goes to the top and M mirrors. The wheel, trackpad and arrow keys scroll by hand and stop auto-scroll.</p>
       </div>
 
       <div class="card">
@@ -435,9 +429,19 @@
       </div>
 
       <div class="card">
-        <h2>Cues</h2>
-        <p class="hint">A heading in the script, or a line on its own like <code>&lt;!-- cue: Be Right Back --&gt;</code>, fires an Automations event when the reading line reaches it: <code>teleprompter:heading:act-two</code> for a heading called Act Two, <code>teleprompter:be-right-back</code> for that cue. Make a rule set on the Automations page that listens for the event and it can switch the scene, show or hide a source, or start or stop recording. Each cue shows in the Status log as it fires.</p>
-        <p class="hint">In the window: Space plays or pauses, <code>[</code> and <code>]</code> change the speed, <code>-</code> and <code>=</code> change the text size, N and P jump between headings, Home goes to the top and M mirrors. The wheel, trackpad and arrow keys scroll by hand and stop auto-scroll.</p>
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Scripts</h2>
+          </div>
+          <div class="view-actions">
+            <button class="btn" id="prompter-choose" type="button" title="Add a Markdown file to this profile's scripts">Add script...</button>
+            <button class="btn" id="prompter-new" type="button" title="Create a new script file and add it">New...</button>
+          </div>
+        </div>
+        <p class="hint" id="prompter-now"></p>
+        <ul class="script-list" id="prompter-scripts"></ul>
+        <p class="hint" id="prompter-scripts-empty">No scripts yet. Add a Markdown file, or create a new one.</p>
+        <p class="hint">These are the scripts this profile can show, in the order you keep them (use the arrows to reorder; the order is only for you). The <strong>Start Up</strong> script is the one the window opens with; a rule set's <strong>Teleprompter: load a script</strong> step picks from this list, or browses for a file and adds it here. Edit the script showing in the teleprompter window (the Edit button, or E). Saving a file in another editor reloads it there too.</p>
       </div>
     </section>
 

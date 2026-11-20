@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('coffeePub', {
   addScript: () => ipcRenderer.invoke('prompter:addScript'),
   useScript: (file) => ipcRenderer.invoke('prompter:useScript', file),
   setStartUp: (file) => ipcRenderer.invoke('prompter:setStartUp', file),
+  moveScript: (file, direction) => ipcRenderer.invoke('prompter:moveScript', file, direction),
   removeScript: (file) => ipcRenderer.invoke('prompter:removeScript', file),
   newScript: () => ipcRenderer.invoke('prompter:newScript'),
   scriptCues: () => ipcRenderer.invoke('prompter:cues'),

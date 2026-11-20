@@ -121,11 +121,16 @@ and its own last cue does the same for the one after.
 A script loaded this way is shown for now and does not change the Start Up script, so the next launch always opens the
 Start Up script. A step that loads another script cannot run while you are editing.
 
+## Opening the window
+
+The **Open Teleprompter** button in the header (it reads **Close Teleprompter** while the window is open), the arrow
+icon beside Teleprompter in the left rail, and the **Open** button on the Teleprompter page all do the same thing.
+
 ## The profile's scripts
 
-The **Scripts** list on the Teleprompter page holds the scripts a profile can show, in the order they were added, up to
+The **Scripts** card at the bottom of the Teleprompter page (after Teleprompter, Cues and Reading) holds the scripts a profile can show, in the order they were added, up to
 thirty. **Add script...** adds a Markdown file, and **New...** creates one (and shows it now if the window is open). The
-first script added is the **Start Up** script, the one the window opens with. Each row has **Show now** (show it in
+first script added is the **Start Up** script, the one the window opens with. The arrows on each row reorder the list; the order is only for you to read, nothing uses it. Each row has **Show now** (show it in
 the open window), **Make Start Up**, and **Remove** (take it off the profile; the file is not touched). Anything
 saved with Save as, or loaded by a step, joins the list too. The same list is in the editor's **File** menu to open a
 script for editing (it asks first if you have unsaved changes), and in the load-a-script step.

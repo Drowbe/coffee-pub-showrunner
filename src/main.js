@@ -3651,6 +3651,18 @@ function registerIpc() {
     broadcastStatus();
     return configStore.get();
   });
+  // The order of the list is only for the person reading it; nothing else uses it.
+  ipcMain.handle('prompter:moveScript', (_event, file, direction) => {
+    const t = configStore.get().teleprompter;
+    const list = t.script && !(t.scripts || []).includes(t.script) ? [t.script, ...(t.scripts || [])] : [...(t.scripts || [])];
+    const from = list.indexOf(file);
+    const to = from + (direction < 0 ? -1 : 1);
+    if (from < 0 || to < 0 || to >= list.length) return configStore.get();
+    [list[from], list[to]] = [list[to], list[from]];
+    saveTeleprompter({ scripts: list });
+    broadcastStatus();
+    return configStore.get();
+  });
   ipcMain.handle('prompter:removeScript', (_event, file) => {
     const t = configStore.get().teleprompter;
     const scripts = (t.scripts || []).filter((f) => f !== file);

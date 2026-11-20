@@ -2113,6 +2113,20 @@ function renderPrompterScripts(open) {
     if (!open || file !== current) button('Show now', open ? 'Show this script in the teleprompter now' : 'Open the teleprompter to show a script', () => act(() => api.useScript(file)), !open);
     if (file !== t.script) button('Make Start Up', 'Open the teleprompter with this script from now on', () => act(() => api.setStartUp(file)));
     button('Remove', 'Take it off this profile (the file is not touched)', () => act(() => api.removeScript(file)));
+    const index = known.indexOf(file);
+    const arrow = (dir, icon, title, disabled) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-small btn-icon';
+      b.title = title;
+      b.setAttribute('aria-label', title);
+      b.disabled = disabled;
+      b.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
+      b.addEventListener('click', () => act(() => api.moveScript(file, dir)));
+      li.appendChild(b);
+    };
+    arrow(-1, 'fa-arrow-up', 'Move up', index === 0);
+    arrow(1, 'fa-arrow-down', 'Move down', index === known.length - 1);
     list.appendChild(li);
   }
 }
@@ -2126,6 +2140,11 @@ function renderPrompter() {
   prompterEls.toggle.textContent = open ? 'Close' : 'Open';
   prompterEls.toggle.classList.toggle('btn-primary', !open);
   prompterEls.toggle.classList.toggle('btn-danger', open);
+  $('prompter-open').textContent = open ? 'Close Teleprompter' : 'Open Teleprompter';
+  const navToggle = $('prompter-nav-toggle');
+  navToggle.classList.toggle('on', open);
+  navToggle.title = open ? 'Close the teleprompter' : 'Open the teleprompter';
+  navToggle.setAttribute('aria-label', navToggle.title);
   const set = (el, value) => { if (document.activeElement !== el) el.value = value === null || value === undefined ? '' : String(value); };
   set(prompterEls.speed, t.speed);
   set(prompterEls.fontSize, t.fontSize);
@@ -2159,10 +2178,12 @@ for (const el of [prompterEls.speed, prompterEls.fontSize, prompterEls.lineHeigh
   el.addEventListener('input', readPrompter);
   el.addEventListener('change', readPrompter);
 }
-prompterEls.toggle.addEventListener('click', async () => {
+// Open or close the teleprompter window: from its page, the left rail, and the header.
+async function toggleTeleprompterWindow() {
   await flushSave();
   try { await api.toggleTeleprompter(); } catch (err) { reportError(err); }
-});
+}
+for (const el of [prompterEls.toggle, $('prompter-nav-toggle'), $('prompter-open')]) el.addEventListener('click', toggleTeleprompterWindow);
 prompterEls.choose.addEventListener('click', async () => {
   await flushSave();
   try { const added = await api.addScript(); applyConfig(added.config); renderPrompter(); } catch (err) { reportError(err); }
