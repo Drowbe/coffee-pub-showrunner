@@ -20,6 +20,7 @@
       <button type="button" data-fmt="quote" title="Quote">Quote</button>
     </span>
     <span class="group">
+      <button type="button" data-edit="events" title="List the events the headings and cues fire">Events</button>
       <button type="button" data-edit="cue" title="Insert a cue above this paragraph; it fires an Automations event when the reading line reaches it">Insert cue</button>
     </span>
     <span id="edit-status" aria-live="polite"></span>
@@ -29,6 +30,11 @@
       <button type="button" data-edit="cancel" title="Go back to reading and drop unsaved changes">Cancel</button>
     </span>
   </nav>
+  <aside id="events" aria-label="Events this script fires" hidden>
+    <h2>Events</h2>
+    <p class="hint">Make a rule set on the Automations page that listens for an event name. Click a line to jump to it.</p>
+    <ul id="event-list"></ul>
+  </aside>
   <div id="line" aria-hidden="true"></div>
   <div id="notice" hidden></div>
   <nav id="controls" aria-label="Teleprompter controls">

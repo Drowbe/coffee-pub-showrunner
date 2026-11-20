@@ -197,3 +197,34 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 #edit-bar button:hover { border-color: var(--accent); }
 #edit-bar button.on { background: color-mix(in srgb, var(--accent) 30%, #182c47); border-color: var(--accent); }
 #edit-status { flex: 1; text-align: center; color: var(--dim); }
+
+/* The list of events the script fires, beside the text while editing. */
+#events {
+  position: fixed;
+  top: 52px;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  z-index: 4;
+  overflow-y: auto;
+  padding: 14px;
+  background: rgba(20, 28, 42, 0.97);
+  border-left: 1px solid #2a4162;
+  font-size: 13px;
+  line-height: 1.4;
+}
+#events h2 { margin: 0 0 6px; font-size: 14px; }
+#events .hint { margin: 0 0 12px; color: var(--dim); }
+#events ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+#events li { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: start; padding: 8px; border: 1px solid #2a4162; border-radius: 8px; }
+#events li.none { display: block; border: 0; color: var(--dim); }
+#events button { font: inherit; color: var(--text); background: transparent; border: 0; cursor: pointer; text-align: left; }
+#events .jump { display: grid; gap: 2px; padding: 0; min-width: 0; }
+#events .jump:hover .label { color: var(--accent); }
+#events .kind { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+#events .label { overflow-wrap: anywhere; }
+#events code { color: var(--accent); font-size: 12px; overflow-wrap: anywhere; }
+#events .copy { background: #182c47; border: 1px solid #2a4162; border-radius: 6px; padding: 3px 8px; }
+#events .copy:hover { border-color: var(--accent); }
+#events .warn { grid-column: 1 / -1; color: #e6b450; font-size: 12px; }
+body.editing.events-open #stage { margin: 0; width: calc(100% - 320px); padding-left: 4%; padding-right: 4%; }
