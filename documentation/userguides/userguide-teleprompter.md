@@ -69,11 +69,17 @@ comes from the cue's text:
 | `<!-- cue: Be Right Back -->` | `teleprompter:be-right-back` |
 | `## Act Two` | `teleprompter:heading:act-two` |
 
-Open **Automations** in the left rail, under Recording. Its **Teleprompter cues** card lists every heading and cue in your
-script, in order, with the event each one fires. Click **Create rule set** beside one and a rule set that listens for that
-event is added below, ready for its steps: switch the scene, show or hide a source, start or stop recording, or anything
-else a rule set does. A cue that already has a rule set shows **Show rule set** instead. **Refresh** reads the script
-again after you change it. Every cue also appears in the Status page's activity log as it fires, so you can check the
+Two ways to make a rule set for a cue:
+
+- **From the script.** Open **Events** in the editor (the list beside the text). Each line has **Create rule**: it adds a
+  rule set that already listens for that event, named after the cue, and opens it on the Automations page in Showrunner so
+  you can add its steps (switch the scene, show or hide a source, start or stop recording, and so on). A line that already
+  has a rule set shows **Rule set ✓** instead, and clicking it opens that rule set. **Show headings** turns the headings
+  off in the list so a long script shows only its cues.
+- **From the rule set.** On the **Automations** page (left rail, under Recording), the event box of any rule set suggests
+  the script's events as you click or type in it, along with events that arrived recently. You can still type any name.
+
+Every cue also appears in the Status page's activity log as it fires, so you can check the
 names before writing a rule.
 
 A few things to know:

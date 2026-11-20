@@ -662,19 +662,6 @@
         </p>
       </div>
 
-      <div class="card" id="automations-cues">
-        <div class="view-head">
-          <div class="view-head-left">
-            <h2>Teleprompter cues</h2>
-          </div>
-          <div class="view-actions">
-            <button id="automations-cues-refresh" class="btn btn-small" type="button" title="Read the script again">Refresh</button>
-          </div>
-        </div>
-        <p class="hint" id="automations-cues-hint"></p>
-        <div class="cue-list" id="automations-cues-list"></div>
-      </div>
-
       <div class="card">
         <div class="view-head">
           <div class="view-head-left">
@@ -903,6 +890,7 @@
   </template>
 
   <datalist id="session-groups"></datalist>
+  <datalist id="automations-event-choices"></datalist>
 
   <!-- One source row inside a person's group: cloned once for their Participant and once for their
        Character. renderTavern()'s renderRow() fills in the kind-specific bits (thumbnail, tooltip, source
@@ -1002,7 +990,7 @@
         <div class="row">
           <label class="field field-inline">
             <span>When this event arrives</span>
-            <input data-rsfield="event" type="text" spellcheck="false" placeholder="combat:start">
+            <input data-rsfield="event" type="text" spellcheck="false" placeholder="combat:start" list="automations-event-choices">
           </label>
         </div>
         <div class="automation-steps" data-role="steps"></div>

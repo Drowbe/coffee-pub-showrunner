@@ -12,5 +12,8 @@ contextBridge.exposeInMainWorld('prompter', {
   save: (patch) => ipcRenderer.send('prompter:save', patch),
   readSource: () => ipcRenderer.invoke('prompter:readScript'),
   writeSource: (text) => ipcRenderer.invoke('prompter:writeScript', text),
+  ruleStatus: () => ipcRenderer.invoke('prompter:ruleStatus'),
+  createRule: (event, label) => ipcRenderer.invoke('prompter:createRule', event, label),
+  openRule: (id) => ipcRenderer.invoke('prompter:openRule', id),
   saveSourceAs: (text, options) => ipcRenderer.invoke('prompter:saveAs', text, options),
 });

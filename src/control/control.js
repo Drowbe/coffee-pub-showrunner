@@ -748,7 +748,7 @@ function selectTab(name) {
   // automationsScenes/automationsSources, so either tab arriving is worth
   // a fresh read.
   if (name === 'obs' || name === 'automations') refreshAutomationsScenes();
-  if (name === 'automations') loadCueList().catch(() => {});
+  if (name === 'automations') loadEventChoices().catch(() => {});
   if (name === 'obs') refreshObsPinChoices();
   for (const [id, card] of cards) card.hidden = name !== `view:${id}`;
   for (const [id, card] of appWinCards) card.hidden = name !== `app:${id}`;
@@ -2116,6 +2116,17 @@ prompterEls.create.addEventListener('click', async () => {
   try { applyConfig(await api.newScript()); renderPrompter(); } catch (err) { reportError(err); }
 });
 
+// The teleprompter window's Events panel can open a rule set here (and create one first); main has saved it and sent the status.
+api.onOpenRuleSet((id) => {
+  if (!isDirty() && status && status.config) applyConfig(status.config);
+  selectTab('automations');
+  renderAutomationsRuleSets();
+  requestAnimationFrame(() => {
+    const card = automationsEls.rulesets.querySelector(`[data-ruleset-id="${id}"]`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
 api.onStatus((next) => {
   status = next;
   if (next.config && !isDirty()) applyConfig(next.config);
@@ -3141,6 +3152,7 @@ function renderAutomationsStatus() {
   const listening = a.state === 'listening';
   automationsEls.tag.hidden = !listening;
   updateAutomationsDot();
+  if (eventChoicesReady) renderEventChoices();
   automationsEls.addresses.textContent = '';
   // One row per network interface this Mac has right now -- which one is
   // actually reachable from the Foundry machine depends on the network, so
@@ -4154,7 +4166,6 @@ function renderAutomationsRuleSets() {
   automationsEls.rulesetsEmpty.hidden = ruleSets.length > 0;
   automationsEls.rulesetsCount.textContent = ruleSets.length ? `${ruleSets.length} rule set${ruleSets.length === 1 ? '' : 's'}` : '';
   ruleSets.forEach((ruleSet, i) => automationsEls.rulesets.appendChild(buildRulesetCard(ruleSet, i, ruleSets.length)));
-  if (cueListReady) renderCueList();
 }
 
 async function saveAutomationsRuleSets() {
@@ -4354,80 +4365,48 @@ automationsEls.rulesets.addEventListener('click', async (event) => {
   saveAutomationsRuleSets();
 });
 
-// ---- Teleprompter cues: the script's headings and cues, each a one-click rule set --------------------------
+// ---- Event choices: the rule set's event box suggests the teleprompter script's events and the ones that arrived lately ----
+// (typing any name still works; the suggestions are what the Session page's Group box does with the groups it already has)
 
-var cueListReady = false; // set below; a var so renderAutomationsRuleSets can ask before this block has run
-const cueListEls = { hint: $('automations-cues-hint'), list: $('automations-cues-list'), refresh: $('automations-cues-refresh') };
-let cueList = { script: '', cues: [], error: '' };
+var eventChoicesReady = false; // a var so renderAutomationsStatus can ask before this block has run
+let scriptEvents = [];
 
-async function loadCueList() {
-  cueList = await api.scriptCues();
-  renderCueList();
+async function loadEventChoices() {
+  const { cues } = await api.scriptCues();
+  scriptEvents = cues;
+  renderEventChoices();
 }
 
-function renderCueList() {
-  const { script, cues, error } = cueList;
-  cueListEls.list.textContent = '';
-  if (!script) {
-    cueListEls.hint.textContent = 'No script yet. Choose or create one on the Teleprompter page, and its headings and cues are listed here, each with the event it fires.';
-    return;
-  }
-  const name = script.split(/[\\/]/).pop();
-  if (error) { cueListEls.hint.textContent = error; return; }
-  cueListEls.hint.textContent = cues.length
-    ? `From ${name}. A heading or a cue fires its event when the reading line reaches it. Create a rule set for one and give it steps below.`
-    : `${name} has no headings or cues yet. Edit it in the teleprompter window and they are listed here.`;
-  const ruleSets = config.automations.ruleSets || [];
-  for (const cue of cues) {
-    const row = document.createElement('div');
-    row.className = 'cue-row';
-    const kind = document.createElement('span');
-    kind.className = 'cue-kind';
-    kind.textContent = cue.kind === 'heading' ? 'Heading' : 'Cue';
-    const text = document.createElement('span');
-    text.className = 'cue-text';
-    const label = document.createElement('span');
-    label.textContent = cue.label || '(empty)';
-    const code = document.createElement('code');
-    code.textContent = cue.event;
-    text.append(label, code);
-    const existing = ruleSets.find((r) => r.event === cue.event);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn btn-small';
-    button.textContent = existing ? 'Show rule set' : 'Create rule set';
-    button.addEventListener('click', () => {
-      if (existing) {
-        const card = automationsEls.rulesets.querySelector(`[data-ruleset-id="${existing.id}"]`);
-        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return;
-      }
-      createRuleSet({ name: cue.label.slice(0, 60), event: cue.event });
-    });
-    row.append(kind, text, button);
-    cueListEls.list.appendChild(row);
-  }
+function renderEventChoices() {
+  const list = $('automations-event-choices');
+  list.textContent = '';
+  const seen = new Set();
+  const add = (event, label) => {
+    if (!event || seen.has(event)) return;
+    seen.add(event);
+    const option = document.createElement('option');
+    option.value = event;
+    if (label) option.label = label;
+    list.appendChild(option);
+  };
+  for (const cue of scriptEvents) add(cue.event, `${cue.kind === 'heading' ? 'Heading' : 'Cue'}: ${cue.label}`);
+  for (const entry of (status && status.automations && status.automations.events) || []) add(entry.event, 'Recently received');
 }
-cueListEls.refresh.addEventListener('click', () => loadCueList().catch(reportError));
-cueListReady = true;
+eventChoicesReady = true;
 
-function createRuleSet(fields) {
+automationsEls.addRuleset.addEventListener('click', () => {
   const id = `ruleset${Date.now().toString(36)}`;
   config.automations.ruleSets = [
     ...(config.automations.ruleSets || []),
-    { id, name: '', group: '', enabled: true, event: '', steps: [], ...fields },
+    { id, name: '', group: '', enabled: true, event: '', steps: [] },
   ];
   renderAutomationsRuleSets();
-  // A blank new rule set waits for its first edit, as it always has. One made from a cue already has its name and event, so it is saved now.
-  if (fields.event) saveAutomationsRuleSets();
-  else setSaveState('Unsaved changes...', 'dirty');
+  setSaveState('Unsaved changes...', 'dirty');
   // New rule sets always land at the end of a possibly-long list -- without
-  // this, a new one looks like it did nothing until you scroll down.
+  // this, "Add Ruleset" looks like it did nothing until you scroll down.
   const card = automationsEls.rulesets.querySelector(`[data-ruleset-id="${id}"]`);
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-automationsEls.addRuleset.addEventListener('click', () => createRuleSet({}));
+});
 
 automationsEls.sendTest.addEventListener('click', async () => {
   const name = automationsEls.testEvent.value.trim();

@@ -3513,6 +3513,44 @@ function registerIpc() {
       return { script: t.script, cues: [], error: `${err.code === 'ENOENT' ? 'Cannot find' : 'Cannot read'} ${t.script}` };
     }
   });
+  // The Events panel in the teleprompter window: which events already have a rule set, making one, and opening it in the
+  // control panel. The rule set itself (its steps) is built on the Automations page.
+  const openRuleSet = (id) => {
+    const window_ = createControlWindow();
+    const send = () => { if (!window_.webContents.isDestroyed()) window_.webContents.send('open-rule-set', id); };
+    if (window_.webContents.isLoading()) window_.webContents.once('did-finish-load', send);
+    else send();
+  };
+  ipcMain.handle('prompter:ruleStatus', (event) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents) return {};
+    const byEvent = {};
+    for (const r of configStore.get().automations.ruleSets || []) {
+      if (!r.event) continue;
+      (byEvent[r.event] = byEvent[r.event] || []).push({ id: r.id, name: r.name });
+    }
+    return byEvent;
+  });
+  ipcMain.handle('prompter:createRule', (event, eventName, label) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents) return { ok: false };
+    const name = typeof eventName === 'string' ? eventName.trim() : '';
+    if (!name.startsWith('teleprompter:') || name.length > 60) return { ok: false };
+    const current = configStore.get();
+    const existing = (current.automations.ruleSets || []).find((r) => r.event === name);
+    let id = existing && existing.id;
+    if (!id) {
+      id = `ruleset${Date.now().toString(36)}`;
+      const ruleSet = { id, name: String(label || name).trim().slice(0, 60), group: '', enabled: true, event: name, steps: [] };
+      configStore.save({ ...current, automations: { ...current.automations, ruleSets: [...(current.automations.ruleSets || []), ruleSet] } });
+      broadcastStatus();
+    }
+    openRuleSet(id);
+    return { ok: true, id };
+  });
+  ipcMain.handle('prompter:openRule', (event, id) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents) return { ok: false };
+    openRuleSet(String(id || ''));
+    return { ok: true };
+  });
   // The reading line reached a cue or a heading: tell Automations, exactly as if a module had.
   ipcMain.on('prompter:cue', (event, cue) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return;

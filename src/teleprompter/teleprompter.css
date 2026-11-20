@@ -252,7 +252,10 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 #events .kind { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 #events .label { overflow-wrap: anywhere; }
 #events code { color: var(--accent); font-size: 12px; overflow-wrap: anywhere; }
-#events .copy { background: #182c47; border: 1px solid #2a4162; border-radius: 6px; padding: 3px 8px; }
+#events .actions { display: flex; flex-direction: column; gap: 4px; }
+#events .copy { background: #182c47; border: 1px solid #2a4162; border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+#events .copy.has-rule { border-color: var(--accent); color: var(--accent); }
+#events .show-headings { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; color: var(--dim); cursor: pointer; }
 #events .copy:hover { border-color: var(--accent); }
 #events .warn { grid-column: 1 / -1; color: #e6b450; font-size: 12px; }
 body.editing.events-open #stage { margin: 0; width: calc(100% - 320px); padding-left: 4%; padding-right: 4%; }

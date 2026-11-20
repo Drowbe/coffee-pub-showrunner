@@ -61,6 +61,11 @@ contextBridge.exposeInMainWorld('coffeePub', {
   chooseScript: () => ipcRenderer.invoke('prompter:chooseScript'),
   newScript: () => ipcRenderer.invoke('prompter:newScript'),
   scriptCues: () => ipcRenderer.invoke('prompter:cues'),
+  onOpenRuleSet: (callback) => {
+    const listener = (_event, id) => callback(id);
+    ipcRenderer.on('open-rule-set', listener);
+    return () => ipcRenderer.removeListener('open-rule-set', listener);
+  },
   removeView: (id) => ipcRenderer.invoke('views:remove', id),
   collapseViews: () => ipcRenderer.invoke('views:collapse'),
   expandViews: () => ipcRenderer.invoke('views:expand'),
