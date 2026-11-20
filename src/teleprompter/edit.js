@@ -42,6 +42,32 @@ function listEvents() {
   return found;
 }
 
+// Take a cue or heading out of the script. A heading takes its text with it, so that one asks first.
+function deleteEvent(item) {
+  if (!editorView) return;
+  const node = editorView.state.doc.nodeAt(item.pos);
+  if (!node || (node.type.name !== 'cue' && node.type.name !== 'heading')) return;
+  if (node.type.name === 'heading' && !window.confirm(`Delete the heading "${item.label}" and its line from the script?`)) return;
+  editorView.dispatch(editorView.state.tr.delete(item.pos, item.pos + node.nodeSize).scrollIntoView());
+  say(`${item.kind} removed. Cmd/Ctrl+Z brings it back.`);
+  editorView.focus();
+}
+
+// Highlight, in the list, the cue or heading the caret is in, and bring it into view there.
+function markCurrent() {
+  const list = $('event-list');
+  if (!editorView || $('events').hidden) return;
+  const { $from } = editorView.state.selection;
+  const top = $from.depth >= 1 ? $from.before(1) : -1;
+  let found = null;
+  for (const li of list.children) {
+    const on = li.dataset.pos !== undefined && Number(li.dataset.pos) === top;
+    li.classList.toggle('current', on);
+    if (on) found = li;
+  }
+  if (found) found.scrollIntoView({ block: 'nearest' });
+}
+
 let ruleMap = {}; // event name -> the rule sets that listen for it, from the app
 const headingsBox = $('event-headings');
 try { headingsBox.checked = localStorage.getItem('prompter.showHeadings') !== 'no'; } catch (err) { /* keep the default */ }
@@ -63,6 +89,7 @@ async function renderEvents() {
   }
   for (const item of shown) {
     const li = document.createElement('li');
+    li.dataset.pos = String(item.pos);
     const jump = document.createElement('button');
     jump.type = 'button';
     jump.className = 'jump';
@@ -77,8 +104,14 @@ async function renderEvents() {
     code.textContent = item.event;
     jump.append(kind, label, code);
     jump.addEventListener('click', () => {
+      const node = editorView.state.doc.nodeAt(item.pos);
+      if (!node) return;
+      // Put the caret in it, so it is the one highlighted here and in the text.
+      const tr = editorView.state.tr.setSelection(DlPM.TextSelection.create(editorView.state.doc, item.pos + 1));
+      editorView.dispatch(tr.scrollIntoView());
       const dom = editorView.nodeDOM(item.pos);
       if (dom && dom.scrollIntoView) dom.scrollIntoView({ block: 'center' });
+      editorView.focus();
     });
     const actions = document.createElement('div');
     actions.className = 'actions';
@@ -108,7 +141,13 @@ async function renderEvents() {
         try { await window.prompter.createRule(item.event, item.label); } finally { renderEvents(); }
       });
     }
-    actions.append(copy, rule);
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'copy delete';
+    del.textContent = 'Delete';
+    del.title = `Remove this ${item.kind.toLowerCase()} from the script (Cmd/Ctrl+Z brings it back)`;
+    del.addEventListener('click', () => deleteEvent(item));
+    actions.append(copy, rule, del);
     li.append(jump, actions);
     if (seen.get(item.event) > 1) {
       const warn = document.createElement('div');
@@ -118,6 +157,7 @@ async function renderEvents() {
     }
     list.append(li);
   }
+  markCurrent();
 }
 
 headingsBox.addEventListener('change', () => {
@@ -136,7 +176,17 @@ function toggleEvents(force) {
 
 const dirty = () => Boolean(ed) && ed.revision() !== baseRevision;
 
-function say(text) { editStatus.textContent = text; }
+function say(text, isError) {
+  editStatus.textContent = text;
+  editStatus.classList.toggle('error', Boolean(isError));
+}
+
+const statusBar = $('status-bar');
+const fileLabel = $('edit-file');
+function showFile(path) {
+  fileLabel.textContent = path ? path.split(/[\\/]/).pop() : 'New script, not saved yet';
+  fileLabel.title = path || '';
+}
 
 function paint() {
   if (!ed) return;
@@ -146,7 +196,7 @@ function paint() {
     const heading = /^h(\d)$/.exec(id);
     button.classList.toggle('on', heading ? active.heading === Number(heading[1]) : active[id] === true);
   }
-  if (!$('events').hidden) { clearTimeout(eventsTimer); eventsTimer = setTimeout(renderEvents, 200); }
+  markCurrent();
   if (dirty()) say('Unsaved');
   else if (editStatus.textContent === 'Unsaved') say('');
 }
@@ -163,11 +213,13 @@ async function enter() {
   readingY = window.scrollY;
   document.body.classList.add('editing');
   editBar.hidden = false;
+  statusBar.hidden = false;
+  showFile(source.path);
   ed = dlRichEditor(DlPM, document, (markdown) => lexer.lexer(markdown), editBox, { onView: (view) => { editorView = view; } });
   ed.setText(source.text || (hasFile ? '' : STARTER));
   savedText = hasFile ? source.text : '';
   baseRevision = ed.revision();
-  ed.onChange(paint);
+  ed.onChange(() => { paint(); if (!$('events').hidden) { clearTimeout(eventsTimer); eventsTimer = setTimeout(renderEvents, 200); } });
   ed.onSelect(paint);
   say('');
   window.scrollTo(0, 0);
@@ -183,8 +235,9 @@ async function saveAs() {
   try {
     const result = await window.prompter.saveSourceAs(text, { fresh: !hasFile });
     if (result.canceled) return false;
-    if (!result.ok) { say(result.error || 'Could not save'); return false; }
+    if (!result.ok) { say(result.error || 'Could not save', true); return false; }
     hasFile = true;
+    showFile(result.path);
     savedText = text;
     baseRevision = ed.revision();
     say('Saved');
@@ -200,6 +253,7 @@ function startNew() {
   if (dirty() && !window.confirm('Drop the unsaved changes and start a new script?')) return;
   ed.setText(STARTER);
   hasFile = false;
+  showFile('');
   savedText = '';
   baseRevision = ed.revision();
   say('Not saved yet');
@@ -216,7 +270,7 @@ async function save() {
   saving = true;
   try {
     const result = await window.prompter.writeSource(text);
-    if (!result.ok) { say(result.error || 'Could not save'); return false; }
+    if (!result.ok) { say(result.error || 'Could not save', true); return false; }
     savedText = text;
     baseRevision = ed.revision();
     say('Saved');
@@ -234,6 +288,7 @@ function leave() {
   editorView = null;
   toggleEvents(false);
   editBar.hidden = true;
+  statusBar.hidden = true;
   document.body.classList.remove('editing');
   if (heldContent) { showContent(heldContent); heldContent = null; }
   requestAnimationFrame(() => { window.scrollTo(0, readingY); pos = window.scrollY; resetCues(); });

@@ -20,11 +20,11 @@
       <button type="button" data-fmt="quote" title="Quote">Quote</button>
     </span>
     <span class="group">
-      <button type="button" data-edit="events" title="List the events the headings and cues fire">Events</button>
       <button type="button" data-edit="cue" title="Insert a cue above this paragraph; it fires an Automations event when the reading line reaches it">Insert cue</button>
+      <span class="divider" aria-hidden="true"></span>
+      <button type="button" data-edit="events" title="List the events the headings and cues fire">Events</button>
     </span>
-    <span id="edit-status" aria-live="polite"></span>
-    <span class="group">
+    <span class="group end">
       <span class="menu-wrap">
         <button type="button" data-edit="file" aria-haspopup="menu" aria-expanded="false" title="New script, save a copy, or drop changes">File &#9662;</button>
         <div id="file-menu" role="menu" hidden>
@@ -37,6 +37,10 @@
       <button type="button" data-edit="done" title="Save and go back to reading">Done</button>
     </span>
   </nav>
+  <footer id="status-bar" hidden>
+    <span id="edit-status" role="status" aria-live="polite"></span>
+    <span id="edit-file"></span>
+  </footer>
   <aside id="events" aria-label="Events this script fires" hidden>
     <h2>Events</h2>
     <p class="hint">Each line is an event a rule set can listen for. Click a line to jump to it, or make a rule set for it; its steps are set on the Automations page.</p>
