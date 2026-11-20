@@ -9,7 +9,10 @@ people using it will point one window at their game canvas and another at a stre
 but nothing about it is Foundry-specific: it'll work with any web-based experience. You start with
 no windows and add each one yourself, up to five.
 
-The app has had two earlier names. It was **Coffee Pub Browser** before v0.1.8: that first launch
+**Product page and downloads: [coffeepubstudio.com/products/showrunner](https://coffeepubstudio.com/products/showrunner).**
+What changed in each release is in the [changelog](CHANGELOG.md).
+
+The app has had two earlier names (and its Chameleon integration was called the Tavern until v0.3.2). It was **Coffee Pub Browser** before v0.1.8: that first launch
 copied settings over, but the OBS password had to be entered again, because it is encrypted with a
 keychain entry named after the app. It was **Coffee Pub Studio** before v0.3.0: that rename keeps
 everything -- settings, passwords and the YouTube connection -- because the folder and keychain
@@ -34,9 +37,18 @@ automation step, for example) is updated to match. After installing, delete the 
   CSS selector, and the app creates a cropped OBS source for it and keeps the crop current.
 - Login groups: windows in the same group share a login, windows in different groups do not.
 - Backups: an automatic copy of your settings before an update changes their format, a Back up now button, and one-click restore.
-- Profiles: save a setup per kind of recording (D&D, a livestream, a podcast, a product review) and switch between them; each profile has its own windows, Session fields, filename format, Automations rules and Chameleon settings.
+- Profiles: save a setup per kind of recording (D&D, a livestream, a podcast, a product review) and switch between them; each profile has its own windows, Session fields, filename format, Automations rules and Chameleon settings. A profile can pin an OBS profile and scene collection, so switching Showrunner profiles switches OBS too.
+- A left rail that groups the control panel into pages: Status and Preferences, the profile picker, Recording
+  (OBS and Session), Integrations (Chameleon, Automations, YouTube) and one page per window.
+- Session fields: your own values (a campaign, a title, an episode counter) that build the recording's
+  filename and feed rules, plus an optional YouTube upload of the recording from a rule set.
 - Coffee Pub Chameleon: sign in to the party's voice and video server and publish each player as
-  an OBS Browser Source with one click, kept in sync by the player's stable key.
+  an OBS Browser Source with one click, kept in sync by the player's stable key. Each person's
+  Participant and Character sources sit together in one box.
+- Audio leveling: new participants get a noise suppression, compressor and limiter chain in OBS;
+  **Calibrate** listens while everyone talks and sets each person's OBS volume to one target level, and
+  **Auto level** keeps them there during the session. It only ever changes the Chameleon participants'
+  sources.
 - Automations: let a Foundry module (or anything else) trigger an OBS action -- switch scene,
   show or hide a source, start or stop recording or streaming -- over a small local HTTPS
   server Showrunner runs.
@@ -52,9 +64,9 @@ automation step, for example) is updated to match. After installing, delete the 
 - OBS Studio 28 or newer.
 
 On Windows, Showrunner manages OBS's Window Capture sources the same way it manages macOS Screen
-Capture ones. That support is new and has not yet been confirmed on a real Windows machine -- see
-[Known issues](documentation/known-issues.md) for what to check and how to add a window by hand if
-it misbehaves.
+Capture ones. That support has been run on a real Windows machine on an earlier release and is being re-checked --
+see [Known issues](documentation/known-issues.md) for what to check and how to add a window by hand
+if it misbehaves.
 
 ## Get the app
 
@@ -78,11 +90,11 @@ npm run dist:win     # Windows: NSIS installer
 
 macOS output lands in `dist/`:
 
-- `dist/Coffee Pub Showrunner-1.0.0-universal.dmg`
-- `dist/Coffee Pub Showrunner-1.0.0-universal-mac.zip`
+- `dist/Coffee Pub Showrunner-<version>-universal.dmg`
+- `dist/Coffee Pub Showrunner-<version>-universal-mac.zip`
 
 Open the `.dmg` and drag **Coffee Pub Showrunner** into `Applications`. Windows output is
-`dist/Coffee Pub Showrunner Setup 1.0.0.exe`; run it and follow the installer.
+`dist/Coffee Pub Showrunner Setup <version>.exe`; run it and follow the installer.
 
 For a faster, smaller macOS build for just your machine's chip:
 
@@ -113,9 +125,9 @@ On Windows, SmartScreen shows "Windows protected your PC": click **More info**, 
 
 ## Using it
 
-Launch **Coffee Pub Showrunner**. The control panel opens with no windows configured yet -- click the
-**+** tab to add one (up to five), give it a label and a URL, then connect the app to OBS from
-the Session tab's OBS card so it creates and points sources at your windows on its own. Most
+Launch **Coffee Pub Showrunner**. The control panel opens with no windows configured yet -- click
+**Add window** at the bottom of the left rail to add one (up to five), give it a label and a URL, then
+connect the app to OBS from the **OBS** page so it creates and points sources at your windows on its own. Most
 people run a two-window FoundryVTT setup -- one window pointed at the game canvas, one at a
 stream-facing view -- since that's the most common case, but any label and any site work the same
 way.
@@ -125,12 +137,12 @@ The full walkthrough lives on the wiki, one guide per piece:
 - [Getting started](documentation/userguides/userguide-getting-started.md) -- the first five
   minutes.
 - [Settings, windows and the edge dock](documentation/userguides/userguide-settings.md) --
-  adding windows, moving and resizing, session groups, the edge dock, keyboard shortcuts, and
-  Retina displays.
+  the left rail, profiles and backups, adding windows, moving and resizing, session groups, the
+  edge dock, keyboard shortcuts, and Retina displays.
 - [Windows and regions as OBS sources](documentation/userguides/userguide-obs.md) -- connecting
   to OBS, the whole-window source, and cropping part of a window into its own source.
 - [Coffee Pub Chameleon in OBS](documentation/userguides/userguide-chameleon.md) -- publishing the
-  party as OBS sources.
+  party as OBS sources, audio filters, Calibrate and Auto level.
 - [Configuration file reference](documentation/userguides/userguide-configuration.md) -- the
   config.json shape, field by field.
 
@@ -141,8 +153,8 @@ not aware of what's actually happening in the game. Automations closes that gap:
 module (Herald first) tells Showrunner when something happens -- combat starting, a scene changing --
 and a rule turns that into an OBS action: switch scene, show or hide a source, start or stop
 recording or streaming. The same tab also works as a plain manual remote for OBS with no Foundry
-module involved at all. Enable it, and set a token, from the **Automations** section of the
-Session tab; the tab itself covers the manual remote, the rule editor, and the exact click-by-click
+module involved at all. Switch it on under Integrations in the left rail (use **Add integration** if it is not listed), and set
+a token on the **Automations** page; the page itself covers the manual remote, the rule editor, and the exact click-by-click
 steps for trusting Showrunner's certificate on the machine running Foundry.
 
 The full HTTP contract and a worked integration example are on the wiki:
@@ -152,14 +164,18 @@ server itself is built is on the wiki too:
 
 ## Releasing a new version
 
-1. Bump `version` in `package.json`, commit and push.
-2. On GitHub, open **Actions > Build desktop app > Run workflow**, choose the branch, enter the
-   new tag in **release_tag** (for example `v1.1.0`) and click **Run workflow**.
-3. About five minutes later a GitHub Release named after the tag appears with both the `.dmg`
-   and the Windows `.exe` attached, plus auto-generated notes. The workflow creates the git tag
-   for you.
+`main` is protected, so a release is a small pull request and a tag:
 
-Pushing a tag that starts with `v` from your machine triggers the same release build.
+1. Bump `version` in `package.json` and `package-lock.json` in a pull request titled
+   **Release x.y.z**, and merge it.
+2. Tag the merge commit (`git tag -a vx.y.z -m "Showrunner x.y.z"`) and push the tag.
+3. Pushing a tag that starts with `v` runs the **Build desktop app** workflow. About ten minutes
+   later a GitHub Release named after the tag appears with the macOS `.dmg` and the Windows `.exe`
+   attached.
+4. Add what changed to [CHANGELOG.md](CHANGELOG.md).
+
+The workflow can also be run by hand from **Actions > Build desktop app > Run workflow**, entering
+the tag in **release_tag**.
 
 ## Setting up a Mac for development
 
@@ -210,6 +226,10 @@ src/main.js            Electron main process: windows, menu, IPC, permissions
 src/config.js          Config load/save/validation
 src/obs.js             OBS WebSocket bridge: keeps OBS sources pointed at the windows
 src/tavern.js          Coffee Pub Chameleon bridge: admin sign-in, the party with live state, view links
+src/leveling.js        Audio leveling arithmetic: measuring speech level and working out the OBS volume
+src/autolevel.js       Auto level: keeps participants near the target level while a session runs
+src/backup.js          Automatic and on-demand backups of the settings files, and restore
+src/youtube.js         YouTube sign-in and recording upload
 src/automations.js     Automations HTTP server: Foundry modules report events, rules trigger OBS
 src/preload.js         Bridge between the control panel page and the main process
 src/bar-preload.js     Bridge between a window's bar page and the main process

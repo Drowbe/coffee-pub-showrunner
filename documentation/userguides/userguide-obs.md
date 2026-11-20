@@ -29,8 +29,8 @@ re-pick the window. The app fixes this by talking to OBS over its built-in WebSo
 
 1. In OBS, open **Tools > WebSocket Server Settings**, enable the server and set a password.
    Leave the port at 4455.
-2. In the **OBS** section of the Session tab, enter the password, click **Save password**, then
-   **Connect**. The tab shows CONNECTED once it has connected. Tick **Connect automatically** to
+2. On the **OBS** page (under Recording in the left rail), enter the password, click **Save password**, then
+   **Connect**. The page shows CONNECTED once it has connected. Tick **Connect automatically** to
    connect at launch and reconnect whenever the link drops; **Disconnect** pauses that until you
    connect again.
 3. On every connection and every time one of the app's windows starts, the app points each of its

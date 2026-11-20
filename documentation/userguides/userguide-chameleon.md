@@ -7,8 +7,8 @@ server. Showrunner signs in to it as an admin and gives every player their own O
 
 ## Sign in
 
-On the Session tab, in **Chameleon**, tick **Enable Coffee Pub Chameleon** (the Chameleon tab only
-shows while it is on), then enter the server address (for example `https://chameleon.example.com`),
+Switch **Chameleon** on in the left rail under Integrations (use **Add integration** if it is not listed;
+each profile has its own switch), then on the Chameleon page enter the server address (for example `https://chameleon.example.com`),
 your admin login and password, click **Save password**, then **Sign in**. Tick **Sign in
 automatically** to reconnect at every launch.
 
@@ -33,7 +33,7 @@ when there is no character image, made for overlaying a character bar. Set its s
 **New users get Character on by default** decides the starting tick for anyone you haven't set by
 hand.
 
-## The Chameleon tab
+## The Chameleon page
 
 Every account on the server is listed as one box per person. The header of the box holds what is true of
 the person, once: a green dot while they are at the table, their name, whether their camera and microphone are on, the
@@ -108,7 +108,7 @@ volume, so they work on top of the filters and do not replace them.
 
 ## Rooms and Asides
 
-The **Room** card at the top of the Chameleon tab picks which room's users are listed: the
+The **Room** card at the top of the Chameleon page picks which room's users are listed: the
 **Lobby** holds everyone, and the rooms an admin curates on Chameleon's Rooms tab hold the users
 they picked. This is always a manual pick -- "this room is for this OBS session" -- and is never
 overridden by wherever the admin happens to be live; a room whose profile restricts which source
