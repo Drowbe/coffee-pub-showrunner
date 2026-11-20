@@ -32,6 +32,8 @@ release and is being re-checked; see [Known issues](known-issues.md).
 - [Automations API](api/api-automations.md) -- let a Foundry module drive OBS through Showrunner.
 - [Automations architecture](architecture/architecture-automations.md) -- how the Automations
   feature is built and why.
+- [Profiles, backups and audio leveling architecture](architecture/architecture-profiles-and-audio.md) -- how
+  profiles are stored and switched, how backups work, and how leveling measures and adjusts volume.
 - [Design tokens](designsystem/design-tokens.md) and [Design components](designsystem/design-components.md)
   -- the control panel's own colors, layout tokens, and reusable UI patterns.
 

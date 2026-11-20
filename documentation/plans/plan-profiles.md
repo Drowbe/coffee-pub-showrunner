@@ -226,3 +226,22 @@ net was a hand-made copy. 0.4.1 adds backups so that no format change can lose a
   before a restore. A restore copies the files back and restarts the app with `app.exit`, not `quit`, so
   closing windows cannot save the old in-memory settings over the restored ones. The newest 20 are kept;
   migration backups are never pruned.
+
+## 0.4.6 as built
+
+- **The Audio card** (formerly Level the participants) sits last on the Chameleon page and holds, top to bottom: the
+  Target level slider with a strip under it in the colors of OBS's own meter (green below -20 dB, yellow to -9, red
+  above; the slider spans -40 to -6), Manually calibrate [n] seconds, Auto-level during session (a checkbox, with
+  "Watching n participants" beside it), and the audio filter option with **Add filters to existing sources**. The
+  audio filter option moved here from the Participant source section; the key is still `tavern.audioFilters`.
+- **Wake delay is per window.** Configuration version 15 replaced the global `wakeAudioDelay` with a `wakeDelay` on
+  each window (10 to 300 seconds, default 30), edited on the window's card while **Wake audio after load** is ticked.
+  `moveWakeDelayToWindows` in `src/config.js` copies an old file's number to every window before the file is read.
+- **Dropdowns.** The system draws a `<select>`'s open list and cannot style it, so a click on any select opens
+  Showrunner's own menu (`.dropmenu`, built at the end of `src/control/control.js`). The select stays in place and
+  stays the source of truth: choosing an entry sets `selectedIndex` and fires its own `input` and `change` events, so
+  every handler and every programmatic `.value` keeps working, and selects created later need no setup.
+- **Session rail dot** (`updateSessionDot`): green when every Text and Text+Number field has its text, red with the
+  names in the tooltip when one is blank. Prompt fields never count, and YouTube fields count only while YouTube is on.
+- **Status fills the window**: the page is a flex column, the connection log takes the free height and About stays at
+  the bottom. Status and Preferences have icons in the slot the dots use, so labels line up.

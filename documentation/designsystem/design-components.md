@@ -105,3 +105,29 @@ one-click action that creates a starter set of something (currently: Metadata fi
 `QUICK_ADD_BUNDLES` in `control.js` for the bundle-list shape if you're adding another one -- each bundle
 says what it would add right now and renders nothing when there's nothing left to add, rather than a
 button that's sometimes a no-op.
+
+## Switch and checkbox
+
+A **switch** (`<input type="checkbox" class="switch">`, styled in `control.css`) turns a whole feature on or off and
+sits beside that feature's title: today the three integrations, Chameleon, Automations and YouTube, plus the OBS
+profile pins. Every other yes/no option is a plain checkbox inside `<label class="check">`, tinted with the accent.
+Do not restyle checkboxes as switches in general; a switch is opted into with the `switch` class.
+
+## Dropdown
+
+Use a plain `<select>`. `control.css` gives every select the same chevron and padding, and a click on any select
+opens the shared `.dropmenu` (`src/control/control.js`) instead of the system list, with arrow-key, Enter, Space and
+Escape support. Nothing needs wiring: a select added later gets the menu automatically, and code reads and writes the
+select as before. A disabled option made only of dashes draws as a divider.
+
+## Rail tab
+
+A `<button class="tab">` in the left rail starts with a fixed 8px slot: a connection `.dot` (green `on`, accent
+`connecting`, red `error`) for a page with a status, or an `<i class="tab-icon">` for a page without one. The selected
+tab uses a tinted fill and a faint outline, not an edge bar.
+
+## Level strip
+
+The Target level slider has a colored strip under it (`.level-zones`) in the colors of OBS's own meter, so the
+numbers mean something at a glance. A control with a meaningful range should show its zones the same way rather than a
+bare slider.
