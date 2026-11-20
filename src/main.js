@@ -3461,13 +3461,16 @@ function registerIpc() {
   });
   // Save the text in the editor to a file the person picks, and make that the profile's script. Used for a script that has
   // no file yet and for Save as.
-  ipcMain.handle('prompter:saveAs', async (event, text) => {
+  ipcMain.handle('prompter:saveAs', async (event, text, options) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return { ok: false, canceled: true, error: '' };
     if (typeof text !== 'string' || Buffer.byteLength(text) > MAX_SCRIPT_BYTES) return { ok: false, canceled: false, error: 'The script is larger than 2 MB.' };
     const t = configStore.get().teleprompter;
     const { canceled, filePath } = await dialog.showSaveDialog(prompterWindow, {
       title: 'Save script',
-      defaultPath: t.script ? t.script : path.join(app.getPath('documents'), 'script.md'),
+      // A new script is never offered the current script's name; Save as of the current one is.
+      defaultPath: options && options.fresh
+        ? path.join(t.script ? path.dirname(t.script) : app.getPath('documents'), 'untitled.md')
+        : t.script || path.join(app.getPath('documents'), 'script.md'),
       filters: [{ name: 'Markdown', extensions: ['md'] }],
     });
     if (canceled || !filePath) return { ok: false, canceled: true, error: '' };

@@ -15,6 +15,7 @@ let baseRevision = 0;
 let readingY = 0;
 let saving = false;
 let editorView = null;
+const STARTER = '# Title\n\nWrite what you will say here.\n';
 let hasFile = true; // false for a new script that has not been saved anywhere yet
 let eventsTimer = null;
 
@@ -130,7 +131,7 @@ async function enter() {
   document.body.classList.add('editing');
   editBar.hidden = false;
   ed = dlRichEditor(DlPM, document, (markdown) => lexer.lexer(markdown), editBox, { onView: (view) => { editorView = view; } });
-  ed.setText(source.text || (hasFile ? '' : '# Title\n\nWrite what you will say here.\n'));
+  ed.setText(source.text || (hasFile ? '' : STARTER));
   savedText = hasFile ? source.text : '';
   baseRevision = ed.revision();
   ed.onChange(paint);
@@ -147,7 +148,7 @@ async function saveAs() {
   const text = ed.getText();
   saving = true;
   try {
-    const result = await window.prompter.saveSourceAs(text);
+    const result = await window.prompter.saveSourceAs(text, { fresh: !hasFile });
     if (result.canceled) return false;
     if (!result.ok) { say(result.error || 'Could not save'); return false; }
     hasFile = true;
@@ -158,6 +159,20 @@ async function saveAs() {
   } finally {
     saving = false;
   }
+}
+
+// Start a new script in the editor. The profile keeps its current script until the new one is first saved.
+function startNew() {
+  if (!ed) return;
+  if (dirty() && !window.confirm('Drop the unsaved changes and start a new script?')) return;
+  ed.setText(STARTER);
+  hasFile = false;
+  savedText = '';
+  baseRevision = ed.revision();
+  say('New script: not saved yet');
+  window.scrollTo(0, 0);
+  ed.focus();
+  paint();
 }
 
 async function save() {
@@ -200,7 +215,8 @@ editBar.addEventListener('click', async (event) => {
   if (button.dataset.fmt) { ed.run(button.dataset.fmt); ed.focus(); paint(); return; }
   if (button.dataset.edit === 'events') { toggleEvents(); return; }
   if (button.dataset.edit === 'cue') { dlInsertCue(DlPM, editorView, 'Cue name'); paint(); return; }
-  if (button.dataset.edit === 'save') await save();
+  if (button.dataset.edit === 'new') startNew();
+  else if (button.dataset.edit === 'save') await save();
   else if (button.dataset.edit === 'saveas') await saveAs();
   else if (button.dataset.edit === 'done') {
     if (!hasFile && !dirty()) { leave(); return; } // a new script nobody typed in: nothing to save
