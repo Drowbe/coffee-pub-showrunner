@@ -15,10 +15,16 @@
       <span class="brand-name"><span class="brand-co">Coffee Pub</span> <span class="brand-product">Showrunner</span></span>
     </div>
     <div class="topbar-actions">
-      <button id="open-all" class="btn btn-primary" type="button">Start All</button>
-      <button id="close-all" class="btn" type="button">Stop All</button>
-      <button id="prompter-open" class="btn" type="button" title="Open or close the teleprompter window">Open Teleprompter</button>
-      <button id="collapse" class="btn" type="button" title="Slide the windows off screen into the dock; OBS keeps capturing them">Dock Windows</button>
+      <div class="topbar-group" role="group" aria-label="Capture windows">
+        <button id="open-all" class="btn btn-primary" type="button" title="Start every capture window that has a URL (the teleprompter has its own button)">Start All</button>
+        <button id="close-all" class="btn" type="button" title="Stop every capture window (the teleprompter has its own button)">Stop All</button>
+        <button id="collapse" class="btn" type="button" title="Slide the capture windows off screen into the dock; OBS keeps capturing them">Dock Windows</button>
+      </div>
+      <span class="topbar-sep" aria-hidden="true"></span>
+      <div class="topbar-group" role="group" aria-label="Teleprompter">
+        <button id="prompter-open" class="btn" type="button" title="Open the teleprompter window"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Teleprompter</button>
+      </div>
+      <span class="topbar-sep" aria-hidden="true"></span>
       <button id="quit-app" class="btn" type="button" title="Quit Coffee Pub Showrunner (also in the app menu, or the menu bar icon's menu if it's on)">Quit</button>
     </div>
   </header>

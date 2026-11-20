@@ -135,6 +135,7 @@ p {
 
 .topbar-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
@@ -2365,3 +2366,10 @@ select option { background: var(--bg-card); color: var(--text); }
 }
 .tab-action:hover { color: var(--text); border-color: var(--border); background: #13243B; }
 .tab-action.on { color: var(--accent); }
+
+/* The header's buttons in groups: the capture windows, the teleprompter, then Quit. */
+.topbar-group { display: flex; align-items: center; gap: 6px; }
+.topbar-sep { align-self: stretch; width: 1px; margin: 4px 2px; background: var(--border); }
+#prompter-open i { margin-right: 4px; font-size: 11px; color: var(--text-dim); }
+#prompter-open.on { border-color: var(--accent); color: var(--accent); }
+#prompter-open.on i { color: var(--accent); }

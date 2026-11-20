@@ -2171,7 +2171,9 @@ function renderPrompter() {
   prompterEls.toggle.textContent = open ? 'Close' : 'Open';
   prompterEls.toggle.classList.toggle('btn-primary', !open);
   prompterEls.toggle.classList.toggle('btn-danger', open);
-  $('prompter-open').textContent = open ? 'Close Teleprompter' : 'Open Teleprompter';
+  const headerButton = $('prompter-open');
+  headerButton.classList.toggle('on', open);
+  headerButton.title = open ? 'Close the teleprompter window' : 'Open the teleprompter window';
   const navToggle = $('prompter-nav-toggle');
   navToggle.classList.toggle('on', open);
   navToggle.title = open ? 'Close the teleprompter' : 'Open the teleprompter';
