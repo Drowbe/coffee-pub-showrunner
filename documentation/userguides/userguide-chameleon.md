@@ -35,14 +35,15 @@ hand.
 
 ## The Chameleon tab
 
-Every account on the server is listed with a green dot while they are at the table, their
-microphone and camera state, and which room they're actually in right now. **Participants** and
-**Characters** are two separate sections, each listing whoever the current room offers that kind
-to -- a room whose profile excludes one of them (Participants only, say) simply doesn't show that
-section. Each row has its own **Show in OBS** / **Hide in OBS** toggle -- hiding never deletes the
-source, so any position, scale or filter you set on it in OBS survives -- and, once it exists, a
-**Delete from OBS** button that actually removes it. OBS names follow one pattern everywhere:
-`Participant: <name> (CPS)` and `Character: <name> (CPS)`.
+Every account on the server is listed as one box per person. The header of the box holds what is true of
+the person, once: a green dot while they are at the table, their name, whether their camera and microphone are on, the
+OBS volume Calibrate or Auto level set for them (or "not calibrated"), and at the far right which room they're actually in
+right now (or OFFLINE, or OFF STREAM). Under the header are the person's two sources as plain rows, **Participant** first
+and **Character** second, each with its picture, its OBS name, a link button, **Delete from OBS** and a **Show in OBS** /
+**Hide in OBS** toggle. A room whose profile excludes one of them (Participants only, say) simply doesn't show that row.
+Hiding never deletes the source, so any position, scale or filter you set on it in OBS survives, and **Delete from OBS** is
+the button that actually removes it. OBS names follow one pattern everywhere: `Participant: <name> (CPS)` and
+`Character: <name> (CPS)`.
 
 The bulk buttons above the list act on the whole room at once: **Show All in OBS** / **Hide All in
 OBS** only touch visibility, never creating or deleting anything; **Add All in OBS** creates a

@@ -153,6 +153,9 @@ Open: whether a continuous Keep leveled mode is worth building on top of Calibra
   and +6 dB). Per person, the loudest quarter of the frames above a -55 dB gate is taken as how loud they speak;
   fewer than about a second of speech is "no speech heard". The volume is the target minus that, limited to -30 to
   +20 dB. The result is saved as `levelDb` on the player's entry and re-applied when a Participant source is created.
+- **People grouped.** The Participants and Characters lists became one list of people: a box each, with a header for what
+  is true of the person (online, name, camera, mic, level, room) and one plain row per source. Nothing was dropped from the
+  old rows; the mic, camera and room moved up because they belong to the person, not to a source.
 - **Auto level** (the "Keep leveled" idea, now built; `src/autolevel.js`): a per-profile switch (`tavern.autoLevel`) beside the card
   title. It keeps a shared meter subscription on (`ObsBridge.watchMeters`, counted so Calibrate and Auto level can
   overlap and a reconnect restores it) and, every two seconds, reconsiders each participant using the last eight seconds of

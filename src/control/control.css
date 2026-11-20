@@ -1378,6 +1378,66 @@ input[type="checkbox"].switch:disabled {
   min-width: 180px;
 }
 
+.people {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* One box per person; their sources are plain rows inside it. */
+.person {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px 2px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.person-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px 8px;
+}
+
+.person-name {
+  font-size: 15px;
+  min-width: 90px;
+}
+
+/* A fixed slot, so the level lines up whether or not the person is online. */
+.person-av {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 46px;
+}
+
+.person-level {
+  min-width: 96px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.person-level.none {
+  color: var(--text-dim);
+}
+
+.person-spacer {
+  margin-left: auto;
+}
+
+.person .player-card {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 4px;
+}
+
+.person .player-card:not(:first-child) {
+  border-top: 1px solid var(--border);
+}
+
 .player-card {
   display: flex;
   align-items: center;
