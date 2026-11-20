@@ -364,45 +364,67 @@
         </div>
         <p class="hint">A window for the presenter that shows a Markdown script. It looks like the capture windows but is not one: it is never an OBS source, so it stays off the stream. Drag its edges to the size you want. Each profile has its own script and settings.</p>
 
-        <div class="grid">
-          <label class="field span-3">
-            <span>Script (a Markdown file)</span>
-            <span class="row">
-              <input id="prompter-script" type="text" spellcheck="false" placeholder="No file chosen" style="flex: 1">
-              <button class="btn" id="prompter-choose" type="button">Choose file...</button>
-              <button class="btn" id="prompter-new" type="button">New...</button>
-            </span>
-            <small class="hint">Edit it in the teleprompter window (the Edit button, or E). Saving the file in another editor reloads it there too.</small>
-          </label>
-          <label class="field">
-            <span>Scroll speed (px/s)</span>
-            <input id="prompter-speed" type="number" min="5" max="400" step="5">
-          </label>
-          <label class="field">
-            <span>Text size (px)</span>
-            <input id="prompter-fontsize" type="number" min="16" max="200" step="2">
-          </label>
-          <label class="field">
-            <span>Line spacing</span>
-            <input id="prompter-lineheight" type="number" min="1" max="3" step="0.1">
-          </label>
-          <label class="field">
-            <span>Text width (%)</span>
-            <input id="prompter-textwidth" type="number" min="30" max="100" step="5">
-          </label>
-          <label class="field">
-            <span>Width (px)</span>
-            <input id="prompter-width" type="number" min="100" max="7680" step="1">
-          </label>
-          <label class="field">
-            <span>Height (px)</span>
-            <input id="prompter-height" type="number" min="100" max="7680" step="1">
-          </label>
-        </div>
+        <label class="field">
+          <span>Script (a Markdown file)</span>
+          <span class="row row-fill">
+            <input id="prompter-script" type="text" spellcheck="false" placeholder="No file chosen">
+            <button class="btn" id="prompter-choose" type="button">Choose file...</button>
+            <button class="btn" id="prompter-new" type="button">New...</button>
+          </span>
+          <small class="hint">Edit it in the teleprompter window (the Edit button, or E). Saving the file in another editor reloads it there too.</small>
+        </label>
 
         <div class="checks">
           <label class="check"><input id="prompter-enabled" type="checkbox"><span>Open when this profile starts</span></label>
           <label class="check" title="Flip the text left to right, for a prompter that is read in a mirror"><input id="prompter-mirror" type="checkbox"><span>Mirror</span></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Reading</h2>
+        <div class="card-subsection">
+          <h3 class="section-title">Scroll speed</h3>
+          <div class="row">
+            <label class="field field-inline">
+              <span>Speed (px/s)</span>
+              <input id="prompter-speed" type="number" min="5" max="400" step="5" size="5">
+            </label>
+          </div>
+        </div>
+        <div class="card-subsection">
+          <h3 class="section-title">Window size</h3>
+          <div class="row">
+            <label class="field field-inline">
+              <span>Width (px)</span>
+              <input id="prompter-width" type="number" min="100" max="7680" step="1" size="5">
+            </label>
+            <label class="field field-inline">
+              <span>Height (px)</span>
+              <input id="prompter-height" type="number" min="100" max="7680" step="1" size="5">
+            </label>
+          </div>
+        </div>
+        <div class="card-subsection">
+          <h3 class="section-title">Text</h3>
+          <div class="row">
+            <label class="field field-inline">
+              <span>Size (px)</span>
+              <input id="prompter-fontsize" type="number" min="16" max="200" step="2" size="5">
+            </label>
+            <label class="field field-inline">
+              <span>Width (%)</span>
+              <input id="prompter-textwidth" type="number" min="30" max="100" step="5" size="5">
+            </label>
+          </div>
+        </div>
+        <div class="card-subsection">
+          <h3 class="section-title">Line spacing</h3>
+          <div class="row">
+            <label class="field field-inline">
+              <span>Spacing</span>
+              <input id="prompter-lineheight" type="number" min="1" max="3" step="0.1" size="5">
+            </label>
+          </div>
         </div>
       </div>
 
