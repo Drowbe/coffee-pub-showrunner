@@ -158,7 +158,7 @@ request itself needs.
 `group` on each is meant for building a menu -- `"Controls"`, `"Scenes"`, `"Sources"`, or
 `"Studio Control"` -- grouped the same way Showrunner's own OBS Control card is laid out. `paramType`
 says what kind of thing `param` holds (`"scene"`, `"source"`, `"ruleSet"`, `"metadataField"`,
-`"text"`, `"youtubeUpload"`, or `"none"`) -- `"text"` (`showToast` alone, currently) means `param` is
+`"text"`, `"scriptFile"`, `"youtubeUpload"`, or `"none"`) -- `"text"` (`showToast` alone, currently) means `param` is
 free text, not a picker value; `youtubeUpload` (`uploadToYouTube` alone) is the one exception to
 "one param": it has five named fields instead (see the Showrunner actions table below), not
 discoverable or callable meaningfully via this API at all -- Showrunner's own step editor is the only
@@ -382,6 +382,10 @@ disconnected:
 | `clearMetadataField` | Resets a Prompt-type Metadata field (`param`, its `key`) back to blank -- the other half of "Prompt fields" above: what makes a field ask fresh again the *next* time it's needed, instead of an old answer silently satisfying every future run forever. Fails with a clear error if the field doesn't exist or isn't Prompt-shaped |
 | `showToast` | Sends a real OS notification (`param`, the message -- free text, `{token}`-expanded the same way `applySessionFilename`'s template is) -- Notification Center on macOS, the Action Center on Windows -- so it reaches someone even if they aren't looking at Showrunner at all right now, plus an in-app toast as a second, more immediate layer for whoever already is. Never fails outright even if the OS notification can't be shown (unsupported platform, permission denied); always logged to the Connections activity feed regardless. The natural pairing is a rule set's own conditional steps (see "Sequences, delays, and running steps together" below) -- On Failure, say, for something that needs a human to go handle manually -- but nothing here requires that pairing |
 | `uploadToYouTube` | Uploads a recording (the most recent one OBS reported, unless the step overrides it) to YouTube. Not driven by `param` at all -- five separate Metadata field keys instead (`titleField`, `descriptionField`, `categoryField`, `madeForKidsField`, `visibilityField`), configured on the step, not passable through this API. No playlist support -- see `architecture-automations.md`'s "Uploading a recording to YouTube" for why |
+| `prompterPlay` / `prompterPause` / `prompterToggle` | Starts, pauses, or flips the teleprompter's auto-scroll. Group `Teleprompter`; no `param`. Fails with a clear error if the teleprompter window isn't open |
+| `prompterFaster` / `prompterSlower` | Changes the scroll speed one step, the same step as the `]` and `[` keys (saved to the profile) |
+| `prompterNext` / `prompterPrev` / `prompterTop` | Jumps to the next or previous heading, or back to the top of the script |
+| `prompterLoadScript` | Shows a script in the teleprompter, from the top. `param` is a full path, a file name next to the script showing now, or `Start Up` to go back to the profile's Start Up script. It is shown for now: the Start Up script is unchanged, so the next launch still opens it. The script is added to the profile's list of scripts (the control panel's step picks from that list, or Browse adds a file to it). Fails if the file is missing or too big, or while the script is being edited |
 
 `setMetadataField`'s value, on a direct `POST /api/automations/action` call, comes from `data.value`
 (a literal string) -- the same shape `setText` uses for `data.text`, just a different key name since

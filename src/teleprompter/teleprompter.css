@@ -6,6 +6,7 @@
   --size: 56px;
   --leading: 1.5;
   --measure: 80%;
+  --status-h: 32px;
 }
 
 * { box-sizing: border-box; }
@@ -107,7 +108,7 @@ body.mirror #stage { transform: scaleX(-1); }
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--status-h);
   display: flex;
   flex-wrap: nowrap;
   justify-content: safe center;
@@ -204,7 +205,34 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 }
 #edit-bar button:hover { border-color: var(--accent); }
 #edit-bar button.on { background: color-mix(in srgb, var(--accent) 30%, #182c47); border-color: var(--accent); }
-#edit-status { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; color: var(--dim); }
+#edit-bar .group.end { margin-left: auto; }
+#edit-bar .divider { align-self: stretch; width: 1px; margin: 2px 4px; background: #2a4162; }
+
+/* The status bar, always along the bottom and styled like the control panel's: what just happened on the left, the script on the right. */
+#status-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  height: var(--status-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  background: #0e1a2b;
+  border-top: 1px solid #2a4162;
+  color: #b9c3d3;
+  font-size: 11px;
+  white-space: nowrap;
+}
+#status-bar span { overflow: hidden; text-overflow: ellipsis; }
+#status-text.error { color: #e6b450; }
+#status-text.running { color: var(--accent); }
+#status-text.running::before { content: "\25CF"; margin-right: 8px; animation: running-pulse 1.4s ease-in-out infinite; }
+@keyframes running-pulse { 50% { opacity: 0.3; } }
+#status-file { flex: 0 1 50%; text-align: right; }
 
 /* The File menu drops down from the bar. */
 #edit-bar .menu-wrap { position: relative; display: inline-block; }
@@ -224,6 +252,10 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
   z-index: 8;
 }
 #file-menu button { text-align: left; border-color: transparent; background: transparent; }
+#recent-scripts { display: grid; gap: 2px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #2a4162; }
+#recent-scripts:empty { display: none; }
+#recent-scripts .heading { padding: 4px 10px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+#recent-scripts button .tag { margin-left: 8px; color: var(--accent); font-size: 11px; }
 #file-menu button:hover { background: #182c47; border-color: #2a4162; }
 
 /* The list of events the script fires, beside the text while editing. */
@@ -231,7 +263,7 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
   position: fixed;
   top: 52px;
   right: 0;
-  bottom: 0;
+  bottom: var(--status-h);
   width: 320px;
   z-index: 4;
   overflow-y: auto;
@@ -245,6 +277,7 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 #events .hint { margin: 0 0 12px; color: var(--dim); }
 #events ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 #events li { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: start; padding: 8px; border: 1px solid #2a4162; border-radius: 8px; }
+#events li.current { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 #events li.none { display: block; border: 0; color: var(--dim); }
 #events button { font: inherit; color: var(--text); background: transparent; border: 0; cursor: pointer; text-align: left; }
 #events .jump { display: grid; gap: 2px; padding: 0; min-width: 0; }
@@ -256,6 +289,7 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 #events .copy { background: #182c47; border: 1px solid #2a4162; border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
 #events .copy.has-rule { border-color: var(--accent); color: var(--accent); }
 #events .show-headings { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; color: var(--dim); cursor: pointer; }
+#events .copy.delete:hover { border-color: #e06c5f; color: #e06c5f; }
 #events .copy:hover { border-color: var(--accent); }
 #events .warn { grid-column: 1 / -1; color: #e6b450; font-size: 12px; }
 body.editing.events-open #stage { margin: 0; width: calc(100% - 320px); padding-left: 4%; padding-right: 4%; }

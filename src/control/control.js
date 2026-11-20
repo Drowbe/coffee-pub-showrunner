@@ -20,7 +20,6 @@ const obsTagEl = $('obs-tag');
 const obsDotEl = $('obs-dot');
 const obsConnectEl = $('obs-connect');
 const obsAutoEl = $('obs-auto');
-const collapseEl = $('collapse');
 const dockEnabledEl = $('dock-enabled');
 const dockSideEl = $('dock-side');
 const dockOverlapEl = $('dock-overlap');
@@ -748,7 +747,11 @@ function selectTab(name) {
   // automationsScenes/automationsSources, so either tab arriving is worth
   // a fresh read.
   if (name === 'obs' || name === 'automations') refreshAutomationsScenes();
-  if (name === 'automations') loadEventChoices().catch(() => {});
+  if (name === 'automations') {
+    loadEventChoices().catch(() => {});
+    // A load-a-script step lists the profile's scripts; rebuild if they changed since the cards were built.
+    if (config && knownScripts().join('|') !== ruleSetsScriptsSig) renderAutomationsRuleSets();
+  }
   if (name === 'obs') refreshObsPinChoices();
   for (const [id, card] of cards) card.hidden = name !== `view:${id}`;
   for (const [id, card] of appWinCards) card.hidden = name !== `app:${id}`;
@@ -767,11 +770,44 @@ function renderTabs() {
     dot.dataset.viewDot = view.id;
     tab.appendChild(dot);
     tab.append(view.label);
-    viewTabsEl.appendChild(tab);
+    // Beside each window: restart it, and show it on the desktop or dock it (the arrow, as on the teleprompter).
+    const row = document.createElement('div');
+    row.className = 'tab-row two';
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'tab-action';
+    open.dataset.viewOpen = view.id;
+    open.innerHTML = '<i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>';
+    const restart = document.createElement('button');
+    restart.type = 'button';
+    restart.className = 'tab-action second';
+    restart.dataset.viewRestart = view.id;
+    restart.innerHTML = '<i class="fa-solid fa-rotate-right" aria-hidden="true"></i>';
+    row.append(tab, restart, open);
+    viewTabsEl.appendChild(row);
   }
   $('tabs').querySelector('.tab-add').hidden = config.views.length >= limits.maxViews && (config.appWindows || []).length >= MAX_APP_WINDOWS;
   selectTab(activeTab);
 }
+
+// The two icons beside a window in the left rail: the arrow shows it on the desktop or docks it (starting it first if it
+// is stopped), and the circle restarts it.
+viewTabsEl.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-view-open], [data-view-restart]');
+  if (!button || button.disabled) return;
+  const id = button.dataset.viewOpen || button.dataset.viewRestart;
+  await flushSave();
+  const open = Boolean((status.views.find((v) => v.id === id) || {}).open);
+  const docked = (status.parkedIds || []).includes(id);
+  try {
+    if (button.dataset.viewRestart) await api.restartView(id);
+    else if (!open) await api.openView(id);
+    else if (docked) await api.restoreView(id);
+    else await api.parkView(id);
+  } catch (err) {
+    reportError(err);
+  }
+});
 
 async function addWebWindow() {
   await flushSave();
@@ -1489,8 +1525,13 @@ function renderActivityLog(events) {
 function renderStatus() {
   const o = status.obs || { state: 'disconnected', inputs: [] };
   const connected = o.state === 'connected';
-  collapseEl.textContent = status.collapsed ? 'Undock Windows' : 'Dock Windows';
-  collapseEl.disabled = !status.views.some((v) => v.open);
+  const anyOpen = status.views.some((v) => v.open);
+  const dockAll = $('windows-dock-all');
+  dockAll.disabled = !anyOpen;
+  dockAll.classList.toggle('on', anyOpen && !status.collapsed);
+  dockAll.title = status.collapsed ? 'Show every window on the desktop' : 'Dock every window (slide them to the edge dock)';
+  dockAll.setAttribute('aria-label', dockAll.title);
+  $('windows-restart-all').disabled = !config.views.some((v) => v.url);
 
   for (const view of config.views) {
     const card = cards.get(view.id);
@@ -1499,6 +1540,22 @@ function renderStatus() {
 
     const dot = document.querySelector(`[data-view-dot="${view.id}"]`);
     if (dot) dot.classList.toggle('on', Boolean(s.open));
+    const rail = document.querySelector(`[data-view-open="${view.id}"]`);
+    if (rail) {
+      const docked = (status.parkedIds || []).includes(view.id);
+      rail.classList.toggle('on', Boolean(s.open) && !docked);
+      rail.disabled = !s.open && !view.url;
+      rail.title = !s.open
+        ? (view.url ? `Start ${view.label}` : 'Enter a URL first')
+        : docked ? `Show ${view.label} on the desktop` : `Dock ${view.label} (slide it to the edge dock)`;
+      rail.setAttribute('aria-label', rail.title);
+    }
+    const again = document.querySelector(`[data-view-restart="${view.id}"]`);
+    if (again) {
+      again.disabled = !view.url;
+      again.title = view.url ? `${s.open ? 'Restart' : 'Start'} ${view.label}` : 'Enter a URL first';
+      again.setAttribute('aria-label', again.title);
+    }
 
     const tag = card.querySelector('[data-role="tag"]');
     tag.hidden = !s.open;
@@ -1938,11 +1995,6 @@ async function flushSave() {
   }
 }
 
-$('open-all').addEventListener('click', async () => {
-  await flushSave();
-  await api.openAll();
-});
-$('close-all').addEventListener('click', () => api.closeAll());
 // Quit lives here too, not only in the app menu and the menu bar icon: with the
 // Dock icon hidden or the menu bar icon off there was no visible way to shut
 // the app down. Windows that are open get closed on quit, so ask first.
@@ -1951,7 +2003,15 @@ $('quit-app').addEventListener('click', () => {
   if (open && !window.confirm('Quit Coffee Pub Showrunner? Its windows will close, so OBS loses those sources until you start it again.')) return;
   api.quitApp();
 });
-collapseEl.addEventListener('click', () => (status.collapsed ? api.expandViews() : api.collapseViews()));
+$('hide-panel').addEventListener('click', () => api.hidePanel());
+// Beside the Windows heading: restart every window, and dock or show them all.
+$('windows-restart-all').addEventListener('click', async () => {
+  const open = status.views.some((v) => v.open);
+  if (open && !window.confirm('Restart every window? They close and open again, so OBS loses those sources for a moment.')) return;
+  await flushSave();
+  try { await api.restartAll(); } catch (err) { reportError(err); }
+});
+$('windows-dock-all').addEventListener('click', () => (status.collapsed ? api.expandViews() : api.collapseViews()));
 $('arrange').addEventListener('click', async () => {
   await flushSave();
   await api.arrangeViews(Number(arrangeDisplayEl.value));
@@ -2046,7 +2106,6 @@ const prompterEls = {
   dot: $('prompter-dot'),
   tag: $('prompter-tag'),
   toggle: $('prompter-toggle'),
-  script: $('prompter-script'),
   choose: $('prompter-choose'),
   create: $('prompter-new'),
   speed: $('prompter-speed'),
@@ -2059,6 +2118,75 @@ const prompterEls = {
   mirror: $('prompter-mirror'),
 };
 
+// The profile's scripts, in the order they were added. The Start Up script is one of them (shown first if the list somehow
+// lacks it). The same list feeds the choices in a load-a-script step.
+function knownScripts() {
+  const t = (config && config.teleprompter) || {};
+  const list = t.scripts || [];
+  return t.script && !list.includes(t.script) ? [t.script, ...list] : list;
+}
+
+function renderPrompterScripts(open) {
+  const t = config.teleprompter;
+  const known = knownScripts();
+  const current = (status && status.prompter && status.prompter.script) || t.script;
+  const list = $('prompter-scripts');
+  list.textContent = '';
+  $('prompter-scripts-empty').hidden = known.length > 0;
+  const name = (file) => file.split(/[\\/]/).pop();
+  $('prompter-now').textContent = !known.length ? '' : !open
+    ? 'The teleprompter is closed. It opens with the Start Up script.'
+    : (current && current !== t.script ? `Showing now: ${name(current)}, not the Start Up script.` : 'Showing the Start Up script.');
+  for (const file of known) {
+    const li = document.createElement('li');
+    li.className = `script-row${open && file === current ? ' showing' : ''}`;
+    const label = document.createElement('span');
+    label.className = 'script-name';
+    label.textContent = name(file);
+    label.title = file;
+    li.appendChild(label);
+    const tag = (text) => { const el = document.createElement('span'); el.className = 'script-tag'; el.textContent = text; li.appendChild(el); };
+    if (file === t.script) tag('Start Up');
+    if (open && file === current) tag('Showing');
+    const button = (text, title, onClick, disabled) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-small';
+      b.textContent = text;
+      b.title = title;
+      b.disabled = Boolean(disabled);
+      b.addEventListener('click', onClick);
+      li.appendChild(b);
+    };
+    const act = async (call) => {
+      await flushSave();
+      try {
+        const result = await call();
+        if (result && result.ok === false) reportError(new Error(result.error));
+        else if (result && result.views) { applyConfig(result); renderPrompter(); }
+      } catch (err) { reportError(err); }
+    };
+    if (!open || file !== current) button('Show now', open ? 'Show this script in the teleprompter now' : 'Open the teleprompter to show a script', () => act(() => api.useScript(file)), !open);
+    if (file !== t.script) button('Make Start Up', 'Open the teleprompter with this script from now on', () => act(() => api.setStartUp(file)));
+    button('Remove', 'Take it off this profile (the file is not touched)', () => act(() => api.removeScript(file)));
+    const index = known.indexOf(file);
+    const arrow = (dir, icon, title, disabled) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-small btn-icon';
+      b.title = title;
+      b.setAttribute('aria-label', title);
+      b.disabled = disabled;
+      b.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i>`;
+      b.addEventListener('click', () => act(() => api.moveScript(file, dir)));
+      li.appendChild(b);
+    };
+    arrow(-1, 'fa-arrow-up', 'Move up', index === 0);
+    arrow(1, 'fa-arrow-down', 'Move down', index === known.length - 1);
+    list.appendChild(li);
+  }
+}
+
 function renderPrompter() {
   if (!config || !config.teleprompter) return;
   const t = config.teleprompter;
@@ -2068,8 +2196,11 @@ function renderPrompter() {
   prompterEls.toggle.textContent = open ? 'Close' : 'Open';
   prompterEls.toggle.classList.toggle('btn-primary', !open);
   prompterEls.toggle.classList.toggle('btn-danger', open);
+  const navToggle = $('prompter-nav-toggle');
+  navToggle.classList.toggle('on', open);
+  navToggle.title = open ? 'Close the teleprompter' : 'Open the teleprompter';
+  navToggle.setAttribute('aria-label', navToggle.title);
   const set = (el, value) => { if (document.activeElement !== el) el.value = value === null || value === undefined ? '' : String(value); };
-  set(prompterEls.script, t.script);
   set(prompterEls.speed, t.speed);
   set(prompterEls.fontSize, t.fontSize);
   set(prompterEls.lineHeight, t.lineHeight);
@@ -2078,6 +2209,7 @@ function renderPrompter() {
   set(prompterEls.height, t.height);
   prompterEls.enabled.checked = Boolean(t.enabled);
   prompterEls.mirror.checked = Boolean(t.mirror);
+  renderPrompterScripts(open);
 }
 
 function readPrompter() {
@@ -2085,7 +2217,6 @@ function readPrompter() {
   const t = config.teleprompter;
   config.teleprompter = {
     ...t,
-    script: prompterEls.script.value,
     speed: number(prompterEls.speed, t.speed),
     fontSize: number(prompterEls.fontSize, t.fontSize),
     lineHeight: number(prompterEls.lineHeight, t.lineHeight),
@@ -2098,17 +2229,19 @@ function readPrompter() {
   scheduleSave();
 }
 
-for (const el of [prompterEls.script, prompterEls.speed, prompterEls.fontSize, prompterEls.lineHeight, prompterEls.textWidth, prompterEls.width, prompterEls.height, prompterEls.enabled, prompterEls.mirror]) {
+for (const el of [prompterEls.speed, prompterEls.fontSize, prompterEls.lineHeight, prompterEls.textWidth, prompterEls.width, prompterEls.height, prompterEls.enabled, prompterEls.mirror]) {
   el.addEventListener('input', readPrompter);
   el.addEventListener('change', readPrompter);
 }
-prompterEls.toggle.addEventListener('click', async () => {
+// Open or close the teleprompter window: from its page and the left rail.
+async function toggleTeleprompterWindow() {
   await flushSave();
   try { await api.toggleTeleprompter(); } catch (err) { reportError(err); }
-});
+}
+for (const el of [prompterEls.toggle, $('prompter-nav-toggle')]) el.addEventListener('click', toggleTeleprompterWindow);
 prompterEls.choose.addEventListener('click', async () => {
   await flushSave();
-  try { applyConfig(await api.chooseScript()); renderPrompter(); } catch (err) { reportError(err); }
+  try { const added = await api.addScript(); applyConfig(added.config); renderPrompter(); } catch (err) { reportError(err); }
 });
 
 prompterEls.create.addEventListener('click', async () => {
@@ -2120,6 +2253,8 @@ prompterEls.create.addEventListener('click', async () => {
 api.onOpenRuleSet((id) => {
   if (!isDirty() && status && status.config) applyConfig(status.config);
   selectTab('automations');
+  const target = (config.automations.ruleSets || []).find((r) => r.id === id);
+  if (target && hiddenRulesetGroups.delete(target.group || '')) rememberHiddenRulesetGroups();
   renderAutomationsRuleSets();
   requestAnimationFrame(() => {
     const card = automationsEls.rulesets.querySelector(`[data-ruleset-id="${id}"]`);
@@ -2886,6 +3021,15 @@ const STUDIO_ACTIONS = [
   { value: 'clearMetadataField', label: 'Clear a Prompt field back to blank', paramType: 'metadataField', group: 'Studio Control' },
   { value: 'showToast', label: 'Send a notification', paramType: 'text', group: 'Studio Control' },
   { value: 'uploadToYouTube', label: 'Upload the recording to YouTube', paramType: 'youtubeUpload', group: 'Studio Control' },
+  { value: 'prompterPlay', label: 'Teleprompter: start scrolling', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterPause', label: 'Teleprompter: pause scrolling', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterToggle', label: 'Teleprompter: play or pause', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterFaster', label: 'Teleprompter: scroll faster', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterSlower', label: 'Teleprompter: scroll slower', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterNext', label: 'Teleprompter: next heading', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterPrev', label: 'Teleprompter: previous heading', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterTop', label: 'Teleprompter: back to the top', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterLoadScript', label: 'Teleprompter: load a script', paramType: 'scriptFile', group: 'Teleprompter' },
 ];
 
 // Live OBS scene/source names, refreshed by refreshAutomationsScenes() below
@@ -3304,6 +3448,13 @@ function recallCollapsedRulesets() {
 
 const collapsedRulesetIds = recallCollapsedRulesets();
 
+// The step as it is in the config now. A save swaps in fresh copies of the rule sets, so the step object a row was
+// built from can be an old copy; a handler that runs later (after a file dialog, say) must edit the live one.
+function liveStep(ruleSetId, step) {
+  const ruleSet = (config.automations.ruleSets || []).find((r) => r.id === ruleSetId);
+  return (ruleSet && ruleSet.steps.find((x) => x.id === step.id)) || step;
+}
+
 function ruleSetFromCard(card) {
   return (config.automations.ruleSets || []).find((r) => r.id === card.dataset.rulesetId);
 }
@@ -3339,7 +3490,7 @@ function tintClassFor(step, actions) {
   if (step.type === 'delay') return 'automation-step-tint-timer';
   const meta = actions.find((a) => a.value === step.action);
   if (meta && meta.group === 'Scenes') return 'automation-step-tint-scenes';
-  if (meta && meta.group === 'Studio Control') return 'automation-step-tint-studio';
+  if (meta && (meta.group === 'Studio Control' || meta.group === 'Teleprompter')) return 'automation-step-tint-studio';
   return 'automation-step-tint-obs';
 }
 
@@ -3736,6 +3887,36 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       pickerToggle.addEventListener('click', () => toggleDataFieldPicker(pickerPanel, paramInput));
 
       mainRow.append(paramInput, pickerToggle, pickerPanel);
+    } else if (meta && meta.paramType === 'scriptFile') {
+      // A script of this profile to load, or Start Up, or Browse to add another file to the profile and use it.
+      const scriptSelect = document.createElement('select');
+      scriptSelect.dataset.sfield = 'param';
+      const addChoice = (value, text) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = text;
+        scriptSelect.appendChild(opt);
+      };
+      addChoice('', 'Choose a script…');
+      addChoice('Start Up', 'Start Up script');
+      const known = knownScripts();
+      for (const file of known) addChoice(file, file.split(/[\\/]/).pop());
+      const typed = step.param || '';
+      if (typed && typed !== 'Start Up' && !known.includes(typed)) addChoice(typed, `${typed} (not in this profile's scripts)`);
+      scriptSelect.value = typed;
+      const scriptBrowse = document.createElement('button');
+      scriptBrowse.type = 'button';
+      scriptBrowse.className = 'btn btn-small';
+      scriptBrowse.textContent = 'Browse';
+      scriptBrowse.title = 'Pick a file; it is added to this profile\'s scripts';
+      scriptBrowse.addEventListener('click', async () => {
+        const added = await api.addScript();
+        if (!added.path) return;
+        applyConfig(added.config); // the profile's list has a new script; the live steps are the ones in this config
+        liveStep(ruleSetId, step).param = added.path;
+        saveAutomationsRuleSets();
+      });
+      mainRow.append(scriptSelect, scriptBrowse);
     } else if (meta && meta.paramType !== 'none' && meta.paramType !== 'ruleSet' && meta.paramType !== 'metadataField' && meta.paramType !== 'youtubeUpload') {
       const options = optionsForParamType(meta.paramType);
       const paramSelect = document.createElement('select');
@@ -3902,7 +4083,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
         const picked = await api.youtubePickVideoFile();
         if (!picked) return;
         fileInput.value = picked;
-        step.filePath = picked;
+        liveStep(ruleSetId, step).filePath = picked;
         saveAutomationsRuleSets();
       });
       filePathGroup.appendChild(browseBtn);
@@ -3912,9 +4093,9 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       fileModeSelect.addEventListener('change', () => {
         const specific = fileModeSelect.value === 'specific';
         filePathGroup.hidden = !specific;
-        if (!specific && step.filePath) {
+        if (!specific && liveStep(ruleSetId, step).filePath) {
           fileInput.value = '';
-          step.filePath = '';
+          liveStep(ruleSetId, step).filePath = '';
           saveAutomationsRuleSets();
         }
       });
@@ -3988,7 +4169,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
           const picked = await api.automationsPickTextFile();
           if (!picked) return;
           fileInput.value = picked;
-          step.filePath = picked;
+          liveStep(ruleSetId, step).filePath = picked;
           saveAutomationsRuleSets();
         });
         mainRow.appendChild(browseBtn);
@@ -4160,11 +4341,71 @@ function updateRulesetRunState() {
   }
 }
 
+// Which rule set groups are switched off in the list. A view preference kept in this browser, like the
+// collapsed cards; "" stands for rule sets with no group.
+function recallHiddenRulesetGroups() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hiddenRulesetGroups') || '[]');
+    return new Set(Array.isArray(saved) ? saved.filter((g) => typeof g === 'string') : []);
+  } catch (err) {
+    return new Set();
+  }
+}
+const hiddenRulesetGroups = recallHiddenRulesetGroups();
+
+function rememberHiddenRulesetGroups() {
+  try {
+    localStorage.setItem('hiddenRulesetGroups', JSON.stringify([...hiddenRulesetGroups]));
+  } catch (err) {
+    // ignore
+  }
+}
+
+function visibleRuleSets() {
+  return (config.automations.ruleSets || []).filter((r) => !hiddenRulesetGroups.has(r.group || ''));
+}
+
+function renderRulesetGroupFilter(ruleSets) {
+  const groups = [...new Set(ruleSets.map((r) => r.group || ''))].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
+  // With one group (or none) there is nothing to switch, so the row stays out of the way.
+  const wrap = $('automations-group-filter');
+  wrap.hidden = groups.length < 2;
+  const chips = $('automations-group-chips');
+  chips.textContent = '';
+  for (const group of groups) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `group-toggle${hiddenRulesetGroups.has(group) ? '' : ' on'}`;
+    button.dataset.group = group;
+    button.textContent = group || 'No group';
+    button.setAttribute('aria-pressed', String(!hiddenRulesetGroups.has(group)));
+    chips.appendChild(button);
+  }
+}
+
+$('automations-group-chips').addEventListener('click', (event) => {
+  const button = event.target.closest('.group-toggle');
+  if (!button) return;
+  const group = button.dataset.group;
+  if (hiddenRulesetGroups.has(group)) hiddenRulesetGroups.delete(group);
+  else hiddenRulesetGroups.add(group);
+  rememberHiddenRulesetGroups();
+  renderAutomationsRuleSets();
+});
+
+let ruleSetsScriptsSig = '';
 function renderAutomationsRuleSets() {
-  const ruleSets = config.automations.ruleSets || [];
+  ruleSetsScriptsSig = knownScripts().join('|');
+  const all = config.automations.ruleSets || [];
+  const ruleSets = visibleRuleSets();
   automationsEls.rulesets.textContent = '';
-  automationsEls.rulesetsEmpty.hidden = ruleSets.length > 0;
-  automationsEls.rulesetsCount.textContent = ruleSets.length ? `${ruleSets.length} rule set${ruleSets.length === 1 ? '' : 's'}` : '';
+  renderRulesetGroupFilter(all);
+  automationsEls.rulesetsEmpty.hidden = all.length > 0;
+  automationsEls.rulesetsCount.textContent = all.length
+    ? (ruleSets.length === all.length
+      ? `${all.length} rule set${all.length === 1 ? '' : 's'}`
+      : `${ruleSets.length} of ${all.length} rule sets`)
+    : '';
   ruleSets.forEach((ruleSet, i) => automationsEls.rulesets.appendChild(buildRulesetCard(ruleSet, i, ruleSets.length)));
 }
 
@@ -4228,7 +4469,10 @@ automationsEls.rulesets.addEventListener('click', async (event) => {
   if (action === 'move-ruleset-up' || action === 'move-ruleset-down') {
     const list = config.automations.ruleSets;
     const from = list.findIndex((r) => r.id === ruleSet.id);
-    const to = action === 'move-ruleset-up' ? from - 1 : from + 1;
+    // Move past the next rule set that is showing, not a hidden one, so the card visibly moves.
+    const shown = visibleRuleSets();
+    const neighbour = shown[shown.findIndex((r) => r.id === ruleSet.id) + (action === 'move-ruleset-up' ? -1 : 1)];
+    const to = neighbour ? list.findIndex((r) => r.id === neighbour.id) : -1;
     if (to < 0 || to >= list.length) return;
     const [moved] = list.splice(from, 1);
     list.splice(to, 0, moved);

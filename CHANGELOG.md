@@ -9,6 +9,18 @@ in use at the time, except where noted.
 
 Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
+## Unreleased
+
+### Added
+- **Teleprompter actions for Automations.** Rule set steps (and `POST /api/automations/action`) can start, pause or toggle the scroll, change the speed, jump to the next or previous heading, or go back to the top, so a cue can start the scroll or a scene change can slow it. They need the teleprompter window open.
+- **Teleprompter editor.** An always-visible status bar along the bottom, styled like the control panel's (the cue just crossed, scrolling, speed changes, script reloads, the rule set an event is running, held until it finishes (with a countdown during a delay), Unsaved and File saved while editing, and the script's name), **Events** moved after **Insert cue** behind a divider, the cue or heading under the caret highlighted in the Events list, and a **Delete** button on each event that removes it from the script (undo with Cmd/Ctrl+Z).
+- **Teleprompter scripts and a load-a-script step.** The Teleprompter page now holds the profile's **Scripts**: Add script... or New... put a file on the list, one is the **Start Up** script (the window always opens with it), and each row can Show now, Make Start Up or Remove. A new **Teleprompter: load a script** step picks a script from that list, or `Start Up`, or Browses for a file (which joins the list), so a show can run in segments: a cue ends a script, a rule set switches the scene and loads the next one. A loaded script is shown for now only. The editor's File menu lists the same scripts.
+- **Teleprompter page and shortcuts.** The page now runs Teleprompter, Cues, Reading, then a **Scripts** card of its own, whose rows can be reordered with arrows (the order is for reading only). The same arrow icon sits beside Teleprompter in the left rail and opens or closes the window.
+- **Windows are controlled from the left rail.** Each window under Windows has a restart icon (it starts a stopped window) and an arrow icon that shows the window on the desktop or docks it, starting it first if it is stopped. The same two icons sit beside the **Windows** heading for every window: restart all (it asks first), and dock or show all. The header's Start All, Stop All, Dock Windows and Teleprompter buttons are gone; the header now has **Hide** (hides the panel only, so every window keeps running) and **Quit**. Start All and Stop All stay in the menu bar menu and as Automations steps.
+- **Cues fire at the middle of the line.** A cue or heading now counts as reached when the reading line is through the middle of it, not when its top edge touches the line, and Next/Previous heading rests it there.
+- **File pickers in rule set steps.** Browsing for a file in a Set text step, a YouTube video step, or the new load-a-script step could save the path to an out-of-date copy of the step and show the box empty again; fixed.
+- **Rule set groups can be switched on and off.** Above the Rule sets on the Automations page, one chip per group (and "No group") shows or hides that group's rule sets; the choice is remembered. Rule sets made with **Create rule** in the teleprompter editor now go in a **Teleprompter** group.
+
 ## 0.4.7 -- 2026-11-20
 
 ### Added

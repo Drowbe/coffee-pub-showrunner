@@ -23,6 +23,45 @@ let saveTimer = null;
 let heldContent = null; // text that arrived while editing; shown when editing ends
 const editing = () => document.body.classList.contains('editing');
 
+// ---- status bar ---------------------------------------------------------------------------
+
+const statusText = document.getElementById('status-text');
+const statusFile = document.getElementById('status-file');
+let statusTimer = null;
+let scriptName = '';
+let loadedOnce = false;
+// A message stays a few seconds, then the bar goes back to what is always true (edit.js says "Unsaved" while there are
+// changes). What Automations is running now is held instead: it stays until that finishes, and a short message in
+// between (a cue crossed, a speed change) gives way back to it.
+let heldText = '';
+function paintStatus(text, isError, running) {
+  statusText.textContent = text;
+  statusText.classList.toggle('error', Boolean(isError));
+  statusText.classList.toggle('running', Boolean(running));
+}
+function status(text, isError) {
+  paintStatus(text, isError, false);
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => {
+    if (heldText) paintStatus(heldText, false, true);
+    else paintStatus(typeof editIdle === 'function' ? editIdle() : 'Ready', false, false);
+  }, 6000);
+}
+function fromApp(message) {
+  if (message.hold) {
+    heldText = message.text;
+    clearTimeout(statusTimer);
+    paintStatus(heldText, false, true);
+    return;
+  }
+  if (message.release) heldText = '';
+  status(message.text, message.error);
+}
+function showScriptName(name) {
+  scriptName = name || '';
+  statusFile.textContent = scriptName;
+}
+
 const lineY = () => window.innerHeight / 3;
 const maxScroll = () => Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
 
@@ -43,6 +82,9 @@ function applySettings(next) {
 let pending = {};
 function change(patch) {
   applySettings(patch);
+  if ('speed' in patch) status(`Speed ${Math.round(settings.speed)} px/s`);
+  else if ('fontSize' in patch) status(`Text size ${settings.fontSize}px`);
+  else if ('mirror' in patch) status(settings.mirror ? 'Mirror on' : 'Mirror off');
   pending = { ...pending, ...patch };
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { window.prompter.save(pending); pending = {}; }, 400);
@@ -50,11 +92,17 @@ function change(patch) {
 
 // ---- cues -------------------------------------------------------------------------------
 
+// A cue or heading counts as reached when the reading line is through the middle of it, not when its top edge touches the line.
+function middleOf(el) {
+  const rect = el.getBoundingClientRect();
+  return rect.top + rect.height / 2;
+}
+
 function passed() {
   const y = lineY() + 1;
   let n = 0;
   for (const el of cueEls) {
-    if (el.getBoundingClientRect().top <= y) n += 1;
+    if (middleOf(el) <= y) n += 1;
     else break;
   }
   return n;
@@ -75,6 +123,7 @@ function checkCues() {
     for (let i = lastIndex; i < n; i += 1) {
       const el = cueEls[i];
       window.prompter.cue({ event: el.dataset.cue, label: el.dataset.label, kind: el.dataset.kind });
+      status(`${el.dataset.kind === 'heading' ? 'Heading' : 'Cue'}: ${el.dataset.label}`);
     }
   }
   lastIndex = n;
@@ -108,6 +157,10 @@ function showContent(content) {
   }
   const before = window.scrollY;
 
+  const sameScript = (content.name || '') === scriptName;
+  showScriptName(content.name || '');
+  if (loadedOnce && sameScript && !content.error && content.html && !content.fresh) status('Script reloaded');
+  loadedOnce = true;
   if (content.error || !content.html) {
     scriptEl.innerHTML = '';
     notice(content.error || 'No script loaded. Choose a Markdown file on the Teleprompter page in Showrunner.');
@@ -118,6 +171,7 @@ function showContent(content) {
   scriptEl.innerHTML = content.html;
   resetCues();
   let target = before;
+  if (content.fresh) { target = 0; anchor = null; }
   if (anchor) {
     const el = cueEls.find((c) => c.dataset.kind === 'heading' && c.dataset.cue === anchor.event && c.dataset.label === anchor.label);
     if (el) target = el.getBoundingClientRect().top + window.scrollY - (y - anchor.delta);
@@ -129,9 +183,12 @@ function showContent(content) {
 
 // ---- scrolling --------------------------------------------------------------------------
 
+let playing0 = false;
 function setPlaying(on) {
   playing = on;
   pos = window.scrollY;
+  if (on !== playing0) status(on ? 'Scrolling' : 'Paused');
+  playing0 = on;
   playButton.textContent = on ? 'Pause' : 'Play';
   playButton.classList.toggle('on', on);
   if (on) { previous = performance.now(); requestAnimationFrame(tick); }
@@ -158,9 +215,9 @@ function headingStep(direction) {
   const headings = cueEls.filter((el) => el.dataset.kind === 'heading');
   const y = lineY();
   let target = null;
-  if (direction > 0) target = headings.find((el) => el.getBoundingClientRect().top > y + 4);
-  else target = [...headings].reverse().find((el) => el.getBoundingClientRect().top < y - 4);
-  const top = target ? target.getBoundingClientRect().top + window.scrollY - y : direction > 0 ? maxScroll() : 0;
+  if (direction > 0) target = headings.find((el) => middleOf(el) > y + 4);
+  else target = [...headings].reverse().find((el) => middleOf(el) < y - 4);
+  const top = target ? middleOf(target) + window.scrollY - y : direction > 0 ? maxScroll() : 0;
   window.scrollTo(0, Math.max(0, top));
   pos = window.scrollY;
 }
@@ -211,6 +268,15 @@ window.addEventListener('mousemove', () => {
 
 // ---- start ------------------------------------------------------------------------------
 
+// Reading controls sent from Automations (a rule set step or a bare action call).
+window.prompter.onCommand((command) => {
+  if (editing()) return;
+  if (command === 'start') { if (!playing) setPlaying(true); }
+  else if (command === 'pause') { if (playing) setPlaying(false); }
+  else if (actions[command] && command !== 'edit') actions[command]();
+});
+
+window.prompter.onStatus(fromApp);
 window.prompter.onContent(showContent);
 window.prompter.onSettings(applySettings);
 window.prompter.init().then(({ content, settings: initial }) => {

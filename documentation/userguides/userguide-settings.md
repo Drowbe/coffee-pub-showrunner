@@ -96,10 +96,13 @@ The edge dock is a small rounded pill on the right (or left) edge of the display
 **Preferences** page, with a dot per window and a blinking red dot while OBS records. Hover it to expand
 it: REC and LIVE timers, the current OBS scene, and one card per window with its state, OBS
 source and a thumbnail taken when it was docked. Click a card to dock that window (slide it off
-screen) or bring it back; **Dock Windows** and **Undock Windows** do it for every window, as does
-Cmd+Shift+C.
+screen) or bring it back. In the control panel's left rail, the arrow icon beside a window does the same for that
+window (and starts it first if it is stopped), and the arrow beside the **Windows** heading docks or shows every
+window, as does Cmd+Shift+C. The circular arrow beside a window restarts it (it closes and opens again), and the
+one beside the heading restarts them all.
 
-To shut the app down, use **Quit** at the top right of the control panel, Cmd+Q on a Mac, or **Quit** in
+**Hide** at the top right of the control panel hides the panel only: every window keeps running, so OBS keeps its
+sources, and the Dock icon or the menu bar icon brings the panel back. To shut the app down, use **Quit** beside it, Cmd+Q on a Mac, or **Quit** in
 the menu bar icon's menu if that icon is on. Quitting closes every window Showrunner opened, so you
 are asked first if any are open.
 

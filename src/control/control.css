@@ -135,6 +135,7 @@ p {
 
 .topbar-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
@@ -2318,3 +2319,58 @@ select option { background: var(--bg-card); color: var(--text); }
 .cue-kind { color: var(--text-dim, var(--muted, inherit)); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
 .cue-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .cue-text code { color: var(--accent); font-size: 12px; }
+
+/* Group switches above the rule sets: a group that is off is hidden from the list. */
+.group-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 10px; }
+.group-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.group-toggle {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-dim, #8c97a8);
+  background: transparent;
+  border: 1px solid var(--border, #2a4162);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.group-toggle.on { color: var(--text, #f4ecdd); background: color-mix(in srgb, var(--accent, #5cc8cf) 25%, transparent); border-color: var(--accent, #5cc8cf); }
+
+/* The scripts a profile has used, on the Teleprompter page. */
+.prompter-scripts { margin: 14px 0; }
+.script-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.script-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); }
+.script-row.showing { border-color: var(--accent); }
+.script-row .script-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.script-row .script-tag { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 8px; }
+.script-row .script-dim { color: var(--text-dim); }
+
+/* A small action beside a left-rail page (open the teleprompter), over the right end of its row. */
+.tab-row { position: relative; }
+.tab-row .tab { padding-right: 34px; }
+.tab-action {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+.tab-action:hover { color: var(--text); border-color: var(--border); background: #13243B; }
+.tab-action.on { color: var(--accent); }
+
+/* Two actions beside a window in the left rail (restart, then show on the desktop / dock), and the same two beside the heading. */
+.tab-row.two .tab { padding-right: 62px; }
+.tab-action.second { right: 34px; }
+.nav-heading-row { display: flex; align-items: center; justify-content: space-between; padding-right: 0; opacity: 1; }
+.nav-heading-row > span:first-child { opacity: 0.8; }
+.nav-heading-actions { display: inline-flex; gap: 4px; margin-right: 6px; }
+.tab-action-inline { position: static; transform: none; }

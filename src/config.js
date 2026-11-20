@@ -248,6 +248,8 @@ const STUDIO_ACTIONS = [
   'wakeAudio', 'startAll', 'stopAll', 'dockAll', 'undockAll', 'syncObs',
   'applySessionFilename', 'runRuleSet', 'incrementMetadataField', 'decrementMetadataField',
   'setMetadataField', 'clearMetadataField', 'showToast', 'uploadToYouTube',
+  'prompterPlay', 'prompterPause', 'prompterToggle', 'prompterFaster', 'prompterSlower',
+  'prompterNext', 'prompterPrev', 'prompterTop', 'prompterLoadScript',
 ];
 const STUDIO_ACTION_SCHEMA = [
   { action: 'wakeAudio', label: 'Wake audio (every open window)', param: null, paramType: 'none', group: 'Studio Control' },
@@ -297,6 +299,19 @@ const STUDIO_ACTION_SCHEMA = [
   // step's "File" valueType already uses (empty = the most recent OBS
   // recording). See runAutomationAction's 'uploadToYouTube' case, src/main.js.
   { action: 'uploadToYouTube', label: 'Upload the recording to YouTube', param: null, paramType: 'youtubeUpload', group: 'Studio Control' },
+  // The teleprompter's reading controls, for a rule set or an outside caller. They need the
+  // teleprompter window open (src/main.js sends the command to its page) and take no param.
+  { action: 'prompterPlay', label: 'Teleprompter: start scrolling', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterPause', label: 'Teleprompter: pause scrolling', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterToggle', label: 'Teleprompter: play or pause', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterFaster', label: 'Teleprompter: scroll faster', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterSlower', label: 'Teleprompter: scroll slower', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterNext', label: 'Teleprompter: next heading', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterPrev', label: 'Teleprompter: previous heading', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterTop', label: 'Teleprompter: back to the top', param: null, paramType: 'none', group: 'Teleprompter' },
+  // param is a script file: a full path, or a name next to the script already loaded. It becomes the profile's script,
+  // exactly as if chosen on the Teleprompter page, and the window starts it from the top.
+  { action: 'prompterLoadScript', label: 'Teleprompter: load a script', param: 'script file', paramType: 'scriptFile', group: 'Teleprompter' },
 ];
 
 function defaultAutomations() {
@@ -803,12 +818,13 @@ function sanitizeWindowSource(input, label, fallback) {
 
 // The teleprompter: one per profile, its own window (not a capture window, so it is not one of the
 // views and never becomes an OBS source). Shows a Markdown script for the presenter.
-const PROMPTER_LIMITS = { speed: [5, 400], fontSize: [16, 200], lineHeight: [1, 3], textWidth: [30, 100], size: [LIMITS.minSize, LIMITS.maxSize] };
+const PROMPTER_LIMITS = { speed: [5, 400], fontSize: [16, 200], lineHeight: [1, 3], textWidth: [30, 100], scripts: 30, size: [LIMITS.minSize, LIMITS.maxSize] };
 
 function defaultTeleprompter() {
   return {
     enabled: false, // open it when the app (or the profile) starts
-    script: '', // the Markdown file
+    script: '', // the Start Up script: the Markdown file the window opens with
+    scripts: [], // the scripts this profile can show, in the order they were added; `script` above is one of them
     speed: 60, // pixels per second when auto-scrolling
     fontSize: 56,
     lineHeight: 1.5,
@@ -833,6 +849,7 @@ function sanitizeTeleprompter(input) {
   return {
     enabled: Boolean(src.enabled),
     script: typeof src.script === 'string' ? src.script.trim().slice(0, 1000) : d.script,
+    scripts: [...new Set((Array.isArray(src.scripts) ? src.scripts : []).filter((f) => typeof f === 'string' && f.trim()).map((f) => f.trim().slice(0, 1000)))].slice(0, PROMPTER_LIMITS.scripts),
     speed: Math.round(limited(src.speed, d.speed, PROMPTER_LIMITS.speed)),
     fontSize: Math.round(limited(src.fontSize, d.fontSize, PROMPTER_LIMITS.fontSize)),
     lineHeight: Math.round(limited(src.lineHeight, d.lineHeight, PROMPTER_LIMITS.lineHeight) * 10) / 10,

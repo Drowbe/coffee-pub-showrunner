@@ -6,7 +6,6 @@
 
 const editBar = $('edit-bar');
 const editBox = $('editor');
-const editStatus = $('edit-status');
 const lexer = new marked.Marked({ gfm: true });
 
 let ed = null;
@@ -42,6 +41,32 @@ function listEvents() {
   return found;
 }
 
+// Take a cue or heading out of the script. A heading takes its text with it, so that one asks first.
+function deleteEvent(item) {
+  if (!editorView) return;
+  const node = editorView.state.doc.nodeAt(item.pos);
+  if (!node || (node.type.name !== 'cue' && node.type.name !== 'heading')) return;
+  if (node.type.name === 'heading' && !window.confirm(`Delete the heading "${item.label}" and its line from the script?`)) return;
+  editorView.dispatch(editorView.state.tr.delete(item.pos, item.pos + node.nodeSize).scrollIntoView());
+  say(`${item.kind} removed. Cmd/Ctrl+Z brings it back.`);
+  editorView.focus();
+}
+
+// Highlight, in the list, the cue or heading the caret is in, and bring it into view there.
+function markCurrent() {
+  const list = $('event-list');
+  if (!editorView || $('events').hidden) return;
+  const { $from } = editorView.state.selection;
+  const top = $from.depth >= 1 ? $from.before(1) : -1;
+  let found = null;
+  for (const li of list.children) {
+    const on = li.dataset.pos !== undefined && Number(li.dataset.pos) === top;
+    li.classList.toggle('current', on);
+    if (on) found = li;
+  }
+  if (found) found.scrollIntoView({ block: 'nearest' });
+}
+
 let ruleMap = {}; // event name -> the rule sets that listen for it, from the app
 const headingsBox = $('event-headings');
 try { headingsBox.checked = localStorage.getItem('prompter.showHeadings') !== 'no'; } catch (err) { /* keep the default */ }
@@ -63,6 +88,7 @@ async function renderEvents() {
   }
   for (const item of shown) {
     const li = document.createElement('li');
+    li.dataset.pos = String(item.pos);
     const jump = document.createElement('button');
     jump.type = 'button';
     jump.className = 'jump';
@@ -77,8 +103,14 @@ async function renderEvents() {
     code.textContent = item.event;
     jump.append(kind, label, code);
     jump.addEventListener('click', () => {
+      const node = editorView.state.doc.nodeAt(item.pos);
+      if (!node) return;
+      // Put the caret in it, so it is the one highlighted here and in the text.
+      const tr = editorView.state.tr.setSelection(DlPM.TextSelection.create(editorView.state.doc, item.pos + 1));
+      editorView.dispatch(tr.scrollIntoView());
       const dom = editorView.nodeDOM(item.pos);
       if (dom && dom.scrollIntoView) dom.scrollIntoView({ block: 'center' });
+      editorView.focus();
     });
     const actions = document.createElement('div');
     actions.className = 'actions';
@@ -108,7 +140,13 @@ async function renderEvents() {
         try { await window.prompter.createRule(item.event, item.label); } finally { renderEvents(); }
       });
     }
-    actions.append(copy, rule);
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'copy delete';
+    del.textContent = 'Delete';
+    del.title = `Remove this ${item.kind.toLowerCase()} from the script (Cmd/Ctrl+Z brings it back)`;
+    del.addEventListener('click', () => deleteEvent(item));
+    actions.append(copy, rule, del);
     li.append(jump, actions);
     if (seen.get(item.event) > 1) {
       const warn = document.createElement('div');
@@ -118,6 +156,7 @@ async function renderEvents() {
     }
     list.append(li);
   }
+  markCurrent();
 }
 
 headingsBox.addEventListener('change', () => {
@@ -136,7 +175,18 @@ function toggleEvents(force) {
 
 const dirty = () => Boolean(ed) && ed.revision() !== baseRevision;
 
-function say(text) { editStatus.textContent = text; }
+// What the status bar says when nothing has just happened.
+function editIdle() {
+  if (!ed) return 'Ready';
+  if (dirty()) return 'Unsaved';
+  return hasFile ? 'Ready' : 'Not saved yet';
+}
+function say(text, isError) { status(text || editIdle(), isError); }
+
+function showFile(path) {
+  statusFile.textContent = path ? path.split(/[\\/]/).pop() : 'New script, not saved yet';
+  statusFile.title = path || '';
+}
 
 function paint() {
   if (!ed) return;
@@ -146,9 +196,9 @@ function paint() {
     const heading = /^h(\d)$/.exec(id);
     button.classList.toggle('on', heading ? active.heading === Number(heading[1]) : active[id] === true);
   }
-  if (!$('events').hidden) { clearTimeout(eventsTimer); eventsTimer = setTimeout(renderEvents, 200); }
-  if (dirty()) say('Unsaved');
-  else if (editStatus.textContent === 'Unsaved') say('');
+  markCurrent();
+  if (dirty()) status('Unsaved');
+  else if (statusText.textContent === 'Unsaved') status(editIdle());
 }
 
 async function enter() {
@@ -162,12 +212,14 @@ async function enter() {
   hasFile = Boolean(source.path); // with no script chosen, this is a new one: it asks where to save the first time
   readingY = window.scrollY;
   document.body.classList.add('editing');
+  window.prompter.editing(true);
   editBar.hidden = false;
+  showFile(source.path);
   ed = dlRichEditor(DlPM, document, (markdown) => lexer.lexer(markdown), editBox, { onView: (view) => { editorView = view; } });
   ed.setText(source.text || (hasFile ? '' : STARTER));
   savedText = hasFile ? source.text : '';
   baseRevision = ed.revision();
-  ed.onChange(paint);
+  ed.onChange(() => { paint(); if (!$('events').hidden) { clearTimeout(eventsTimer); eventsTimer = setTimeout(renderEvents, 200); } });
   ed.onSelect(paint);
   say('');
   window.scrollTo(0, 0);
@@ -183,11 +235,12 @@ async function saveAs() {
   try {
     const result = await window.prompter.saveSourceAs(text, { fresh: !hasFile });
     if (result.canceled) return false;
-    if (!result.ok) { say(result.error || 'Could not save'); return false; }
+    if (!result.ok) { say(result.error || 'Could not save', true); return false; }
     hasFile = true;
+    showFile(result.path);
     savedText = text;
     baseRevision = ed.revision();
-    say('Saved');
+    say('File saved');
     return true;
   } finally {
     saving = false;
@@ -200,6 +253,7 @@ function startNew() {
   if (dirty() && !window.confirm('Drop the unsaved changes and start a new script?')) return;
   ed.setText(STARTER);
   hasFile = false;
+  showFile('');
   savedText = '';
   baseRevision = ed.revision();
   say('Not saved yet');
@@ -212,14 +266,14 @@ async function save() {
   if (!ed || saving) return false;
   if (!hasFile) return saveAs();
   const text = ed.getText();
-  if (text === savedText) { baseRevision = ed.revision(); say('Saved'); return true; }
+  if (text === savedText) { baseRevision = ed.revision(); say('File saved'); return true; }
   saving = true;
   try {
     const result = await window.prompter.writeSource(text);
-    if (!result.ok) { say(result.error || 'Could not save'); return false; }
+    if (!result.ok) { say(result.error || 'Could not save', true); return false; }
     savedText = text;
     baseRevision = ed.revision();
-    say('Saved');
+    say('File saved');
     return true;
   } finally {
     saving = false;
@@ -234,7 +288,10 @@ function leave() {
   editorView = null;
   toggleEvents(false);
   editBar.hidden = true;
+  statusFile.title = '';
+  showScriptName(scriptName);
   document.body.classList.remove('editing');
+  window.prompter.editing(false);
   if (heldContent) { showContent(heldContent); heldContent = null; }
   requestAnimationFrame(() => { window.scrollTo(0, readingY); pos = window.scrollY; resetCues(); });
 }
@@ -244,7 +301,58 @@ editBar.addEventListener('mousedown', (event) => {
 });
 const fileMenu = $('file-menu');
 const fileButton = editBar.querySelector('[data-edit="file"]');
+// The scripts this profile has used, in the File menu: pick one to edit it, or go back to the Start Up script.
+async function fillRecent() {
+  const box = $('recent-scripts');
+  box.textContent = '';
+  let info;
+  try { info = await window.prompter.scripts(); } catch (err) { return; }
+  const known = [...new Set([info.startUp, ...info.scripts].filter(Boolean))];
+  if (known.length < 2) return;
+  const heading = document.createElement('div');
+  heading.className = 'heading';
+  heading.textContent = 'Scripts';
+  box.append(heading);
+  for (const file of known) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.setAttribute('role', 'menuitem');
+    item.title = file;
+    item.textContent = file.split(/[\\/]/).pop();
+    const marks = [file === info.current ? 'open' : '', file === info.startUp ? 'Start Up' : ''].filter(Boolean).join(', ');
+    if (marks) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = marks;
+      item.append(tag);
+    }
+    item.disabled = file === info.current;
+    item.addEventListener('click', () => openScript(file));
+    box.append(item);
+  }
+}
+
+async function openScript(file) {
+  toggleFileMenu(false);
+  if (!ed) return;
+  if (dirty() && !window.confirm('Drop the unsaved changes and open another script?')) return;
+  const result = await window.prompter.useScript(file);
+  if (!result.ok) { say(result.error, true); return; }
+  const source = await window.prompter.readSource();
+  if (source.error) { say(source.error, true); return; }
+  hasFile = true;
+  ed.setText(source.text || '');
+  savedText = source.text || '';
+  baseRevision = ed.revision();
+  showFile(source.path);
+  window.scrollTo(0, 0);
+  say(`Opened ${file.split(/[\\/]/).pop()}`);
+  ed.focus();
+  paint();
+}
+
 function toggleFileMenu(open) {
+  if (open) fillRecent();
   fileMenu.hidden = !open;
   fileButton.setAttribute('aria-expanded', String(open));
 }
