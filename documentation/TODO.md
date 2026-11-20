@@ -186,9 +186,6 @@ open:
   sections (requirements, install, releasing, dev setup, project layout).
 - **`documentation/assets/` has no screenshots yet.** A product screenshot for `home.md` and
   README, and any screenshots a future user guide needs, are still owed.
-- **No `CHANGELOG.md` exists yet.** The standard requires one at the repository root; this
-  adoption pass did not attempt to reconstruct history for it, only added the file structure
-  the wiki publisher needs.
 - **`architecture/` covers only the Automations feature.** The rest of Showrunner (window
   management, the OBS bridge, the Tavern bridge, the control panel's own structure) has no
   architecture documentation yet.
