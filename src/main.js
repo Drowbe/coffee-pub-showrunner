@@ -3436,6 +3436,50 @@ function registerIpc() {
     watchPrompter(t);
     return { content: await prompterContent(t), settings: prompterSettings(t) };
   });
+  // The script editor on the Teleprompter page: read the file, save it back, list the cues in the text.
+  ipcMain.handle('prompter:readScript', async () => {
+    const t = configStore.get().teleprompter;
+    if (!t.script) return { text: '', error: '' };
+    try {
+      const stat = await fs.promises.stat(t.script);
+      if (stat.size > MAX_SCRIPT_BYTES) return { text: '', error: 'That file is larger than 2 MB, which is too big for a script.' };
+      return { text: await fs.promises.readFile(t.script, 'utf8'), error: '' };
+    } catch (err) {
+      return { text: '', error: `${err.code === 'ENOENT' ? 'Cannot find' : 'Cannot read'} ${t.script}` };
+    }
+  });
+  ipcMain.handle('prompter:writeScript', async (_event, text) => {
+    const t = configStore.get().teleprompter;
+    if (!t.script) return { ok: false, error: 'Choose or create a script file first.' };
+    if (typeof text !== 'string' || Buffer.byteLength(text) > MAX_SCRIPT_BYTES) return { ok: false, error: 'The script is larger than 2 MB.' };
+    try {
+      await fs.promises.writeFile(t.script, text, 'utf8');
+      return { ok: true, error: '' };
+    } catch (err) {
+      return { ok: false, error: `Cannot save ${t.script}: ${err.message}` };
+    }
+  });
+  ipcMain.handle('prompter:newScript', async () => {
+    const t = configStore.get().teleprompter;
+    const { canceled, filePath } = await dialog.showSaveDialog(controlWindow, {
+      title: 'New script',
+      defaultPath: path.join(t.script ? path.dirname(t.script) : app.getPath('documents'), 'script.md'),
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    });
+    if (canceled || !filePath) return configStore.get();
+    try {
+      await fs.promises.writeFile(filePath, '# Opening\n\nWrite what you will say here.\n\n<!-- cue: Example cue -->\n\n## Next part\n\n', { encoding: 'utf8', flag: 'wx' });
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err; // an existing file is opened, never overwritten
+    }
+    saveTeleprompter({ script: filePath });
+    syncPrompter();
+    return configStore.get();
+  });
+  ipcMain.handle('prompter:cues', async (_event, text) => {
+    if (typeof text !== 'string' || Buffer.byteLength(text) > MAX_SCRIPT_BYTES) return [];
+    try { return (await renderScript(text)).cues; } catch (err) { return []; }
+  });
   // The reading line reached a cue or a heading: tell Automations, exactly as if a module had.
   ipcMain.on('prompter:cue', (event, cue) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return;

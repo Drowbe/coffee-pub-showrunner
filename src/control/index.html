@@ -370,6 +370,7 @@
             <span class="row">
               <input id="prompter-script" type="text" spellcheck="false" placeholder="No file chosen" style="flex: 1">
               <button class="btn" id="prompter-choose" type="button">Choose file...</button>
+              <button class="btn" id="prompter-new" type="button">New...</button>
             </span>
             <small class="hint">Saving the file in your editor reloads it in the window.</small>
           </label>
@@ -403,6 +404,24 @@
           <label class="check"><input id="prompter-enabled" type="checkbox"><span>Open when this profile starts</span></label>
           <label class="check" title="Flip the text left to right, for a prompter that is read in a mirror"><input id="prompter-mirror" type="checkbox"><span>Mirror</span></label>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Script</h2>
+            <span class="tag" id="prompter-dirty" hidden>UNSAVED</span>
+          </div>
+          <div class="view-actions">
+            <button class="btn" id="prompter-cue-add" type="button" title="Add a cue line on its own line at the cursor">Insert cue</button>
+            <button class="btn" id="prompter-reload" type="button" title="Throw away unsaved changes and read the file again">Revert</button>
+            <button class="btn btn-primary" id="prompter-save" type="button" title="Save the file (Cmd/Ctrl+S)">Save</button>
+          </div>
+        </div>
+        <textarea id="prompter-editor" class="modal-textarea" spellcheck="true" rows="16" style="width:100%; font-family: ui-monospace, Menlo, Consolas, monospace" placeholder="Choose or create a script file to edit it here."></textarea>
+        <p class="hint" id="prompter-editor-msg"></p>
+        <p class="hint">Saving writes the file, and the teleprompter window reloads it. These cues will fire these Automations events:</p>
+        <div id="prompter-cue-list" class="hint"></div>
       </div>
 
       <div class="card">

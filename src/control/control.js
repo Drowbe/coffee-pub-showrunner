@@ -2076,6 +2076,7 @@ function renderPrompter() {
   set(prompterEls.height, t.height);
   prompterEls.enabled.checked = Boolean(t.enabled);
   prompterEls.mirror.checked = Boolean(t.mirror);
+  syncEditorToConfig();
 }
 
 function readPrompter() {
@@ -2107,6 +2108,98 @@ prompterEls.toggle.addEventListener('click', async () => {
 prompterEls.choose.addEventListener('click', async () => {
   await flushSave();
   try { applyConfig(await api.chooseScript()); renderPrompter(); } catch (err) { reportError(err); }
+});
+
+// The script editor: edits the Markdown file itself; Save writes it and the window reloads it.
+const editorEls = {
+  text: $('prompter-editor'),
+  dirty: $('prompter-dirty'),
+  msg: $('prompter-editor-msg'),
+  cues: $('prompter-cue-list'),
+  save: $('prompter-save'),
+  revert: $('prompter-reload'),
+  insert: $('prompter-cue-add'),
+  create: $('prompter-new'),
+};
+let editorPath = null;
+let editorSaved = '';
+let cueTimer = null;
+
+const editorDirty = () => editorEls.text.value !== editorSaved;
+
+function renderEditorState() {
+  const has = Boolean(editorPath);
+  editorEls.text.disabled = !has;
+  editorEls.save.disabled = !has || !editorDirty();
+  editorEls.revert.disabled = !has || !editorDirty();
+  editorEls.insert.disabled = !has;
+  editorEls.dirty.hidden = !has || !editorDirty();
+}
+
+async function refreshEditorCues() {
+  const cues = editorPath ? await api.scriptCues(editorEls.text.value) : [];
+  editorEls.cues.textContent = '';
+  if (!cues.length) { editorEls.cues.textContent = editorPath ? 'No headings or cues yet.' : ''; return; }
+  for (const cue of cues) {
+    const row = document.createElement('div');
+    const code = document.createElement('code');
+    code.textContent = cue.event;
+    row.append(`${cue.kind === 'heading' ? 'Heading' : 'Cue'} "${cue.label}": `, code);
+    editorEls.cues.append(row);
+  }
+}
+
+async function loadEditor() {
+  const result = await api.readScript();
+  editorPath = config && config.teleprompter && config.teleprompter.script ? config.teleprompter.script : null;
+  editorEls.text.value = result.text;
+  editorSaved = result.text;
+  editorEls.msg.textContent = result.error;
+  renderEditorState();
+  refreshEditorCues();
+}
+
+async function saveEditor() {
+  if (!editorPath || !editorDirty()) return;
+  const text = editorEls.text.value;
+  const result = await api.writeScript(text);
+  if (result.ok) { editorSaved = text; editorEls.msg.textContent = 'Saved.'; } else editorEls.msg.textContent = result.error;
+  renderEditorState();
+}
+
+function syncEditorToConfig() {
+  const next = config && config.teleprompter && config.teleprompter.script ? config.teleprompter.script : null;
+  if (next !== editorPath) loadEditor().catch(reportError);
+}
+
+editorEls.text.addEventListener('input', () => {
+  renderEditorState();
+  clearTimeout(cueTimer);
+  cueTimer = setTimeout(refreshEditorCues, 300);
+});
+editorEls.text.addEventListener('keydown', (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); saveEditor().catch(reportError); }
+});
+editorEls.save.addEventListener('click', () => saveEditor().catch(reportError));
+editorEls.revert.addEventListener('click', () => loadEditor().catch(reportError));
+editorEls.insert.addEventListener('click', () => {
+  const ta = editorEls.text;
+  const start = ta.selectionStart;
+  const before = ta.value.slice(0, start);
+  const lead = before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+  const placeholder = 'Cue name';
+  const line = `<!-- cue: ${placeholder} -->`;
+  const insert = `${lead}${line}\n\n`;
+  ta.setRangeText(insert, start, ta.selectionEnd, 'end');
+  const from = start + lead.length + '<!-- cue: '.length;
+  ta.focus();
+  ta.setSelectionRange(from, from + placeholder.length);
+  ta.dispatchEvent(new Event('input'));
+});
+editorEls.create.addEventListener('click', async () => {
+  if (editorDirty() && !window.confirm('Discard the unsaved changes to the current script?')) return;
+  await flushSave();
+  try { applyConfig(await api.newScript()); renderPrompter(); } catch (err) { reportError(err); }
 });
 
 api.onStatus((next) => {

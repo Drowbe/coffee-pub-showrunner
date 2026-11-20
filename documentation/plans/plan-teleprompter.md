@@ -146,3 +146,4 @@ Showrunner is proprietary and free to download, so everything it bundles has to 
 - Tested in a separate profile: the script loads, edits reload it, cues fire in order and a jump fires none, auto-scroll
   runs at the set speed and a wheel stops it, speed, size and mirror are saved from the page's keys, a drag-resize is saved,
   and the window opens at its saved size when the app starts.
+- **Script editor.** The Teleprompter page has a Script card (a plain text editor on the file itself, not a second copy): Insert cue, Save, Revert, and a live list of the events the text will fire, which the main process works out with the same renderer the window uses (`prompter:cues`). **New...** creates a file without overwriting an existing one.
