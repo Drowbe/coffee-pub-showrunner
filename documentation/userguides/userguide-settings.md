@@ -91,7 +91,7 @@ display, wrapping to a new row when they no longer fit.
 ## The edge dock
 
 The edge dock is a small rounded pill on the right (or left) edge of the display chosen on the
-Session tab, with a dot per window and a blinking red dot while OBS records. Hover it to expand
+**Preferences** page, with a dot per window and a blinking red dot while OBS records. Hover it to expand
 it: REC and LIVE timers, the current OBS scene, and one card per window with its state, OBS
 source and a thumbnail taken when it was docked. Click a card to dock that window (slide it off
 screen) or bring it back; **Dock Windows** and **Undock Windows** do it for every window, as does
@@ -105,18 +105,18 @@ A docked window keeps a 6 pt sliver on screen under a thin dark line, so OBS kee
 whereas hiding or minimizing a window stops the capture. Windows dock on the display they are on,
 toward an edge that has no other monitor beyond it (the dock's side when free, otherwise the
 opposite side, then the bottom), so a docked window never slides onto another screen or changes
-its captured size. Turn the dock off on the Session tab if you do not want it.
+its captured size. Turn the dock off on the Preferences page if you do not want it.
 
 ## The menu bar icon
 
-The optional menu bar icon (Session tab) offers Start, Stop, Dock, Sync OBS and Quit, and can
+The optional menu bar icon (Preferences page) offers Start, Stop, Dock, Sync OBS and Quit, and can
 hide the Dock icon so the app behaves like a utility.
 
 ## Retina displays
 
 On a Retina display macOS renders 2 physical pixels per point, so a 1920 x 1080 window is
 captured by OBS at 3840 x 2160. The control panel shows the exact **Captured pixels** for each
-open window. The **Retina display: double the pixel dimensions** tick on the Session tab decides
+open window. The **Retina display: double the pixel dimensions** tick on the Preferences page decides
 what the app does about it. Unticked (the default), Sync OBS scales the window and region sources
 it creates by half, so they land in the scene at the sizes set here. Ticked, it keeps the double
 pixels for a sharper 4K canvas. A scale you set by hand on a source in OBS is left alone. On a

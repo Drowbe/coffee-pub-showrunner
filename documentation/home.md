@@ -12,17 +12,21 @@ exclusive to Foundry -- it works with any web-based experience. It signs in to C
 to publish each player at the table as their own OBS source, and it runs a small local HTTPS
 server so a Foundry module -- Coffee Pub Herald first -- can trigger an OBS action (switch scene,
 show or hide a source, start or stop recording or streaming) when something happens in the game.
+Each kind of recording you do (D&D, a livestream, a podcast) gets its own **profile** with its own windows,
+session fields and rules, and Showrunner can level everyone's microphone volume to one target.
+The product page is at [coffeepubstudio.com/products/showrunner](https://coffeepubstudio.com/products/showrunner),
+and what changed in each release is in the [changelog](https://github.com/Drowbe/coffee-pub-showrunner/blob/main/CHANGELOG.md).
 
-OBS window-capture source management on Windows is built but not yet confirmed on real Windows
-hardware; see [Known issues](known-issues.md).
+OBS window-capture source management on Windows has been run on real Windows hardware on an earlier
+release and is being re-checked; see [Known issues](known-issues.md).
 
 - [Getting started](userguides/userguide-getting-started.md) -- the first five minutes.
-- [Settings, windows and the edge dock](userguides/userguide-settings.md) -- adding windows,
-  the edge dock, keyboard shortcuts, Retina displays.
+- [Settings, windows and the edge dock](userguides/userguide-settings.md) -- the left rail, profiles and
+  backups, adding windows, the edge dock, keyboard shortcuts, Retina displays.
 - [Windows and regions as OBS sources](userguides/userguide-obs.md) -- connecting to OBS, the
   whole-window source, and cropping part of a window into its own source.
 - [Coffee Pub Chameleon in OBS](userguides/userguide-chameleon.md) -- publishing the party as OBS
-  sources.
+  sources, audio filters, Calibrate and Auto level.
 - [Configuration file reference](userguides/userguide-configuration.md) -- the config.json
   shape, field by field.
 - [Automations API](api/api-automations.md) -- let a Foundry module drive OBS through Showrunner.

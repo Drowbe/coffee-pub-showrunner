@@ -13,7 +13,7 @@ is built.
 
 Foundry usually runs on a different machine than Showrunner, so the server listens on every network
 interface Showrunner's Mac has, not just localhost, and is reachable at
-`https://<studio-host>:<port>` -- the address and port are shown on Showrunner's Automations tab,
+`https://<studio-host>:<port>` -- the address and port are shown on Showrunner's Automations page,
 under Automations, once it is enabled. The port defaults to 9500 and is configurable there.
 
 Every request needs a Bearer token, generated and shown in the same place. There is no
@@ -169,7 +169,7 @@ reflects whichever scene is live right now, matching Showrunner's own OBS Contro
 it. Empty arrays, not an error, when OBS isn't connected -- there is nothing to offer yet, same as
 Showrunner's own card in that state.
 
-`metadataFields` is every Metadata field configured on Showrunner's Session tab right now -- its
+`metadataFields` is every Metadata field configured on Showrunner's Session page right now -- its
 `key` (what a `metadataField`-typed `param` actually needs), `label` (what a human named it), and
 `type` (`"text"`, `"number"`, `"textNumber"`, `"numberText"`, `"checkbox"`, or `"prompt"` -- see
 "Prompt fields" below). This is what makes `incrementMetadataField`/`decrementMetadataField`/
@@ -182,7 +182,7 @@ person running it named things differently. With it, a caller can build its own 
 `"textNumber"`/`"numberText"`), populated from this list, the same way Showrunner's own rule-set
 editor already filters its Metadata-field picker by type. Read fresh from config on every
 capabilities request, same as `ruleSets` below -- not cached, so a field renamed or deleted on
-Showrunner's Session tab shows up (or disappears) the next time a caller re-checks.
+Showrunner's Session page shows up (or disappears) the next time a caller re-checks.
 
 `ruleSets` is whatever is actually configured and enabled on the Automations tab right now: each
 one's `name`, `group`, `event`, and `prompts` -- not its internal step sequence, which is Showrunner's
@@ -209,7 +209,7 @@ something that wouldn't actually be required.
 ## Prompt fields: fields with no value except by asking
 
 A Metadata field's `type` can be `"prompt"` -- stored and resolved exactly like `"text"`, with one
-restriction: it has no other way to get a value. It isn't editable on Showrunner's own Session tab, and
+restriction: it has no other way to get a value. It isn't editable on Showrunner's own Session page, and
 `setMetadataField` refuses to target one directly (Text only). The *only* way a Prompt field's
 value ever changes is by supplying it in `prompts` on a `POST /api/automations/event` call that
 triggers a rule set needing it -- see that endpoint above -- or by `clearMetadataField` resetting it
@@ -305,7 +305,7 @@ Content-Type: application/json
   module) or `400` for a malformed body or a missing `module`.
 
 **Reserved keys.** Showrunner has its own built-in Data Field entries that always exist, plus whatever
-the person running Showrunner creates themselves on the Session tab -- `sessionTime`, `sessionDate`,
+the person running Showrunner creates themselves on the Session page -- `sessionTime`, `sessionDate`,
 `sessionDay`, `sessionMonth`, `sessionYear`, and any `session<Something>` key a user-created field
 has claimed. If your module registers a field using one of those exact keys, Showrunner's own field of
 that name wins in the "Data Field" dropdown -- yours is not deleted or rejected, just shadowed.

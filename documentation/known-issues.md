@@ -19,7 +19,7 @@ window value. The macOS behavior is unchanged.
 It has been built against OBS's documented behavior and tested against a stand-in for OBS. It has
 also been run on a real Windows machine, on an earlier release, and worked there. **It has not been
 re-checked on 0.3.2.** Two details are worth confirming on any Windows machine, and the **Copy
-capture report** button on the OBS tab settles them in one go:
+capture report** button on the OBS page settles them in one go:
 
 - What OBS actually returns for the window list on Windows (the label and value formats Showrunner's
   matching depends on).
