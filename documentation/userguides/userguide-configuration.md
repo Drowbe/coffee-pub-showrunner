@@ -16,7 +16,7 @@ Since version 13 the file holds a list of **profiles**. Each profile owns its `v
 `characterWithPlayer`, `players`). `activeProfile` names the one in use. Everything else
 (`obs`, `youtube`, `dock`, `panel`, the preferences, the Chameleon connection details such as
 `tavern.url`, and the Automations `port` and `token`) stays at the top level and is shared by every
-profile. A version 12 file becomes one profile named "D&D" when the app first starts. Version 13 called profiles `shows` (with `activeShow`); a version 13 file is converted when the app first starts, after an automatic backup.
+profile. A version 12 file becomes one profile named "D&D" when the app first starts. Version 13 called profiles `shows` (with `activeShow`); a version 13 file is converted when the app first starts, after an automatic backup. Version 15 moved the wake delay from one global `wakeAudioDelay` to a `wakeDelay` on each window; the old number is copied to every window.
 
 The example is trimmed to the window and OBS shape for readability, and shows one profile with two
 windows; `tavern` and `automations` are covered in their own guides:
@@ -25,7 +25,7 @@ windows; `tavern` and `automations` are covered in their own guides:
 
 ```json
 {
-  "version": 14,
+  "version": 15,
   "obs": { "autoConnect": false, "host": "127.0.0.1", "port": 4455 },
   "activeProfile": "profile1",
   "profiles": [
@@ -86,7 +86,6 @@ A profile's `views` holds zero to five entries, in the order they appear in the 
 | `panel` | Where the control panel was last left (`x`, `y`, `width`, `height`), written by the app; `null` lets macOS place it. |
 | `menuBarIcon`, `hideDockIcon` | Show the menu bar icon; optionally hide the Dock icon while it is shown. |
 | `retinaDouble` | On a Retina display OBS captures twice the pixels of a window's size. `false` (default): the app scales its window and region sources by half in OBS so they land at the sizes set here. `true`: it keeps the double pixels (**Retina display: double the pixel dimensions**). A scale you set by hand on a source in OBS is left alone. |
-| `wakeAudioDelay` | Seconds after a page loads before its audio is woken (**Wake audio after** on the Session tab, 10 to 300, default 30). Foundry ignores clicks until it has fully loaded, which can take longer than the page says. |
 | `dock` | The edge dock: `enabled`, `side` (`right` or `left`) and `overlap`, the points of a docked window left on screen (0 slides it fully off). It lives on the display chosen for auto-arrange. |
 | `obs` | OBS WebSocket connection: `autoConnect`, `host`, `port`. The password lives in `obs-secret.bin` next to the config, encrypted. |
 | `tavern` | Coffee Pub Chameleon: `enabled`, `url`, `login`, `autoConnect`, the Participant source's `playerWidth`, `playerHeight`, `lockRatio` (still `player`-prefixed in the field names and in `players` below, kept for back-compat with existing config files and Chameleon's own `kind=player` view-link parameter); the Character source's `characterWidth`, `characterHeight`, `characterWithPlayer`; `space` (an existing config file may still say `room`, read the same way), Chameleon space whose users the Chameleon tab lists by hand (`lobby` by default); `followAdmin` (default `true`), which overrides `space` with whatever space the signed-in admin is actually in at the table and hides a published user's OBS sources while they are off it; and `players`, a map from the user's Tavern key to `{ player, character, source, characterSource }` (the two ticks, and the OBS source names while published). The password lives in `tavern-secret.bin`. |
@@ -99,5 +98,6 @@ A profile's `views` holds zero to five entries, in the order they appear in the 
 | `muted` | Mute the window's audio. Handy for a chat-facing window so its sounds are not doubled. |
 | `enabled` | Open this window when the app launches (**Start on launch**). |
 | `dockOnLaunch` | Slide the window into the dock as soon as its page has loaded at launch (**Dock on launch**). |
-| `wakeAudio` | Send the page a middle-button click after the **Wake audio after** delay, so Foundry can start its audio (**Wake audio after load**, on by default). Browsers keep a page silent until someone interacts with it, and Foundry ignores clicks until it is fully set up; after the delay the app clicks, and keeps clicking every few seconds while Foundry still says its audio is locked, for up to three minutes. The **Wake audio** button on the card and on the dock does the same on demand, and the **Page audio** row says whether the page is making sound right now. |
+| `wakeAudio` | Send the page a middle-button click after the window's **Wake its sound** delay (`wakeDelay`), so Foundry can start its audio (**Wake audio after load**, on by default). Browsers keep a page silent until someone interacts with it, and Foundry ignores clicks until it is fully set up; after the delay the app clicks, and keeps clicking every few seconds while Foundry still says its audio is locked, for up to three minutes. The **Wake audio** button on the card and on the dock does the same on demand, and the **Page audio** row says whether the page is making sound right now. |
+| `wakeDelay` | Seconds after the page loads before its audio is woken (**Wake its sound** on the window's card, 10 to 300, default 30; shown while **Wake audio after load** is ticked). Some pages ignore clicks until they have fully loaded, which can take longer than the page says. |
 | `session` | Login group name (default `Main`). Windows with the same name share cookies and storage. (Named `session` in the file for compatibility; the control panel calls it the login group.) |

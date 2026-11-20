@@ -13,7 +13,7 @@ const backup = require('./backup');
 // them shows. Files from version 12 and earlier become one profile. Version 12 reads only the current field names: the old ones (obsSources,
 // openOnLaunch, obs.enabled, the pre-0.1.9 Tavern names) are no longer
 // migrated.
-const CONFIG_VERSION = 14;
+const CONFIG_VERSION = 15;
 
 // Session groups: windows with the same group name share cookies and storage.
 const DEFAULT_GROUP = 'Main';
@@ -74,6 +74,7 @@ function defaultView(index) {
     enabled: true,
     dockOnLaunch: false,
     wakeAudio: true,
+    wakeDelay: 30, // seconds after the page loads before its audio is woken
     session: DEFAULT_GROUP,
     windowSource: { enabled: true, name: defaultSourceName(label) },
     regions: [],
@@ -718,7 +719,6 @@ function defaultConfig() {
     panel: null,
     menuBarIcon: true,
     hideDockIcon: false,
-    wakeAudioDelay: 30, // seconds after a page loads before its audio is woken
     // On a Retina display OBS captures twice the pixels; false scales the
     // app's sources by half in OBS so they land at the configured size.
     retinaDouble: false,
@@ -784,6 +784,7 @@ function sanitizeView(input, index) {
     enabled: src.enabled === undefined ? fallback.enabled : Boolean(src.enabled),
     dockOnLaunch: src.dockOnLaunch === undefined ? fallback.dockOnLaunch : Boolean(src.dockOnLaunch),
     wakeAudio: src.wakeAudio === undefined ? fallback.wakeAudio : Boolean(src.wakeAudio),
+    wakeDelay: clamp(toInt(src.wakeDelay, fallback.wakeDelay), 10, 300),
     session: sanitizeSessionGroup(src.session),
     windowSource: sanitizeWindowSource(src.windowSource, label, fallback),
     regions: sanitizeRegions(src.regions),
@@ -832,7 +833,6 @@ function sanitizeConfig(input) {
     version: CONFIG_VERSION,
     menuBarIcon: src.menuBarIcon === undefined ? defaults.menuBarIcon : Boolean(src.menuBarIcon),
     hideDockIcon: src.hideDockIcon === undefined ? defaults.hideDockIcon : Boolean(src.hideDockIcon),
-    wakeAudioDelay: clamp(toInt(src.wakeAudioDelay, defaults.wakeAudioDelay), 10, 300),
     retinaDouble: src.retinaDouble === undefined ? defaults.retinaDouble : Boolean(src.retinaDouble),
     arrangeDisplayId: Number.isFinite(Number(src.arrangeDisplayId)) && src.arrangeDisplayId !== null ? Number(src.arrangeDisplayId) : null,
     dock: sanitizeDock(src.dock),
@@ -903,7 +903,6 @@ function globalFromFlat(flat) {
     version: CONFIG_VERSION,
     menuBarIcon: flat.menuBarIcon,
     hideDockIcon: flat.hideDockIcon,
-    wakeAudioDelay: flat.wakeAudioDelay,
     retinaDouble: flat.retinaDouble,
     arrangeDisplayId: flat.arrangeDisplayId,
     dock: flat.dock,
@@ -1012,6 +1011,17 @@ function newProfileId(profiles) {
   return `profile${n}`;
 }
 
+// Before version 15 one number, wakeAudioDelay, set the wait for every window. Each window now
+// has its own wakeDelay, so a file with the old number gives it to every window it has.
+function moveWakeDelayToWindows(parsed) {
+  if (!parsed || typeof parsed !== 'object' || parsed.wakeAudioDelay === undefined) return;
+  const delay = parsed.wakeAudioDelay;
+  const give = (views) => { for (const v of Array.isArray(views) ? views : []) if (v && v.wakeDelay === undefined) v.wakeDelay = delay; };
+  give(parsed.views);
+  for (const profile of Array.isArray(parsed.profiles) ? parsed.profiles : Array.isArray(parsed.shows) ? parsed.shows : []) give(profile && profile.views);
+  delete parsed.wakeAudioDelay;
+}
+
 class ConfigStore {
   constructor(filePath) {
     this.filePath = filePath;
@@ -1035,6 +1045,7 @@ class ConfigStore {
     try {
       const raw = fs.readFileSync(this.filePath, 'utf8');
       const parsed = JSON.parse(raw);
+      moveWakeDelayToWindows(parsed);
       this.loadedVersion = parsed && typeof parsed === 'object' ? parsed.version : undefined;
       // Version 13 called profiles shows.
       if (parsed && typeof parsed === 'object' && Array.isArray(parsed.shows) && !Array.isArray(parsed.profiles)) {

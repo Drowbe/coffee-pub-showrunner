@@ -1851,7 +1851,11 @@ function stopWake(id) {
   clearTimeout(wakeTimers.get(id));
   wakeTimers.delete(id);
 }
-function wakeWhenReady(id, delayMs = configStore.get().wakeAudioDelay * 1000) {
+function wakeWhenReady(id, delayMs) {
+  if (delayMs === undefined) {
+    const view = configStore.getView(id);
+    delayMs = ((view && view.wakeDelay) || 30) * 1000;
+  }
   stopWake(id);
   const started = Date.now();
   let clicks = 0;
