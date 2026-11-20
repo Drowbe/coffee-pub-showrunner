@@ -153,7 +153,13 @@ Open: whether a continuous Keep leveled mode is worth building on top of Calibra
   and +6 dB). Per person, the loudest quarter of the frames above a -55 dB gate is taken as how loud they speak;
   fewer than about a second of speech is "no speech heard". The volume is the target minus that, limited to -30 to
   +20 dB. The result is saved as `levelDb` on the player's entry and re-applied when a Participant source is created.
-- Keep leveled (a slow continuous adjustment) is not built.
+- **Auto level** (the "Keep leveled" idea, now built; `src/autolevel.js`): a per-profile switch (`tavern.autoLevel`) beside the card
+  title. It keeps a shared meter subscription on (`ObsBridge.watchMeters`, counted so Calibrate and Auto level can
+  overlap and a reconnect restores it) and, every two seconds, reconsiders each participant using the last eight seconds of
+  speech above a -48 dB gate (at least about 1.25 s of it). It moves a volume by at most 1 dB, or 3 dB when more than 6 dB
+  off, ignores anyone within 1.5 dB of the target, reads each fader every tick and holds off for 60 s on a person whose
+  fader was moved by hand, and writes changed levels down every 20 s. Calibrate pauses it. The target is the same slider
+  Calibrate uses (`tavern.levelTargetDb`, -40 to -6, default -20).
 - **What Chameleon does** (from the Chameleon project, read from its code, not run): it does not rely on LiveKit's own
   capture defaults. It opens the microphone itself with `noiseSuppression`, `echoCancellation` and `autoGainControl`,
   all on by default and each a per-person setting, so the browser's gain control is on unless someone turns it off.

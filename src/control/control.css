@@ -2134,6 +2134,16 @@ select.automation-step-param-missing {
 .profile-integrations { display: flex; flex-wrap: wrap; gap: 8px 20px; flex-basis: 100%; padding: 2px 2px 0; }
 .profile-row .badge { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); padding: 2px 8px; }
 .profiles-new input { flex: 1; min-width: 0; }
+.level-target { display: flex; align-items: center; gap: 12px; min-width: 380px; }
+.level-scale { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.level-scale input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
+/* Zones follow OBS's meter: green below -20 dB, yellow -20 to -9, red above. Slider spans -40..-6. */
+.level-zones { display: grid; grid-template-columns: 20fr 11fr 3fr; height: 14px; border-radius: 3px; overflow: hidden; font-size: 10px; line-height: 14px; color: rgba(255, 255, 255, 0.85); text-align: center; }
+.level-zones span { overflow: hidden; white-space: nowrap; }
+.zone-low { background: #3f8f3f; }
+.zone-mid { background: #b8962e; }
+.zone-hot { background: #a83a3a; }
+.level-target output { min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
 .level-results { display: flex; flex-direction: column; gap: 6px; }
 .level-row { display: flex; align-items: baseline; gap: 12px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
 .level-row .level-name { flex: 0 0 150px; font-weight: 600; }

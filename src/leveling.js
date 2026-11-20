@@ -90,4 +90,4 @@ async function calibrateInputs(bridge, inputs, { seconds, targetDb }) {
   return inputs.map(({ key, input }) => ({ key, input, faderDb: faders[input], ...levelResult(frames[input], faders[input], targetDb) }));
 }
 
-module.exports = { calibrateInputs, levelResult, analyzeFrames, planVolume, frameLevels, toDb, GATE_DB, MIN_SPEECH_FRAMES, MIN_VOLUME_DB, MAX_VOLUME_DB, CLIP_DB };
+module.exports = { percentile, calibrateInputs, levelResult, analyzeFrames, planVolume, frameLevels, toDb, GATE_DB, MIN_SPEECH_FRAMES, MIN_VOLUME_DB, MAX_VOLUME_DB, CLIP_DB };
