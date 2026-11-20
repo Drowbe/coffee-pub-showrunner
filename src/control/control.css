@@ -2292,3 +2292,4 @@ select option { background: var(--bg-card); color: var(--text); }
 #tab-status .connections-board { flex: none; }
 #tab-status .activity-log-box { flex: 1 1 0; min-height: 120px; max-height: none; }
 #tab-status > .about { flex: none; }
+.wake-row .unit { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text-dim); }

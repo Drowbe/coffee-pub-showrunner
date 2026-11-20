@@ -8,9 +8,6 @@ const viewTabsEl = $('view-tabs');
 const template = $('view-template');
 const saveStateEl = $('save-state');
 const menuBarIconEl = $('menu-bar-icon');
-const wakeDelayEl = $('wake-delay');
-const wakeDelayValueEl = $('wake-delay-value');
-const describeDelay = (s) => (s < 60 ? `${s} s` : s % 60 === 0 ? `${s / 60} min` : `${Math.floor(s / 60)} min ${s % 60} s`);
 const hideDockIconEl = $('hide-dock-icon');
 const retinaDoubleEl = $('retina-double');
 const arrangeDisplayEl = $('arrange-display');
@@ -668,7 +665,7 @@ const cards = new Map();
 let saveTimer = null;
 let activeTab = 'status';
 
-const NUMBER_FIELDS = new Set(['width', 'height']);
+const NUMBER_FIELDS = new Set(['width', 'height', 'wakeDelay']);
 const BOOL_FIELDS = new Set(['enabled', 'dockOnLaunch', 'muted', 'wakeAudio']);
 
 function setSaveState(text, cls = '') {
@@ -929,6 +926,14 @@ function fillCard(card, view) {
       input.value = view[field] === null || view[field] === undefined ? '' : String(view[field]);
     }
   }
+  syncWakeRow(card);
+}
+
+// The wait only matters while the window wakes its own audio.
+function syncWakeRow(card) {
+  const row = card.querySelector('[data-role="wake-row"]');
+  const on = card.querySelector('[data-field="wakeAudio"]');
+  if (row && on) row.hidden = !on.checked;
 }
 
 // Apply a config coming from the main process without disturbing the field
@@ -941,8 +946,6 @@ function applyConfig(next) {
   const firstLoad = !config;
   config = next;
   menuBarIconEl.checked = config.menuBarIcon;
-  if (document.activeElement !== wakeDelayEl) wakeDelayEl.value = String(config.wakeAudioDelay);
-  wakeDelayValueEl.textContent = describeDelay(config.wakeAudioDelay);
   dockEnabledEl.checked = config.dock.enabled;
   dockSideEl.value = config.dock.side;
   dockSideEl.disabled = !config.dock.enabled;
@@ -1920,7 +1923,6 @@ async function flushSave() {
     config.menuBarIcon = menuBarIconEl.checked;
     config.hideDockIcon = hideDockIconEl.checked;
     config.retinaDouble = retinaDoubleEl.checked;
-    config.wakeAudioDelay = Number(wakeDelayEl.value);
     config.dock = { enabled: dockEnabledEl.checked, side: dockSideEl.value === 'left' ? 'left' : 'right', overlap: Number(dockOverlapEl.value) };
     if (arrangeDisplayEl.value) config.arrangeDisplayId = Number(arrangeDisplayEl.value);
     config.session = {
@@ -1957,10 +1959,7 @@ arrangeDisplayEl.addEventListener('change', () => {
   config.arrangeDisplayId = Number(arrangeDisplayEl.value);
   scheduleSave();
 });
-for (const el of [menuBarIconEl, hideDockIconEl, retinaDoubleEl, dockEnabledEl, dockSideEl, dockOverlapEl, wakeDelayEl, sessionFilenameFormatEl]) el.addEventListener('change', scheduleSave);
-wakeDelayEl.addEventListener('input', () => {
-  wakeDelayValueEl.textContent = describeDelay(Number(wakeDelayEl.value));
-});
+for (const el of [menuBarIconEl, hideDockIconEl, retinaDoubleEl, dockEnabledEl, dockSideEl, dockOverlapEl, sessionFilenameFormatEl]) el.addEventListener('change', scheduleSave);
 sessionFilenameFormatEl.addEventListener('input', updateFilenamePreview);
 $('clear-session').addEventListener('click', () => api.clearSession());
 $('reveal-config').addEventListener('click', () => api.revealConfig());

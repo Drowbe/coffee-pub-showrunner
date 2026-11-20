@@ -335,14 +335,6 @@
             <span>Hide the Dock icon (menu bar only)</span>
           </label>
         </div>
-        <div class="row wake-row">
-          <label class="field field-inline wake-field">
-            <span>Wake audio after</span>
-            <input id="wake-delay" type="range" min="10" max="300" step="5">
-            <b id="wake-delay-value">30 s</b>
-          </label>
-          <span class="hint">Foundry ignores clicks until fully loaded; this is how long to wait first.</span>
-        </div>
       </div>
 
       <div class="card">
@@ -745,7 +737,11 @@
         <label class="check"><input data-field="enabled" type="checkbox"><span>Start on launch</span></label>
         <label class="check" title="Slide the window into the dock as soon as it has loaded"><input data-field="dockOnLaunch" type="checkbox"><span>Dock on launch</span></label>
         <label class="check"><input data-field="muted" type="checkbox"><span>Mute audio</span></label>
-        <label class="check" title="Browsers keep a page silent until someone interacts with it. This sends the page a middle-button click once Foundry reports it has finished loading, and again while Foundry still says its audio is locked; if a page still stays quiet, click into it once."><input data-field="wakeAudio" type="checkbox"><span>Wake audio after load</span></label>
+        <label class="check" title="Browsers keep a page silent until someone interacts with it. This sends the page a middle-button click once the page reports it has finished loading, and again while it still says its audio is locked; if a page still stays quiet, click into it once."><input data-field="wakeAudio" type="checkbox"><span>Wake audio after load</span></label>
+      </div>
+      <div class="row wake-row" data-role="wake-row">
+        <label class="field field-inline"><span>Wake its sound</span><input data-field="wakeDelay" type="number" min="10" max="300" step="5" size="4"><span class="unit">seconds after the page loads</span></label>
+        <span class="hint">Some pages ignore clicks until they have fully loaded; this is how long to wait before the first one.</span>
       </div>
 
       <div class="details">
