@@ -15,6 +15,7 @@ let baseRevision = 0;
 let readingY = 0;
 let saving = false;
 let editorView = null;
+let hasFile = true; // false for a new script that has not been saved anywhere yet
 let eventsTimer = null;
 
 // The same turning of a name into an event name as src/prompter.js does when the window reads the file.
@@ -119,17 +120,18 @@ function paint() {
 async function enter() {
   if (ed) return;
   const source = await window.prompter.readSource();
-  if (source.error || !source.path) {
-    notice(source.error || 'No script loaded. Choose or create a script on the Teleprompter page in Showrunner.');
+  if (source.error) {
+    notice(source.error);
     setTimeout(() => { if (!editing()) notice(''); }, 3500);
     return;
   }
+  hasFile = Boolean(source.path); // with no script chosen, this is a new one: it asks where to save the first time
   readingY = window.scrollY;
   document.body.classList.add('editing');
   editBar.hidden = false;
   ed = dlRichEditor(DlPM, document, (markdown) => lexer.lexer(markdown), editBox, { onView: (view) => { editorView = view; } });
-  ed.setText(source.text);
-  savedText = source.text;
+  ed.setText(source.text || (hasFile ? '' : '# Title\n\nWrite what you will say here.\n'));
+  savedText = hasFile ? source.text : '';
   baseRevision = ed.revision();
   ed.onChange(paint);
   ed.onSelect(paint);
@@ -139,8 +141,28 @@ async function enter() {
   paint();
 }
 
+// Ask where to save, then use that file from now on. A cancelled dialog changes nothing.
+async function saveAs() {
+  if (!ed || saving) return false;
+  const text = ed.getText();
+  saving = true;
+  try {
+    const result = await window.prompter.saveSourceAs(text);
+    if (result.canceled) return false;
+    if (!result.ok) { say(result.error || 'Could not save'); return false; }
+    hasFile = true;
+    savedText = text;
+    baseRevision = ed.revision();
+    say('Saved');
+    return true;
+  } finally {
+    saving = false;
+  }
+}
+
 async function save() {
   if (!ed || saving) return false;
+  if (!hasFile) return saveAs();
   const text = ed.getText();
   if (text === savedText) { baseRevision = ed.revision(); say('Saved'); return true; }
   saving = true;
@@ -179,7 +201,11 @@ editBar.addEventListener('click', async (event) => {
   if (button.dataset.edit === 'events') { toggleEvents(); return; }
   if (button.dataset.edit === 'cue') { dlInsertCue(DlPM, editorView, 'Cue name'); paint(); return; }
   if (button.dataset.edit === 'save') await save();
-  else if (button.dataset.edit === 'done') { if (await save()) leave(); }
+  else if (button.dataset.edit === 'saveas') await saveAs();
+  else if (button.dataset.edit === 'done') {
+    if (!hasFile && !dirty()) { leave(); return; } // a new script nobody typed in: nothing to save
+    if (await save()) leave();
+  }
   else if (button.dataset.edit === 'cancel') {
     if (dirty() && !window.confirm('Drop the unsaved changes to the script?')) return;
     leave();

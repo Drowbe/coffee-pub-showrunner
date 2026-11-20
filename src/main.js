@@ -3459,6 +3459,27 @@ function registerIpc() {
       return { ok: false, error: `Cannot save ${t.script}: ${err.message}` };
     }
   });
+  // Save the text in the editor to a file the person picks, and make that the profile's script. Used for a script that has
+  // no file yet and for Save as.
+  ipcMain.handle('prompter:saveAs', async (event, text) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents) return { ok: false, canceled: true, error: '' };
+    if (typeof text !== 'string' || Buffer.byteLength(text) > MAX_SCRIPT_BYTES) return { ok: false, canceled: false, error: 'The script is larger than 2 MB.' };
+    const t = configStore.get().teleprompter;
+    const { canceled, filePath } = await dialog.showSaveDialog(prompterWindow, {
+      title: 'Save script',
+      defaultPath: t.script ? t.script : path.join(app.getPath('documents'), 'script.md'),
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true, error: '' };
+    try {
+      await fs.promises.writeFile(filePath, text, 'utf8');
+    } catch (err) {
+      return { ok: false, canceled: false, error: `Cannot save ${filePath}: ${err.message}` };
+    }
+    saveTeleprompter({ script: filePath });
+    syncPrompter();
+    return { ok: true, canceled: false, path: filePath, error: '' };
+  });
   ipcMain.handle('prompter:newScript', async () => {
     const t = configStore.get().teleprompter;
     const { canceled, filePath } = await dialog.showSaveDialog(controlWindow, {

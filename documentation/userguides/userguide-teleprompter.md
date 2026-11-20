@@ -13,11 +13,11 @@ Open **Teleprompter** in the left rail, under Recording. Click **Choose file...*
 `.markdown` or `.txt`, up to 2 MB), then **Open**. Tick **Open when this profile starts** to have it ready every time. Each
 profile has its own script, settings and window position, so a podcast profile and a D&D profile can each open their own.
 
-**New...** creates a script file to start from. The script is edited in the teleprompter window itself, below.
+**New...** creates a script file to start from. You can also press **Edit** with no file chosen: the window opens a new script, and the first **Save** asks where on the computer to put it. The script is edited in the teleprompter window itself, below.
 
 **In the window.** Press **Edit** on the window's controls, or E, to edit the script where it is read. The text looks as it
 does when reading, in the same size and width, and you type into it: `# `, `- `, `1. ` and `> ` at the start of a line make
-a heading, list or quote, and `**bold**` and `*italic*` work as you type. The bar at the top has bold, italic, three heading levels, lists and a quote. **Save** (or Cmd/Ctrl+S) writes the file, **Done** saves and goes back to reading,
+a heading, list or quote, and `**bold**` and `*italic*` work as you type. The bar at the top has bold, italic, three heading levels, lists and a quote. **Save** (or Cmd/Ctrl+S) writes the file, **Save as...** asks where to save a copy and uses that file from then on, **Done** saves and goes back to reading,
 and **Cancel** drops unsaved changes. Auto-scroll and cues are off while you edit, and the keys that run the window (Space, `[`,
 `]` and the rest) type normally. A cue shows as a small outlined chip with its name. **Insert cue** adds one above the paragraph the cursor is in, with the name selected so you type over it; click into a chip to rename it, and press Enter in one to move to the line below. The cue's event name is the chip's name turned into a name, so renaming a cue changes the event a rule set listens for. **Events** opens a list beside the text of every heading and cue with the event it fires, in order. Click a line to jump to it, or **Copy** to copy the event name for a rule set. A line is flagged when two share an event name, since a rule set cannot tell them apart. The file stays Markdown, and only the blocks you change are rewritten; the rest of the
 file is left exactly as it was.

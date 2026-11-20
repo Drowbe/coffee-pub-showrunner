@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('prompter', {
   save: (patch) => ipcRenderer.send('prompter:save', patch),
   readSource: () => ipcRenderer.invoke('prompter:readScript'),
   writeSource: (text) => ipcRenderer.invoke('prompter:writeScript', text),
+  saveSourceAs: (text) => ipcRenderer.invoke('prompter:saveAs', text),
 });
