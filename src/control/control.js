@@ -2059,6 +2059,66 @@ const prompterEls = {
   mirror: $('prompter-mirror'),
 };
 
+// The scripts this profile has used: which is the Start Up script, which is showing now, and a way to show one, make it
+// Start Up, or forget it. The same list feeds the suggestions in a load-a-script step.
+function renderPrompterScripts(open) {
+  const t = config.teleprompter;
+  const known = [...new Set([t.script, ...(t.scripts || [])].filter(Boolean))];
+  const wrap = $('prompter-scripts-wrap');
+  wrap.hidden = known.length < 2 && !(status && status.prompter && status.prompter.script && status.prompter.script !== t.script);
+  const current = (status && status.prompter && status.prompter.script) || t.script;
+  const list = $('prompter-scripts');
+  list.textContent = '';
+  const name = (file) => file.split(/[\\/]/).pop();
+  $('prompter-now').textContent = open
+    ? (current && current !== t.script ? `Showing now: ${name(current)}, not the Start Up script.` : 'Showing the Start Up script.')
+    : 'The teleprompter is closed; it opens with the Start Up script.';
+  for (const file of known) {
+    const li = document.createElement('li');
+    li.className = `script-row${open && file === current ? ' showing' : ''}`;
+    const label = document.createElement('span');
+    label.className = 'script-name';
+    label.textContent = name(file);
+    label.title = file;
+    li.appendChild(label);
+    const tag = (text) => { const el = document.createElement('span'); el.className = 'script-tag'; el.textContent = text; li.appendChild(el); };
+    if (file === t.script) tag('Start Up');
+    if (open && file === current) tag('Showing');
+    const button = (text, title, onClick, disabled) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-small';
+      b.textContent = text;
+      b.title = title;
+      b.disabled = Boolean(disabled);
+      b.addEventListener('click', onClick);
+      li.appendChild(b);
+    };
+    const act = async (call) => {
+      await flushSave();
+      try {
+        const result = await call();
+        if (result && result.ok === false) reportError(new Error(result.error));
+        else if (result && result.views) { applyConfig(result); renderPrompter(); }
+      } catch (err) { reportError(err); }
+    };
+    if (file !== current || !open) button('Show now', open ? 'Show this script in the teleprompter now' : 'Open the teleprompter to show a script', () => act(() => api.useScript(file)), !open);
+    if (file !== t.script) {
+      button('Make Start Up', 'Open the teleprompter with this script from now on', () => act(() => api.setStartUp(file)));
+      button('Forget', 'Take it off this list (the file is not touched)', () => act(() => api.forgetScript(file)));
+    }
+    list.appendChild(li);
+  }
+  // Suggestions in a load-a-script step: Start Up first, then each known script.
+  const choices = $('prompter-known-scripts');
+  choices.textContent = '';
+  for (const value of ['Start Up', ...known]) {
+    const option = document.createElement('option');
+    option.value = value;
+    choices.appendChild(option);
+  }
+}
+
 function renderPrompter() {
   if (!config || !config.teleprompter) return;
   const t = config.teleprompter;
@@ -2078,6 +2138,7 @@ function renderPrompter() {
   set(prompterEls.height, t.height);
   prompterEls.enabled.checked = Boolean(t.enabled);
   prompterEls.mirror.checked = Boolean(t.mirror);
+  renderPrompterScripts(open);
 }
 
 function readPrompter() {
@@ -3759,10 +3820,11 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       const scriptInput = document.createElement('input');
       scriptInput.type = 'text';
       scriptInput.className = 'automation-step-value';
-      scriptInput.placeholder = 'Script file: a path, or a name next to the current script';
+      scriptInput.placeholder = 'Script file: pick one, or Start Up, a path, or a name next to the current script';
       scriptInput.value = step.param || '';
       scriptInput.dataset.sfield = 'param';
       scriptInput.spellcheck = false;
+      scriptInput.setAttribute('list', 'prompter-known-scripts');
       const scriptBrowse = document.createElement('button');
       scriptBrowse.type = 'button';
       scriptBrowse.className = 'btn btn-small';

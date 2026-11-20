@@ -818,12 +818,13 @@ function sanitizeWindowSource(input, label, fallback) {
 
 // The teleprompter: one per profile, its own window (not a capture window, so it is not one of the
 // views and never becomes an OBS source). Shows a Markdown script for the presenter.
-const PROMPTER_LIMITS = { speed: [5, 400], fontSize: [16, 200], lineHeight: [1, 3], textWidth: [30, 100], size: [LIMITS.minSize, LIMITS.maxSize] };
+const PROMPTER_LIMITS = { speed: [5, 400], fontSize: [16, 200], lineHeight: [1, 3], textWidth: [30, 100], scripts: 12, size: [LIMITS.minSize, LIMITS.maxSize] };
 
 function defaultTeleprompter() {
   return {
     enabled: false, // open it when the app (or the profile) starts
-    script: '', // the Markdown file
+    script: '', // the Start Up script: the Markdown file the window opens with
+    scripts: [], // every script this profile has used, most recent first, so one can be gone back to
     speed: 60, // pixels per second when auto-scrolling
     fontSize: 56,
     lineHeight: 1.5,
@@ -848,6 +849,7 @@ function sanitizeTeleprompter(input) {
   return {
     enabled: Boolean(src.enabled),
     script: typeof src.script === 'string' ? src.script.trim().slice(0, 1000) : d.script,
+    scripts: [...new Set((Array.isArray(src.scripts) ? src.scripts : []).filter((f) => typeof f === 'string' && f.trim()).map((f) => f.trim().slice(0, 1000)))].slice(0, PROMPTER_LIMITS.scripts),
     speed: Math.round(limited(src.speed, d.speed, PROMPTER_LIMITS.speed)),
     fontSize: Math.round(limited(src.fontSize, d.fontSize, PROMPTER_LIMITS.fontSize)),
     lineHeight: Math.round(limited(src.lineHeight, d.lineHeight, PROMPTER_LIMITS.lineHeight) * 10) / 10,

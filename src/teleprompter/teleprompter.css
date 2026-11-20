@@ -252,6 +252,10 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
   z-index: 8;
 }
 #file-menu button { text-align: left; border-color: transparent; background: transparent; }
+#recent-scripts { display: grid; gap: 2px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #2a4162; }
+#recent-scripts:empty { display: none; }
+#recent-scripts .heading { padding: 4px 10px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+#recent-scripts button .tag { margin-left: 8px; color: var(--accent); font-size: 11px; }
 #file-menu button:hover { background: #182c47; border-color: #2a4162; }
 
 /* The list of events the script fires, beside the text while editing. */

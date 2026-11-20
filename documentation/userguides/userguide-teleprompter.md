@@ -111,12 +111,23 @@ pause, scroll faster, scroll slower, next heading, previous heading, back to the
 cue `Start Reading` can switch the scene and then start the scroll. The teleprompter window has to be open, or the step
 reports that it is not.
 
-**Load a script** swaps in a different file and starts it from the top: type a full path, or just a file name to use
-one in the same folder as the script that is loaded now, or use Browse. Use it to run a show in segments. A script
-ends with a cue such as `<!-- cue: Next Segment -->`; a rule set on that cue switches the scene and then loads the next
-script, and its own last cue does the same for the one after. The loaded script becomes the profile's script (the
-Teleprompter page shows it, and it is what opens next time), so finish a show with a step that loads the first one
-again. It cannot run while you are editing.
+**Load a script** swaps in a different file and starts it from the top: pick one from the list, type a full path, or
+just a file name to use one in the same folder as the script showing now, or use Browse. Use it to run a show in
+segments. A script ends with a cue such as `<!-- cue: Next Segment -->`; a rule set on that cue switches the scene and
+then loads the next script, and its own last cue does the same for the one after. To go back, a step can load
+**Start Up**.
+
+The script you choose on the Teleprompter page is the profile's **Start Up** script: the one the window opens with. A
+script loaded by a rule set, or picked from the list, is shown for now and does not change that, so the next launch
+always opens the Start Up script. A step that loads another script cannot run while you are editing.
+
+## The profile's scripts
+
+Every script a profile uses (choosing it on the Teleprompter page, New..., Save as, a load-a-script step) is added to
+**Scripts this profile has used** on the Teleprompter page, most recent first, up to twelve. Each row has **Show now**
+(show it in the open window), **Make Start Up**, and **Forget** (take it off the list; the file is not touched). The
+same list is in the editor's **File** menu to open one for editing (it asks first if you have unsaved changes), and in
+the suggestions of a load-a-script step, with **Start Up** first.
 
 ## Troubleshooting
 

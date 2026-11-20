@@ -2333,3 +2333,12 @@ select option { background: var(--bg-card); color: var(--text); }
   cursor: pointer;
 }
 .group-toggle.on { color: var(--text, #f4ecdd); background: color-mix(in srgb, var(--accent, #5cc8cf) 25%, transparent); border-color: var(--accent, #5cc8cf); }
+
+/* The scripts a profile has used, on the Teleprompter page. */
+.prompter-scripts { margin: 14px 0; }
+.script-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.script-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); }
+.script-row.showing { border-color: var(--accent); }
+.script-row .script-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.script-row .script-tag { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 8px; }
+.script-row .script-dim { color: var(--text-dim); }

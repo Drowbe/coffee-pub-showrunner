@@ -365,14 +365,22 @@
         <p class="hint">A window for the presenter that shows a Markdown script. It looks like the capture windows but is not one: it is never an OBS source, so it stays off the stream. Drag its edges to the size you want. Each profile has its own script and settings.</p>
 
         <label class="field">
-          <span>Script (a Markdown file)</span>
+          <span>Start Up script (a Markdown file)</span>
           <span class="row row-fill">
             <input id="prompter-script" type="text" spellcheck="false" placeholder="No file chosen">
             <button class="btn" id="prompter-choose" type="button">Choose file...</button>
             <button class="btn" id="prompter-new" type="button">New...</button>
           </span>
-          <small class="hint">Edit it in the teleprompter window (the Edit button, or E). Saving the file in another editor reloads it there too.</small>
+          <small class="hint">The script the window opens with. Edit it in the teleprompter window (the Edit button, or E). Saving the file in another editor reloads it there too.</small>
         </label>
+
+        <div class="prompter-scripts" id="prompter-scripts-wrap" hidden>
+          <span class="field-label">Scripts this profile has used</span>
+          <p class="hint" id="prompter-now"></p>
+          <ul class="script-list" id="prompter-scripts"></ul>
+          <small class="hint">A rule set can load any of these with a <strong>Teleprompter: load a script</strong> step. Start Up is always the one it opens with next time.</small>
+        </div>
+        <datalist id="prompter-known-scripts"></datalist>
 
         <div class="checks">
           <label class="check"><input id="prompter-enabled" type="checkbox"><span>Open when this profile starts</span></label>

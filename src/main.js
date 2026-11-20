@@ -1304,15 +1304,21 @@ async function runAutomationAction(action, param, eventData, stepContext, chain 
     case 'prompterLoadScript': {
       if (!param) throw new Error('prompterLoadScript needs a script file.');
       if (prompterIsEditing) throw new Error('The teleprompter is being edited; finish editing before loading another script.');
-      const current = configStore.get().teleprompter.script;
+      const startUp = configStore.get().teleprompter.script;
+      // "Start Up" goes back to the script the profile opens with.
+      if (/^start[\s-]?up$/i.test(param.trim())) {
+        if (!startUp) throw new Error('This profile has no Start Up script.');
+        useScript(startUp);
+        prompterStatus('Back to the Start Up script');
+        return;
+      }
+      const current = prompterT().script;
       const file = path.isAbsolute(param) ? param : path.resolve(current ? path.dirname(current) : app.getPath('documents'), param);
       let stat;
       try { stat = await fs.promises.stat(file); } catch (err) { throw new Error(`Cannot find the script ${file}`); }
       if (!stat.isFile()) throw new Error(`${file} is not a file.`);
       if (stat.size > MAX_SCRIPT_BYTES) throw new Error('That script is larger than 2 MB.');
-      saveTeleprompter({ script: file });
-      broadcastStatus();
-      syncPrompter(true);
+      useScript(file);
       prompterStatus(`Loaded script: ${path.basename(file)}`);
       return;
     }
@@ -1951,7 +1957,7 @@ function viewStatus(view) {
 function fullStatus() {
   return {
     views: configStore.get().views.map(viewStatus),
-    prompter: { open: prompterOpen() },
+    prompter: { open: prompterOpen(), script: prompterT().script, startUp: configStore.get().teleprompter.script },
     displays: screen.getAllDisplays().map(displaySummary),
     config: configStore.get(),
     obs: { ...obs.status(), hasPassword: readObsPassword() !== '' },
@@ -2849,6 +2855,7 @@ function openLaunchViews() {
 
 let prompterWindow = null;
 let prompterPage = null;
+let prompterSessionScript = ''; // a script loaded for now by Automations or the chooser; '' means the Start Up script
 let prompterIsEditing = false; // the page says so: a script cannot be swapped under an open editor
 let prompterWatch = null; // { script, watcher, timer }
 
@@ -2856,6 +2863,28 @@ const prompterOpen = () => isAlive(prompterWindow);
 
 function prompterSettings(t) {
   return { speed: t.speed, fontSize: t.fontSize, lineHeight: t.lineHeight, textWidth: t.textWidth, mirror: t.mirror };
+}
+
+// The teleprompter settings with the script it is showing now: the Start Up script unless one was loaded for now.
+function prompterT() {
+  const t = configStore.get().teleprompter;
+  return prompterSessionScript ? { ...t, script: prompterSessionScript } : t;
+}
+
+// Keep a list of the scripts a profile has used, most recent first, so one can be gone back to.
+function rememberScript(file) {
+  if (!file) return;
+  const t = configStore.get().teleprompter;
+  saveTeleprompter({ scripts: [file, ...(t.scripts || []).filter((f) => f !== file)].slice(0, 12) });
+}
+
+// Show a script for now (the Start Up script is untouched, and is what opens next time).
+function useScript(file) {
+  const startUp = configStore.get().teleprompter.script;
+  prompterSessionScript = file && file !== startUp ? file : '';
+  rememberScript(file);
+  broadcastStatus();
+  syncPrompter(true);
 }
 
 async function prompterContent(t) {
@@ -2929,7 +2958,7 @@ function watchPrompter(t) {
       clearTimeout(entry.timer);
       entry.timer = setTimeout(async () => {
         if (prompterPage && !prompterPage.webContents.isDestroyed()) {
-          prompterPage.webContents.send('prompter:content', await prompterContent(configStore.get().teleprompter));
+          prompterPage.webContents.send('prompter:content', await prompterContent(prompterT()));
         }
       }, 200);
     });
@@ -2942,7 +2971,7 @@ function watchPrompter(t) {
 
 async function pushPrompter(fresh) {
   if (!prompterPage || prompterPage.webContents.isDestroyed()) return;
-  const t = configStore.get().teleprompter;
+  const t = prompterT();
   watchPrompter(t);
   const content = await prompterContent(t);
   prompterPage.webContents.send('prompter:content', fresh ? { ...content, fresh: true } : content);
@@ -3061,6 +3090,7 @@ function openPrompter() {
       prompterWindow = null;
       prompterPage = null;
       prompterIsEditing = false;
+      prompterSessionScript = '';
     }
     if (!page.webContents.isDestroyed()) page.webContents.close();
     broadcastStatus();
@@ -3503,7 +3533,7 @@ function registerIpc() {
     return prompterOpen();
   });
   ipcMain.handle('prompter:chooseScript', async () => {
-    const t = configStore.get().teleprompter;
+    const t = prompterT();
     const { canceled, filePaths } = await dialog.showOpenDialog(controlWindow, {
       title: 'Choose a script',
       properties: ['openFile'],
@@ -3511,19 +3541,21 @@ function registerIpc() {
       defaultPath: t.script ? path.dirname(t.script) : undefined,
     });
     if (canceled || !filePaths[0]) return configStore.get();
+    prompterSessionScript = '';
     saveTeleprompter({ script: filePaths[0] });
-    syncPrompter();
+    rememberScript(filePaths[0]);
+    syncPrompter(true);
     return configStore.get();
   });
   ipcMain.handle('prompter:init', async (event) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return { content: { html: '', error: '' }, settings: {} };
-    const t = configStore.get().teleprompter;
+    const t = prompterT();
     watchPrompter(t);
     return { content: await prompterContent(t), settings: prompterSettings(t) };
   });
   // The script editor in the teleprompter window (src/teleprompter/edit.js): read the file and save it back.
   ipcMain.handle('prompter:readScript', async () => {
-    const t = configStore.get().teleprompter;
+    const t = prompterT();
     if (!t.script) return { text: '', path: '', error: '' };
     try {
       const stat = await fs.promises.stat(t.script);
@@ -3534,7 +3566,7 @@ function registerIpc() {
     }
   });
   ipcMain.handle('prompter:writeScript', async (_event, text) => {
-    const t = configStore.get().teleprompter;
+    const t = prompterT();
     if (!t.script) return { ok: false, error: 'Choose or create a script file first.' };
     if (typeof text !== 'string' || Buffer.byteLength(text) > MAX_SCRIPT_BYTES) return { ok: false, error: 'The script is larger than 2 MB.' };
     try {
@@ -3549,7 +3581,7 @@ function registerIpc() {
   ipcMain.handle('prompter:saveAs', async (event, text, options) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return { ok: false, canceled: true, error: '' };
     if (typeof text !== 'string' || Buffer.byteLength(text) > MAX_SCRIPT_BYTES) return { ok: false, canceled: false, error: 'The script is larger than 2 MB.' };
-    const t = configStore.get().teleprompter;
+    const t = prompterT();
     const { canceled, filePath } = await dialog.showSaveDialog(prompterWindow, {
       title: 'Save script',
       // A new script is never offered the current script's name; Save as of the current one is.
@@ -3564,12 +3596,15 @@ function registerIpc() {
     } catch (err) {
       return { ok: false, canceled: false, error: `Cannot save ${filePath}: ${err.message}` };
     }
-    saveTeleprompter({ script: filePath });
+    // With a script loaded for now, the copy is what is showing; otherwise it is the Start Up script, as before.
+    if (prompterSessionScript) prompterSessionScript = filePath;
+    else saveTeleprompter({ script: filePath });
+    rememberScript(filePath);
     syncPrompter();
     return { ok: true, canceled: false, path: filePath, error: '' };
   });
   ipcMain.handle('prompter:newScript', async () => {
-    const t = configStore.get().teleprompter;
+    const t = prompterT();
     const { canceled, filePath } = await dialog.showSaveDialog(controlWindow, {
       title: 'New script',
       defaultPath: path.join(t.script ? path.dirname(t.script) : app.getPath('documents'), 'script.md'),
@@ -3581,13 +3616,48 @@ function registerIpc() {
     } catch (err) {
       if (err.code !== 'EEXIST') throw err; // an existing file is opened, never overwritten
     }
+    prompterSessionScript = '';
     saveTeleprompter({ script: filePath });
-    syncPrompter();
+    rememberScript(filePath);
+    syncPrompter(true);
+    return configStore.get();
+  });
+  // The scripts this profile has used, and which is the Start Up script and which is showing.
+  ipcMain.handle('prompter:scripts', (event) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents) return { startUp: '', current: '', scripts: [] };
+    const t = configStore.get().teleprompter;
+    return { startUp: t.script, current: prompterT().script, scripts: t.scripts || [] };
+  });
+  // Show a known script for now. From the window's own File menu while editing it is allowed (the editor reloads itself);
+  // from the control panel it is not, so a script is never swapped under an open editor.
+  ipcMain.handle('prompter:useScript', async (event, file) => {
+    const fromWindow = Boolean(prompterPage) && event.sender === prompterPage.webContents;
+    if (!fromWindow && prompterIsEditing) return { ok: false, error: 'The teleprompter is being edited; finish editing first.' };
+    const t = configStore.get().teleprompter;
+    if (typeof file !== 'string' || (file !== t.script && !(t.scripts || []).includes(file))) return { ok: false, error: 'That script is not in this profile\'s list.' };
+    try { await fs.promises.access(file); } catch (err) { return { ok: false, error: `Cannot find ${file}` }; }
+    useScript(file);
+    prompterStatus(`Showing ${path.basename(file)}`);
+    return { ok: true, error: '' };
+  });
+  ipcMain.handle('prompter:setStartUp', (_event, file) => {
+    const t = configStore.get().teleprompter;
+    if (typeof file !== 'string' || (file !== t.script && !(t.scripts || []).includes(file))) return configStore.get();
+    saveTeleprompter({ script: file });
+    if (prompterSessionScript === file) prompterSessionScript = '';
+    broadcastStatus();
+    return configStore.get();
+  });
+  ipcMain.handle('prompter:forgetScript', (_event, file) => {
+    const t = configStore.get().teleprompter;
+    if (file === t.script) return configStore.get(); // the Start Up script stays in the list
+    saveTeleprompter({ scripts: (t.scripts || []).filter((f) => f !== file) });
+    broadcastStatus();
     return configStore.get();
   });
   // The Automations page's list of the script's cues and headings, in reading order, each with the event it fires.
   ipcMain.handle('prompter:cues', async () => {
-    const t = configStore.get().teleprompter;
+    const t = prompterT();
     if (!t.script) return { script: '', cues: [], error: '' };
     try {
       const stat = await fs.promises.stat(t.script);

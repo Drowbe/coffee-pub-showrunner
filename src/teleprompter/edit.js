@@ -301,7 +301,58 @@ editBar.addEventListener('mousedown', (event) => {
 });
 const fileMenu = $('file-menu');
 const fileButton = editBar.querySelector('[data-edit="file"]');
+// The scripts this profile has used, in the File menu: pick one to edit it, or go back to the Start Up script.
+async function fillRecent() {
+  const box = $('recent-scripts');
+  box.textContent = '';
+  let info;
+  try { info = await window.prompter.scripts(); } catch (err) { return; }
+  const known = [...new Set([info.startUp, ...info.scripts].filter(Boolean))];
+  if (known.length < 2) return;
+  const heading = document.createElement('div');
+  heading.className = 'heading';
+  heading.textContent = 'Scripts';
+  box.append(heading);
+  for (const file of known) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.setAttribute('role', 'menuitem');
+    item.title = file;
+    item.textContent = file.split(/[\\/]/).pop();
+    const marks = [file === info.current ? 'open' : '', file === info.startUp ? 'Start Up' : ''].filter(Boolean).join(', ');
+    if (marks) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = marks;
+      item.append(tag);
+    }
+    item.disabled = file === info.current;
+    item.addEventListener('click', () => openScript(file));
+    box.append(item);
+  }
+}
+
+async function openScript(file) {
+  toggleFileMenu(false);
+  if (!ed) return;
+  if (dirty() && !window.confirm('Drop the unsaved changes and open another script?')) return;
+  const result = await window.prompter.useScript(file);
+  if (!result.ok) { say(result.error, true); return; }
+  const source = await window.prompter.readSource();
+  if (source.error) { say(source.error, true); return; }
+  hasFile = true;
+  ed.setText(source.text || '');
+  savedText = source.text || '';
+  baseRevision = ed.revision();
+  showFile(source.path);
+  window.scrollTo(0, 0);
+  say(`Opened ${file.split(/[\\/]/).pop()}`);
+  ed.focus();
+  paint();
+}
+
 function toggleFileMenu(open) {
+  if (open) fillRecent();
   fileMenu.hidden = !open;
   fileButton.setAttribute('aria-expanded', String(open));
 }

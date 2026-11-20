@@ -59,6 +59,9 @@ contextBridge.exposeInMainWorld('coffeePub', {
   addView: () => ipcRenderer.invoke('views:add'),
   toggleTeleprompter: () => ipcRenderer.invoke('prompter:toggle'),
   chooseScript: () => ipcRenderer.invoke('prompter:chooseScript'),
+  useScript: (file) => ipcRenderer.invoke('prompter:useScript', file),
+  setStartUp: (file) => ipcRenderer.invoke('prompter:setStartUp', file),
+  forgetScript: (file) => ipcRenderer.invoke('prompter:forgetScript', file),
   newScript: () => ipcRenderer.invoke('prompter:newScript'),
   scriptCues: () => ipcRenderer.invoke('prompter:cues'),
   onOpenRuleSet: (callback) => {
