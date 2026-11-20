@@ -2409,6 +2409,25 @@ function closeView(id) {
   if (isAlive(win)) win.close();
 }
 
+// Close a window and open it again (a window that is stopped is simply started).
+async function restartView(id) {
+  const view = getView(id);
+  if (!view || !view.url) return;
+  const win = viewWindows.get(id);
+  if (isAlive(win)) {
+    await new Promise((resolve) => {
+      win.once('closed', resolve);
+      win.close();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80)); // let the closed window's own clean-up finish first
+  }
+  createViewWindow(getView(id));
+}
+
+async function restartAllViews() {
+  for (const v of configStore.get().views.filter((x) => x.url)) await restartView(v.id);
+}
+
 function reloadView(id) {
   const wc = pageOf(id);
   if (wc) wc.reloadIgnoringCache();
@@ -4372,6 +4391,11 @@ function registerIpc() {
   });
   ipcMain.handle('view:close', (_event, id) => closeView(id));
   ipcMain.handle('view:reload', (_event, id) => reloadView(id));
+  ipcMain.handle('view:restart', (_event, id) => restartView(id));
+  ipcMain.handle('views:restartAll', () => restartAllViews());
+  // Hide the control panel only; every window keeps running, so OBS keeps its sources. (Hiding the whole app would hide
+  // them too, and OBS cannot capture a hidden window.)
+  ipcMain.handle('app:hidePanel', () => { if (isAlive(controlWindow)) controlWindow.hide(); });
   ipcMain.handle('view:reset', (_event, id) => resetView(id));
   ipcMain.handle('view:devtools', (_event, id) => {
     const wc = pageOf(id);

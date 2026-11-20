@@ -15,16 +15,7 @@
       <span class="brand-name"><span class="brand-co">Coffee Pub</span> <span class="brand-product">Showrunner</span></span>
     </div>
     <div class="topbar-actions">
-      <div class="topbar-group" role="group" aria-label="Capture windows">
-        <button id="open-all" class="btn btn-primary" type="button" title="Start every capture window that has a URL (the teleprompter has its own button)">Start All</button>
-        <button id="close-all" class="btn" type="button" title="Stop every capture window (the teleprompter has its own button)">Stop All</button>
-        <button id="collapse" class="btn" type="button" title="Slide the capture windows off screen into the dock; OBS keeps capturing them">Dock Windows</button>
-      </div>
-      <span class="topbar-sep" aria-hidden="true"></span>
-      <div class="topbar-group" role="group" aria-label="Teleprompter">
-        <button id="prompter-open" class="btn" type="button" title="Open the teleprompter window"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i> Teleprompter</button>
-      </div>
-      <span class="topbar-sep" aria-hidden="true"></span>
+      <button id="hide-panel" class="btn" type="button" title="Hide this panel. Every window keeps running; bring the panel back from the Dock icon or the menu bar icon.">Hide</button>
       <button id="quit-app" class="btn" type="button" title="Quit Coffee Pub Showrunner (also in the app menu, or the menu bar icon's menu if it's on)">Quit</button>
     </div>
   </header>
@@ -60,7 +51,13 @@
       <button class="tab tab-add" data-tab="add-integration" id="add-integration" type="button" title="Switch an integration on for this profile"><i class="fa-solid fa-plus" aria-hidden="true"></i>Add integration</button>
     </div>
     <div class="nav-group">
-      <div class="nav-heading">Windows</div>
+      <div class="nav-heading nav-heading-row">
+        <span>Windows</span>
+        <span class="nav-heading-actions">
+          <button class="tab-action tab-action-inline" id="windows-restart-all" type="button" title="Restart every window" aria-label="Restart every window"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
+          <button class="tab-action tab-action-inline" id="windows-dock-all" type="button" title="Dock every window" aria-label="Dock every window"><i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i></button>
+        </span>
+      </div>
       <span id="view-tabs" class="view-tabs"></span>
       <span id="appwin-tabs" class="view-tabs"></span>
       <button class="tab tab-add" data-tab="add" type="button" title="Add a window"><i class="fa-solid fa-plus" aria-hidden="true"></i>Add window</button>

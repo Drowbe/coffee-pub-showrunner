@@ -123,10 +123,9 @@ Start Up script. A step that loads another script cannot run while you are editi
 
 ## Opening the window
 
-The **Teleprompter** button in the header (it is tinted while the window is open, and clicking it then closes it), the
-arrow icon beside Teleprompter in the left rail, and the **Open** button on the Teleprompter page all do the same
-thing. **Start All**, **Stop All** and **Dock Windows** beside it are for the capture windows only; the teleprompter is
-a presenter window, so it has its own button and stays out of them.
+The arrow icon beside Teleprompter in the left rail (tinted while the window is open; clicking it then closes it) and the
+**Open** button on the Teleprompter page do the same thing. The teleprompter is a presenter window, so it is not one
+of the capture windows under **Windows**: the restart and dock icons there leave it alone.
 
 ## The profile's scripts
 

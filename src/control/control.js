@@ -20,7 +20,6 @@ const obsTagEl = $('obs-tag');
 const obsDotEl = $('obs-dot');
 const obsConnectEl = $('obs-connect');
 const obsAutoEl = $('obs-auto');
-const collapseEl = $('collapse');
 const dockEnabledEl = $('dock-enabled');
 const dockSideEl = $('dock-side');
 const dockOverlapEl = $('dock-overlap');
@@ -771,31 +770,40 @@ function renderTabs() {
     dot.dataset.viewDot = view.id;
     tab.appendChild(dot);
     tab.append(view.label);
-    // The same arrow icon as the teleprompter's: start or stop this window without opening its page.
+    // Beside each window: restart it, and show it on the desktop or dock it (the arrow, as on the teleprompter).
     const row = document.createElement('div');
-    row.className = 'tab-row';
+    row.className = 'tab-row two';
     const open = document.createElement('button');
     open.type = 'button';
     open.className = 'tab-action';
     open.dataset.viewOpen = view.id;
     open.innerHTML = '<i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>';
-    row.append(tab, open);
+    const restart = document.createElement('button');
+    restart.type = 'button';
+    restart.className = 'tab-action second';
+    restart.dataset.viewRestart = view.id;
+    restart.innerHTML = '<i class="fa-solid fa-rotate-right" aria-hidden="true"></i>';
+    row.append(tab, restart, open);
     viewTabsEl.appendChild(row);
   }
   $('tabs').querySelector('.tab-add').hidden = config.views.length >= limits.maxViews && (config.appWindows || []).length >= MAX_APP_WINDOWS;
   selectTab(activeTab);
 }
 
-// Start or stop a window from its arrow in the left rail.
+// The two icons beside a window in the left rail: the arrow shows it on the desktop or docks it (starting it first if it
+// is stopped), and the circle restarts it.
 viewTabsEl.addEventListener('click', async (event) => {
-  const button = event.target.closest('[data-view-open]');
+  const button = event.target.closest('[data-view-open], [data-view-restart]');
   if (!button || button.disabled) return;
-  const id = button.dataset.viewOpen;
+  const id = button.dataset.viewOpen || button.dataset.viewRestart;
   await flushSave();
   const open = Boolean((status.views.find((v) => v.id === id) || {}).open);
+  const docked = (status.parkedIds || []).includes(id);
   try {
-    if (open) await api.closeView(id);
-    else await api.openView(id);
+    if (button.dataset.viewRestart) await api.restartView(id);
+    else if (!open) await api.openView(id);
+    else if (docked) await api.restoreView(id);
+    else await api.parkView(id);
   } catch (err) {
     reportError(err);
   }
@@ -1517,8 +1525,13 @@ function renderActivityLog(events) {
 function renderStatus() {
   const o = status.obs || { state: 'disconnected', inputs: [] };
   const connected = o.state === 'connected';
-  collapseEl.textContent = status.collapsed ? 'Undock Windows' : 'Dock Windows';
-  collapseEl.disabled = !status.views.some((v) => v.open);
+  const anyOpen = status.views.some((v) => v.open);
+  const dockAll = $('windows-dock-all');
+  dockAll.disabled = !anyOpen;
+  dockAll.classList.toggle('on', anyOpen && !status.collapsed);
+  dockAll.title = status.collapsed ? 'Show every window on the desktop' : 'Dock every window (slide them to the edge dock)';
+  dockAll.setAttribute('aria-label', dockAll.title);
+  $('windows-restart-all').disabled = !config.views.some((v) => v.url);
 
   for (const view of config.views) {
     const card = cards.get(view.id);
@@ -1529,10 +1542,19 @@ function renderStatus() {
     if (dot) dot.classList.toggle('on', Boolean(s.open));
     const rail = document.querySelector(`[data-view-open="${view.id}"]`);
     if (rail) {
-      rail.classList.toggle('on', Boolean(s.open));
+      const docked = (status.parkedIds || []).includes(view.id);
+      rail.classList.toggle('on', Boolean(s.open) && !docked);
       rail.disabled = !s.open && !view.url;
-      rail.title = s.open ? `Stop ${view.label}` : view.url ? `Start ${view.label}` : 'Enter a URL first';
+      rail.title = !s.open
+        ? (view.url ? `Start ${view.label}` : 'Enter a URL first')
+        : docked ? `Show ${view.label} on the desktop` : `Dock ${view.label} (slide it to the edge dock)`;
       rail.setAttribute('aria-label', rail.title);
+    }
+    const again = document.querySelector(`[data-view-restart="${view.id}"]`);
+    if (again) {
+      again.disabled = !view.url;
+      again.title = view.url ? `${s.open ? 'Restart' : 'Start'} ${view.label}` : 'Enter a URL first';
+      again.setAttribute('aria-label', again.title);
     }
 
     const tag = card.querySelector('[data-role="tag"]');
@@ -1973,11 +1995,6 @@ async function flushSave() {
   }
 }
 
-$('open-all').addEventListener('click', async () => {
-  await flushSave();
-  await api.openAll();
-});
-$('close-all').addEventListener('click', () => api.closeAll());
 // Quit lives here too, not only in the app menu and the menu bar icon: with the
 // Dock icon hidden or the menu bar icon off there was no visible way to shut
 // the app down. Windows that are open get closed on quit, so ask first.
@@ -1986,7 +2003,15 @@ $('quit-app').addEventListener('click', () => {
   if (open && !window.confirm('Quit Coffee Pub Showrunner? Its windows will close, so OBS loses those sources until you start it again.')) return;
   api.quitApp();
 });
-collapseEl.addEventListener('click', () => (status.collapsed ? api.expandViews() : api.collapseViews()));
+$('hide-panel').addEventListener('click', () => api.hidePanel());
+// Beside the Windows heading: restart every window, and dock or show them all.
+$('windows-restart-all').addEventListener('click', async () => {
+  const open = status.views.some((v) => v.open);
+  if (open && !window.confirm('Restart every window? They close and open again, so OBS loses those sources for a moment.')) return;
+  await flushSave();
+  try { await api.restartAll(); } catch (err) { reportError(err); }
+});
+$('windows-dock-all').addEventListener('click', () => (status.collapsed ? api.expandViews() : api.collapseViews()));
 $('arrange').addEventListener('click', async () => {
   await flushSave();
   await api.arrangeViews(Number(arrangeDisplayEl.value));
@@ -2171,9 +2196,6 @@ function renderPrompter() {
   prompterEls.toggle.textContent = open ? 'Close' : 'Open';
   prompterEls.toggle.classList.toggle('btn-primary', !open);
   prompterEls.toggle.classList.toggle('btn-danger', open);
-  const headerButton = $('prompter-open');
-  headerButton.classList.toggle('on', open);
-  headerButton.title = open ? 'Close the teleprompter window' : 'Open the teleprompter window';
   const navToggle = $('prompter-nav-toggle');
   navToggle.classList.toggle('on', open);
   navToggle.title = open ? 'Close the teleprompter' : 'Open the teleprompter';
@@ -2211,12 +2233,12 @@ for (const el of [prompterEls.speed, prompterEls.fontSize, prompterEls.lineHeigh
   el.addEventListener('input', readPrompter);
   el.addEventListener('change', readPrompter);
 }
-// Open or close the teleprompter window: from its page, the left rail, and the header.
+// Open or close the teleprompter window: from its page and the left rail.
 async function toggleTeleprompterWindow() {
   await flushSave();
   try { await api.toggleTeleprompter(); } catch (err) { reportError(err); }
 }
-for (const el of [prompterEls.toggle, $('prompter-nav-toggle'), $('prompter-open')]) el.addEventListener('click', toggleTeleprompterWindow);
+for (const el of [prompterEls.toggle, $('prompter-nav-toggle')]) el.addEventListener('click', toggleTeleprompterWindow);
 prompterEls.choose.addEventListener('click', async () => {
   await flushSave();
   try { const added = await api.addScript(); applyConfig(added.config); renderPrompter(); } catch (err) { reportError(err); }

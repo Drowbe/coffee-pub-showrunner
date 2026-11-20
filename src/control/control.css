@@ -2367,9 +2367,10 @@ select option { background: var(--bg-card); color: var(--text); }
 .tab-action:hover { color: var(--text); border-color: var(--border); background: #13243B; }
 .tab-action.on { color: var(--accent); }
 
-/* The header's buttons in groups: the capture windows, the teleprompter, then Quit. */
-.topbar-group { display: flex; align-items: center; gap: 6px; }
-.topbar-sep { align-self: stretch; width: 1px; margin: 4px 2px; background: var(--border); }
-#prompter-open i { margin-right: 4px; font-size: 11px; color: var(--text-dim); }
-#prompter-open.on { border-color: var(--accent); color: var(--accent); }
-#prompter-open.on i { color: var(--accent); }
+/* Two actions beside a window in the left rail (restart, then show on the desktop / dock), and the same two beside the heading. */
+.tab-row.two .tab { padding-right: 62px; }
+.tab-action.second { right: 34px; }
+.nav-heading-row { display: flex; align-items: center; justify-content: space-between; padding-right: 0; opacity: 1; }
+.nav-heading-row > span:first-child { opacity: 0.8; }
+.nav-heading-actions { display: inline-flex; gap: 4px; margin-right: 6px; }
+.tab-action-inline { position: static; transform: none; }
