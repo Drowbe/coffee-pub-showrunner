@@ -22,7 +22,7 @@ profile has its own script, settings and window position, so a podcast profile a
 does when reading, in the same size and width, and you type into it: `# `, `- `, `1. ` and `> ` at the start of a line make
 a heading, list or quote, and `**bold**` and `*italic*` work as you type. The bar at the top has bold, italic, three heading levels, lists and a quote. **Save** (or Cmd/Ctrl+S) writes the file, **Done** saves and goes back to reading,
 and **Cancel** drops unsaved changes. Auto-scroll and cues are off while you edit, and the keys that run the window (Space, `[`,
-`]` and the rest) type normally. The file stays Markdown, and only the blocks you change are rewritten; the rest of the
+`]` and the rest) type normally. A cue shows as a small outlined chip with its name. **Insert cue** adds one above the paragraph the cursor is in, with the name selected so you type over it; click into a chip to rename it, and press Enter in one to move to the line below. The cue's event name is the chip's name turned into a name, so renaming a cue changes the event a rule set listens for. The file stays Markdown, and only the blocks you change are rewritten; the rest of the
 file is left exactly as it was.
 
 Saving the file, here or in another editor, reloads it in the window, and the window keeps your place by the nearest heading.

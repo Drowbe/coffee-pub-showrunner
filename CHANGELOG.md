@@ -16,7 +16,7 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
   auto-scroll or manual scrolling, text size, mirror and a reading line. Saving the file reloads it. A heading, or a
   `<!-- cue: Name -->` line, fires an Automations event (`teleprompter:name` or `teleprompter:heading:name`) when
   the reading line reaches it, so rule sets can change scenes from the script. It has its own **Teleprompter** page under
-  Recording, one per profile, and is not a capture window. Bundles `marked` (MIT) to read Markdown. The page has a script editor: write or change the Markdown in the app, insert a cue line at the cursor, and see the Automations event each heading and cue will fire. **New...** creates a script file. In the window, **Edit** (or E) edits the script in place with a formatting bar, using the rich Markdown editor from Chameleon (ProseMirror); only the blocks you change are rewritten.
+  Recording, one per profile, and is not a capture window. Bundles `marked` (MIT) to read Markdown. The page has a script editor: write or change the Markdown in the app, insert a cue line at the cursor, and see the Automations event each heading and cue will fire. **New...** creates a script file. In the window, **Edit** (or E) edits the script in place with a formatting bar, using the rich Markdown editor from Chameleon (ProseMirror); only the blocks you change are rewritten. Cues show as chips there, with an **Insert cue** button, and are renamed by typing in them.
 
 ## 0.4.6 -- 2026-11-19
 

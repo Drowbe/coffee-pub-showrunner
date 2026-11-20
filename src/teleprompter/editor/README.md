@@ -20,8 +20,8 @@ Copied from `Drowbe/coffee-pub-chameleon`, `modules/documents/src/`, commit `42c
 | `lib-q-rich-rules.js` | `documents-lib-q-rich-rules.js` | typing shortcuts (`# `, `- `, `**bold**`) and the toolbar's state |
 | `lib-r-rich-link.js` | `documents-lib-r-rich-link.js` | link helpers the editor file refers to |
 | `lib-p-rich-editor.js` | `documents-lib-p-rich-editor.js` | the editor itself |
-| `lib-stubs.js` | (written here) | stands in for the page-break plugin and one constant |
+| `lib-stubs.js` | (written here) | stands in for the page-break plugin and one constant, and adds the cue behaviour (Enter in a cue, Insert cue) |
 
-The files are unchanged copies. They are plain scripts that share one scope, loaded in this order by `../index.html`; the
+Three of the copies carry a small change, each marked `SHOWRUNNER` in the file, so the cue chip exists: `lib-l-schema.js` (a `cue` node, top level only; its text is its name), `lib-m-parse.js` (a comment line `<!-- cue: Name -->` at the top level reads as a cue instead of raw text) and `lib-n-serialise.js` (a cue is written back as that one comment line). The rest are unchanged copies. They are plain scripts that share one scope, loaded in this order by `../index.html`; the
 page's own glue is `../edit.js`. Each package's licence is in `licenses/` and listed in the README at the top of the project.
-Updating means copying the newer files from Chameleon and running the round-trip check described in the project's tests.
+Updating means copying the newer files from Chameleon, re-applying the three `SHOWRUNNER` changes and running the round-trip check described in the project's tests.

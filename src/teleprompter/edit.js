@@ -14,6 +14,7 @@ let savedText = '';
 let baseRevision = 0;
 let readingY = 0;
 let saving = false;
+let editorView = null;
 
 const dirty = () => Boolean(ed) && ed.revision() !== baseRevision;
 
@@ -42,7 +43,7 @@ async function enter() {
   readingY = window.scrollY;
   document.body.classList.add('editing');
   editBar.hidden = false;
-  ed = dlRichEditor(DlPM, document, (markdown) => lexer.lexer(markdown), editBox, {});
+  ed = dlRichEditor(DlPM, document, (markdown) => lexer.lexer(markdown), editBox, { onView: (view) => { editorView = view; } });
   ed.setText(source.text);
   savedText = source.text;
   baseRevision = ed.revision();
@@ -89,6 +90,7 @@ editBar.addEventListener('click', async (event) => {
   const button = event.target.closest('button');
   if (!button || !ed) return;
   if (button.dataset.fmt) { ed.run(button.dataset.fmt); ed.focus(); paint(); return; }
+  if (button.dataset.edit === 'cue') { dlInsertCue(DlPM, editorView, 'Cue name'); paint(); return; }
   if (button.dataset.edit === 'save') await save();
   else if (button.dataset.edit === 'done') { if (await save()) leave(); }
   else if (button.dataset.edit === 'cancel') {

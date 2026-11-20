@@ -77,7 +77,12 @@
           const v = dlTrimBreaks(String(b.v || ''));
           const lang = /^[A-Za-z0-9_+#.-]{0,40}$/.test(String(b.lang || '')) ? String(b.lang || '') : '';
           out.push(made(N.code_block.create({ lang, info: dlCleanLine(String(b.info || ''), DL_RICH.infoMax) }, v ? [made(schema.text(v))] : [])));
-        } else if (b.t === 'source') { if (b.v) out.push(made(N.source_block.create(null, [made(schema.text(String(b.v)))]))); }
+        } else if (b.t === 'source') {
+          // SHOWRUNNER: a comment block that is a cue line, at the top level, is a cue node
+          const cue = top ? /^\s*<!--\s*cue\s*:\s*(.+?)\s*-->\s*$/i.exec(String(b.v || '')) : null;
+          if (cue) out.push(made(N.cue.create(null, [made(schema.text(cue[1].slice(0, 80)))])));
+          else if (b.v) out.push(made(N.source_block.create(null, [made(schema.text(String(b.v)))])));
+        }
         else if (b.t === 'math') {
           const tex = String(b.tex || '').trim();
           if (dlRichTexOk(tex, true)) out.push(made(N.formula_block.create({ tex })));

@@ -49,7 +49,7 @@
       toDOM: (node) => [tag, node.attrs.align ? { style: `text-align:${node.attrs.align}` } : {}, 0],
     });
     const nodes = {
-      doc: { content: '(block | page_break)+' }, // a page break stands between the top-level blocks only
+      doc: { content: '(block | page_break | cue)+' }, // SHOWRUNNER: cue added // a page break stands between the top-level blocks only
       paragraph: { group: 'block', content: 'inline*', toDOM: () => ['p', 0] },
       heading: {
         group: 'block', content: 'inline*', defining: true,
@@ -67,6 +67,8 @@
       },
       source_block: { group: 'block', content: 'text*', marks: '', code: true, defining: true, toDOM: () => ['pre', { class: 'dl-source' }, ['code', 0]] },
       horizontal_rule: { group: 'block', toDOM: () => ['hr'] },
+      // SHOWRUNNER: a teleprompter cue, written as the line `<!-- cue: Name -->`. Its text is its name. Top level only, no group.
+      cue: { content: 'text*', marks: '', defining: true, toDOM: () => ['div', { class: 'dl-cue' }, 0] },
       // The manual page break: its own node, not the rule's (kept blocks are matched by Node.eq, so a rule typed before a kept
       // break would take the break's stored line). Top level only, as the reader makes it. Written as the line `_ _ _`.
       page_break: { toDOM: () => ['div', { class: 'dl-pagebreak', role: 'separator', 'aria-label': 'Page break' }, ['span', { class: 'dl-pagebreak-label', 'aria-hidden': 'true' }, 'Page break']] },

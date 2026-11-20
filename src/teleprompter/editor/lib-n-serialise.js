@@ -159,6 +159,8 @@
       },
       source_block(state, node) { lines(state, node.textContent); state.closeBlock(node); },
       horizontal_rule(state, node) { state.write('---'); state.closeBlock(node); },
+      // SHOWRUNNER: a cue is one comment line; its name cannot hold a line break or the end of the comment
+      cue(state, node) { state.write(`<!-- cue: ${node.textContent.replace(/\s+/g, ' ').replace(/-->/g, '->').trim().slice(0, 80) || 'Cue'} -->`); state.closeBlock(node); },
       page_break(state, node) { state.write(DL_PAGE_BREAK_LINE); state.closeBlock(node); },
       bullet_list(state, node, parent, index) {
         const mark = listMark(state, node, parent, index, ['-', '*', '+']);
