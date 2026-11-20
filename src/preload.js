@@ -58,10 +58,10 @@ contextBridge.exposeInMainWorld('coffeePub', {
   deleteProfile: (id) => ipcRenderer.invoke('profiles:delete', id),
   addView: () => ipcRenderer.invoke('views:add'),
   toggleTeleprompter: () => ipcRenderer.invoke('prompter:toggle'),
-  chooseScript: () => ipcRenderer.invoke('prompter:chooseScript'),
+  addScript: () => ipcRenderer.invoke('prompter:addScript'),
   useScript: (file) => ipcRenderer.invoke('prompter:useScript', file),
   setStartUp: (file) => ipcRenderer.invoke('prompter:setStartUp', file),
-  forgetScript: (file) => ipcRenderer.invoke('prompter:forgetScript', file),
+  removeScript: (file) => ipcRenderer.invoke('prompter:removeScript', file),
   newScript: () => ipcRenderer.invoke('prompter:newScript'),
   scriptCues: () => ipcRenderer.invoke('prompter:cues'),
   onOpenRuleSet: (callback) => {

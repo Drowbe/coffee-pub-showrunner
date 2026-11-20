@@ -2871,11 +2871,13 @@ function prompterT() {
   return prompterSessionScript ? { ...t, script: prompterSessionScript } : t;
 }
 
-// Keep a list of the scripts a profile has used, most recent first, so one can be gone back to.
+// The profile's scripts: the ones it can show, in the order they were added. Anything shown or chosen joins the list; the
+// first one in becomes the Start Up script if there is none.
 function rememberScript(file) {
   if (!file) return;
   const t = configStore.get().teleprompter;
-  saveTeleprompter({ scripts: [file, ...(t.scripts || []).filter((f) => f !== file)].slice(0, 12) });
+  const scripts = (t.scripts || []).includes(file) ? t.scripts : [...(t.scripts || []), file].slice(-30);
+  saveTeleprompter({ scripts, ...(t.script ? {} : { script: file }) });
 }
 
 // Show a script for now (the Start Up script is untouched, and is what opens next time).
@@ -3532,20 +3534,21 @@ function registerIpc() {
     else openPrompter();
     return prompterOpen();
   });
-  ipcMain.handle('prompter:chooseScript', async () => {
+  // Add a script file to this profile's list (the first one added is the Start Up script). Used by the Teleprompter page's
+  // Add script and by the Browse button of a load-a-script step; it returns the file so the step can use it.
+  ipcMain.handle('prompter:addScript', async () => {
     const t = prompterT();
     const { canceled, filePaths } = await dialog.showOpenDialog(controlWindow, {
-      title: 'Choose a script',
+      title: 'Add a script',
       properties: ['openFile'],
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }],
       defaultPath: t.script ? path.dirname(t.script) : undefined,
     });
-    if (canceled || !filePaths[0]) return configStore.get();
-    prompterSessionScript = '';
-    saveTeleprompter({ script: filePaths[0] });
+    if (canceled || !filePaths[0]) return { config: configStore.get(), path: '' };
     rememberScript(filePaths[0]);
-    syncPrompter(true);
-    return configStore.get();
+    broadcastStatus();
+    syncPrompter();
+    return { config: configStore.get(), path: filePaths[0] };
   });
   ipcMain.handle('prompter:init', async (event) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return { content: { html: '', error: '' }, settings: {} };
@@ -3616,10 +3619,10 @@ function registerIpc() {
     } catch (err) {
       if (err.code !== 'EEXIST') throw err; // an existing file is opened, never overwritten
     }
-    prompterSessionScript = '';
-    saveTeleprompter({ script: filePath });
     rememberScript(filePath);
-    syncPrompter(true);
+    // A new script is for writing: show it now if the teleprompter is open.
+    if (prompterOpen()) useScript(filePath);
+    else broadcastStatus();
     return configStore.get();
   });
   // The scripts this profile has used, and which is the Start Up script and which is showing.
@@ -3648,11 +3651,16 @@ function registerIpc() {
     broadcastStatus();
     return configStore.get();
   });
-  ipcMain.handle('prompter:forgetScript', (_event, file) => {
+  ipcMain.handle('prompter:removeScript', (_event, file) => {
     const t = configStore.get().teleprompter;
-    if (file === t.script) return configStore.get(); // the Start Up script stays in the list
-    saveTeleprompter({ scripts: (t.scripts || []).filter((f) => f !== file) });
+    const scripts = (t.scripts || []).filter((f) => f !== file);
+    // Removing the Start Up script hands that job to the next one in the list.
+    const patch = { scripts };
+    if (file === t.script) patch.script = scripts[0] || '';
+    saveTeleprompter(patch);
+    if (prompterSessionScript === file) prompterSessionScript = '';
     broadcastStatus();
+    syncPrompter(true);
     return configStore.get();
   });
   // The Automations page's list of the script's cues and headings, in reading order, each with the event it fires.

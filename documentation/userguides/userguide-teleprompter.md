@@ -9,7 +9,7 @@ stream, and it does not appear under Windows, in the edge dock or in Start All a
 
 ## Set it up
 
-Open **Teleprompter** in the left rail, under Recording. Click **Choose file...** and pick a Markdown file (`.md`,
+Open **Teleprompter** in the left rail, under Recording. Click **Add script...** and pick a Markdown file (`.md`,
 `.markdown` or `.txt`, up to 2 MB), then **Open**. Tick **Open when this profile starts** to have it ready every time. Each
 profile has its own script, settings and window position, so a podcast profile and a D&D profile can each open their own.
 
@@ -111,23 +111,24 @@ pause, scroll faster, scroll slower, next heading, previous heading, back to the
 cue `Start Reading` can switch the scene and then start the scroll. The teleprompter window has to be open, or the step
 reports that it is not.
 
-**Load a script** swaps in a different file and starts it from the top: pick one from the list, type a full path, or
-just a file name to use one in the same folder as the script showing now, or use Browse. Use it to run a show in
-segments. A script ends with a cue such as `<!-- cue: Next Segment -->`; a rule set on that cue switches the scene and
-then loads the next script, and its own last cue does the same for the one after. To go back, a step can load
-**Start Up**.
+**Load a script** swaps in a different script from the profile's list and starts it from the top. Pick one in the step,
+or **Start Up** to go back to the script the window opens with, or **Browse** for a file: it is added to the profile's
+scripts and used, so either way you end on a script that belongs to the profile. (Through the API a step can also
+carry a full path, or a file name next to the script showing now.) Use it to run a show in segments: a script ends with
+a cue such as `<!-- cue: Next Segment -->`; a rule set on that cue switches the scene and then loads the next script,
+and its own last cue does the same for the one after.
 
-The script you choose on the Teleprompter page is the profile's **Start Up** script: the one the window opens with. A
-script loaded by a rule set, or picked from the list, is shown for now and does not change that, so the next launch
-always opens the Start Up script. A step that loads another script cannot run while you are editing.
+A script loaded this way is shown for now and does not change the Start Up script, so the next launch always opens the
+Start Up script. A step that loads another script cannot run while you are editing.
 
 ## The profile's scripts
 
-Every script a profile uses (choosing it on the Teleprompter page, New..., Save as, a load-a-script step) is added to
-**Scripts this profile has used** on the Teleprompter page, most recent first, up to twelve. Each row has **Show now**
-(show it in the open window), **Make Start Up**, and **Forget** (take it off the list; the file is not touched). The
-same list is in the editor's **File** menu to open one for editing (it asks first if you have unsaved changes), and in
-the suggestions of a load-a-script step, with **Start Up** first.
+The **Scripts** list on the Teleprompter page holds the scripts a profile can show, in the order they were added, up to
+thirty. **Add script...** adds a Markdown file, and **New...** creates one (and shows it now if the window is open). The
+first script added is the **Start Up** script, the one the window opens with. Each row has **Show now** (show it in
+the open window), **Make Start Up**, and **Remove** (take it off the profile; the file is not touched). Anything
+saved with Save as, or loaded by a step, joins the list too. The same list is in the editor's **File** menu to open a
+script for editing (it asks first if you have unsaved changes), and in the load-a-script step.
 
 ## Troubleshooting
 

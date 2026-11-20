@@ -385,7 +385,7 @@ disconnected:
 | `prompterPlay` / `prompterPause` / `prompterToggle` | Starts, pauses, or flips the teleprompter's auto-scroll. Group `Teleprompter`; no `param`. Fails with a clear error if the teleprompter window isn't open |
 | `prompterFaster` / `prompterSlower` | Changes the scroll speed one step, the same step as the `]` and `[` keys (saved to the profile) |
 | `prompterNext` / `prompterPrev` / `prompterTop` | Jumps to the next or previous heading, or back to the top of the script |
-| `prompterLoadScript` | Shows a script in the teleprompter, from the top. `param` is a full path, a file name next to the script showing now, or `Start Up` to go back to the profile's Start Up script. It is shown for now: the Start Up script is unchanged, so the next launch still opens it. The script is added to the profile's list of scripts. Fails if the file is missing or too big, or while the script is being edited |
+| `prompterLoadScript` | Shows a script in the teleprompter, from the top. `param` is a full path, a file name next to the script showing now, or `Start Up` to go back to the profile's Start Up script. It is shown for now: the Start Up script is unchanged, so the next launch still opens it. The script is added to the profile's list of scripts (the control panel's step picks from that list, or Browse adds a file to it). Fails if the file is missing or too big, or while the script is being edited |
 
 `setMetadataField`'s value, on a direct `POST /api/automations/action` call, comes from `data.value`
 (a literal string) -- the same shape `setText` uses for `data.text`, just a different key name since

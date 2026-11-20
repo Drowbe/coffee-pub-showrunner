@@ -362,25 +362,23 @@
             <button class="btn btn-primary" id="prompter-toggle" type="button">Open</button>
           </div>
         </div>
-        <p class="hint">A window for the presenter that shows a Markdown script. It looks like the capture windows but is not one: it is never an OBS source, so it stays off the stream. Drag its edges to the size you want. Each profile has its own script and settings.</p>
+        <p class="hint">A window for the presenter that shows a Markdown script. It looks like the capture windows but is not one: it is never an OBS source, so it stays off the stream. Drag its edges to the size you want. Each profile has its own scripts and settings.</p>
 
-        <label class="field">
-          <span>Start Up script (a Markdown file)</span>
-          <span class="row row-fill">
-            <input id="prompter-script" type="text" spellcheck="false" placeholder="No file chosen">
-            <button class="btn" id="prompter-choose" type="button">Choose file...</button>
-            <button class="btn" id="prompter-new" type="button">New...</button>
-          </span>
-          <small class="hint">The script the window opens with. Edit it in the teleprompter window (the Edit button, or E). Saving the file in another editor reloads it there too.</small>
-        </label>
-
-        <div class="prompter-scripts" id="prompter-scripts-wrap" hidden>
-          <span class="field-label">Scripts this profile has used</span>
+        <div class="prompter-scripts">
+          <div class="view-head">
+            <div class="view-head-left">
+              <span class="field-label">Scripts</span>
+            </div>
+            <div class="view-actions">
+              <button class="btn" id="prompter-choose" type="button" title="Add a Markdown file to this profile's scripts">Add script...</button>
+              <button class="btn" id="prompter-new" type="button" title="Create a new script file and add it">New...</button>
+            </div>
+          </div>
           <p class="hint" id="prompter-now"></p>
           <ul class="script-list" id="prompter-scripts"></ul>
-          <small class="hint">A rule set can load any of these with a <strong>Teleprompter: load a script</strong> step. Start Up is always the one it opens with next time.</small>
+          <p class="hint" id="prompter-scripts-empty">No scripts yet. Add a Markdown file, or create a new one.</p>
+          <small class="hint">These are the scripts this profile can show. The <strong>Start Up</strong> script is the one the window opens with; a rule set's <strong>Teleprompter: load a script</strong> step picks from this list, or browses for a file and adds it here. Edit the script showing in the teleprompter window (the Edit button, or E). Saving a file in another editor reloads it there too.</small>
         </div>
-        <datalist id="prompter-known-scripts"></datalist>
 
         <div class="checks">
           <label class="check"><input id="prompter-enabled" type="checkbox"><span>Open when this profile starts</span></label>

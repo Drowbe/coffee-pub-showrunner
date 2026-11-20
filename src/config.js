@@ -818,13 +818,13 @@ function sanitizeWindowSource(input, label, fallback) {
 
 // The teleprompter: one per profile, its own window (not a capture window, so it is not one of the
 // views and never becomes an OBS source). Shows a Markdown script for the presenter.
-const PROMPTER_LIMITS = { speed: [5, 400], fontSize: [16, 200], lineHeight: [1, 3], textWidth: [30, 100], scripts: 12, size: [LIMITS.minSize, LIMITS.maxSize] };
+const PROMPTER_LIMITS = { speed: [5, 400], fontSize: [16, 200], lineHeight: [1, 3], textWidth: [30, 100], scripts: 30, size: [LIMITS.minSize, LIMITS.maxSize] };
 
 function defaultTeleprompter() {
   return {
     enabled: false, // open it when the app (or the profile) starts
     script: '', // the Start Up script: the Markdown file the window opens with
-    scripts: [], // every script this profile has used, most recent first, so one can be gone back to
+    scripts: [], // the scripts this profile can show, in the order they were added; `script` above is one of them
     speed: 60, // pixels per second when auto-scrolling
     fontSize: 56,
     lineHeight: 1.5,

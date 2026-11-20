@@ -748,7 +748,11 @@ function selectTab(name) {
   // automationsScenes/automationsSources, so either tab arriving is worth
   // a fresh read.
   if (name === 'obs' || name === 'automations') refreshAutomationsScenes();
-  if (name === 'automations') loadEventChoices().catch(() => {});
+  if (name === 'automations') {
+    loadEventChoices().catch(() => {});
+    // A load-a-script step lists the profile's scripts; rebuild if they changed since the cards were built.
+    if (config && knownScripts().join('|') !== ruleSetsScriptsSig) renderAutomationsRuleSets();
+  }
   if (name === 'obs') refreshObsPinChoices();
   for (const [id, card] of cards) card.hidden = name !== `view:${id}`;
   for (const [id, card] of appWinCards) card.hidden = name !== `app:${id}`;
@@ -2046,7 +2050,6 @@ const prompterEls = {
   dot: $('prompter-dot'),
   tag: $('prompter-tag'),
   toggle: $('prompter-toggle'),
-  script: $('prompter-script'),
   choose: $('prompter-choose'),
   create: $('prompter-new'),
   speed: $('prompter-speed'),
@@ -2059,20 +2062,25 @@ const prompterEls = {
   mirror: $('prompter-mirror'),
 };
 
-// The scripts this profile has used: which is the Start Up script, which is showing now, and a way to show one, make it
-// Start Up, or forget it. The same list feeds the suggestions in a load-a-script step.
+// The profile's scripts, in the order they were added. The Start Up script is one of them (shown first if the list somehow
+// lacks it). The same list feeds the choices in a load-a-script step.
+function knownScripts() {
+  const t = (config && config.teleprompter) || {};
+  const list = t.scripts || [];
+  return t.script && !list.includes(t.script) ? [t.script, ...list] : list;
+}
+
 function renderPrompterScripts(open) {
   const t = config.teleprompter;
-  const known = [...new Set([t.script, ...(t.scripts || [])].filter(Boolean))];
-  const wrap = $('prompter-scripts-wrap');
-  wrap.hidden = known.length < 2 && !(status && status.prompter && status.prompter.script && status.prompter.script !== t.script);
+  const known = knownScripts();
   const current = (status && status.prompter && status.prompter.script) || t.script;
   const list = $('prompter-scripts');
   list.textContent = '';
+  $('prompter-scripts-empty').hidden = known.length > 0;
   const name = (file) => file.split(/[\\/]/).pop();
-  $('prompter-now').textContent = open
-    ? (current && current !== t.script ? `Showing now: ${name(current)}, not the Start Up script.` : 'Showing the Start Up script.')
-    : 'The teleprompter is closed; it opens with the Start Up script.';
+  $('prompter-now').textContent = !known.length ? '' : !open
+    ? 'The teleprompter is closed. It opens with the Start Up script.'
+    : (current && current !== t.script ? `Showing now: ${name(current)}, not the Start Up script.` : 'Showing the Start Up script.');
   for (const file of known) {
     const li = document.createElement('li');
     li.className = `script-row${open && file === current ? ' showing' : ''}`;
@@ -2102,20 +2110,10 @@ function renderPrompterScripts(open) {
         else if (result && result.views) { applyConfig(result); renderPrompter(); }
       } catch (err) { reportError(err); }
     };
-    if (file !== current || !open) button('Show now', open ? 'Show this script in the teleprompter now' : 'Open the teleprompter to show a script', () => act(() => api.useScript(file)), !open);
-    if (file !== t.script) {
-      button('Make Start Up', 'Open the teleprompter with this script from now on', () => act(() => api.setStartUp(file)));
-      button('Forget', 'Take it off this list (the file is not touched)', () => act(() => api.forgetScript(file)));
-    }
+    if (!open || file !== current) button('Show now', open ? 'Show this script in the teleprompter now' : 'Open the teleprompter to show a script', () => act(() => api.useScript(file)), !open);
+    if (file !== t.script) button('Make Start Up', 'Open the teleprompter with this script from now on', () => act(() => api.setStartUp(file)));
+    button('Remove', 'Take it off this profile (the file is not touched)', () => act(() => api.removeScript(file)));
     list.appendChild(li);
-  }
-  // Suggestions in a load-a-script step: Start Up first, then each known script.
-  const choices = $('prompter-known-scripts');
-  choices.textContent = '';
-  for (const value of ['Start Up', ...known]) {
-    const option = document.createElement('option');
-    option.value = value;
-    choices.appendChild(option);
   }
 }
 
@@ -2129,7 +2127,6 @@ function renderPrompter() {
   prompterEls.toggle.classList.toggle('btn-primary', !open);
   prompterEls.toggle.classList.toggle('btn-danger', open);
   const set = (el, value) => { if (document.activeElement !== el) el.value = value === null || value === undefined ? '' : String(value); };
-  set(prompterEls.script, t.script);
   set(prompterEls.speed, t.speed);
   set(prompterEls.fontSize, t.fontSize);
   set(prompterEls.lineHeight, t.lineHeight);
@@ -2146,7 +2143,6 @@ function readPrompter() {
   const t = config.teleprompter;
   config.teleprompter = {
     ...t,
-    script: prompterEls.script.value,
     speed: number(prompterEls.speed, t.speed),
     fontSize: number(prompterEls.fontSize, t.fontSize),
     lineHeight: number(prompterEls.lineHeight, t.lineHeight),
@@ -2159,7 +2155,7 @@ function readPrompter() {
   scheduleSave();
 }
 
-for (const el of [prompterEls.script, prompterEls.speed, prompterEls.fontSize, prompterEls.lineHeight, prompterEls.textWidth, prompterEls.width, prompterEls.height, prompterEls.enabled, prompterEls.mirror]) {
+for (const el of [prompterEls.speed, prompterEls.fontSize, prompterEls.lineHeight, prompterEls.textWidth, prompterEls.width, prompterEls.height, prompterEls.enabled, prompterEls.mirror]) {
   el.addEventListener('input', readPrompter);
   el.addEventListener('change', readPrompter);
 }
@@ -2169,7 +2165,7 @@ prompterEls.toggle.addEventListener('click', async () => {
 });
 prompterEls.choose.addEventListener('click', async () => {
   await flushSave();
-  try { applyConfig(await api.chooseScript()); renderPrompter(); } catch (err) { reportError(err); }
+  try { const added = await api.addScript(); applyConfig(added.config); renderPrompter(); } catch (err) { reportError(err); }
 });
 
 prompterEls.create.addEventListener('click', async () => {
@@ -3816,27 +3812,35 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
 
       mainRow.append(paramInput, pickerToggle, pickerPanel);
     } else if (meta && meta.paramType === 'scriptFile') {
-      // A script to load: typed (a full path, or a file name next to the script already loaded) or browsed for.
-      const scriptInput = document.createElement('input');
-      scriptInput.type = 'text';
-      scriptInput.className = 'automation-step-value';
-      scriptInput.placeholder = 'Script file: pick one, or Start Up, a path, or a name next to the current script';
-      scriptInput.value = step.param || '';
-      scriptInput.dataset.sfield = 'param';
-      scriptInput.spellcheck = false;
-      scriptInput.setAttribute('list', 'prompter-known-scripts');
+      // A script of this profile to load, or Start Up, or Browse to add another file to the profile and use it.
+      const scriptSelect = document.createElement('select');
+      scriptSelect.dataset.sfield = 'param';
+      const addChoice = (value, text) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = text;
+        scriptSelect.appendChild(opt);
+      };
+      addChoice('', 'Choose a script…');
+      addChoice('Start Up', 'Start Up script');
+      const known = knownScripts();
+      for (const file of known) addChoice(file, file.split(/[\\/]/).pop());
+      const typed = step.param || '';
+      if (typed && typed !== 'Start Up' && !known.includes(typed)) addChoice(typed, `${typed} (not in this profile's scripts)`);
+      scriptSelect.value = typed;
       const scriptBrowse = document.createElement('button');
       scriptBrowse.type = 'button';
       scriptBrowse.className = 'btn btn-small';
       scriptBrowse.textContent = 'Browse';
+      scriptBrowse.title = 'Pick a file; it is added to this profile\'s scripts';
       scriptBrowse.addEventListener('click', async () => {
-        const picked = await api.automationsPickTextFile();
-        if (!picked) return;
-        scriptInput.value = picked;
-        liveStep(ruleSetId, step).param = picked;
+        const added = await api.addScript();
+        if (!added.path) return;
+        applyConfig(added.config); // the profile's list has a new script; the live steps are the ones in this config
+        liveStep(ruleSetId, step).param = added.path;
         saveAutomationsRuleSets();
       });
-      mainRow.append(scriptInput, scriptBrowse);
+      mainRow.append(scriptSelect, scriptBrowse);
     } else if (meta && meta.paramType !== 'none' && meta.paramType !== 'ruleSet' && meta.paramType !== 'metadataField' && meta.paramType !== 'youtubeUpload') {
       const options = optionsForParamType(meta.paramType);
       const paramSelect = document.createElement('select');
@@ -4313,7 +4317,9 @@ $('automations-group-chips').addEventListener('click', (event) => {
   renderAutomationsRuleSets();
 });
 
+let ruleSetsScriptsSig = '';
 function renderAutomationsRuleSets() {
+  ruleSetsScriptsSig = knownScripts().join('|');
   const all = config.automations.ruleSets || [];
   const ruleSets = visibleRuleSets();
   automationsEls.rulesets.textContent = '';
