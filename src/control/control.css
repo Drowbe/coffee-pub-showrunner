@@ -2374,3 +2374,7 @@ select option { background: var(--bg-card); color: var(--text); }
 .nav-heading-row > span:first-child { opacity: 0.8; }
 .nav-heading-actions { display: inline-flex; gap: 4px; margin-right: 6px; }
 .tab-action-inline { position: static; transform: none; }
+
+/* The status dot must not give way when a long window name and the two rail icons crowd the row. */
+.tab .dot { flex: none; }
+.tab .tab-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

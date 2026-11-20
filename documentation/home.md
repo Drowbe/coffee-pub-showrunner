@@ -41,6 +41,14 @@ release and is being re-checked; see [Known issues](known-issues.md).
 
 ## Screenshots
 
+![The teleprompter: a script with a cue on the reading line, and the status bar showing the rule set that is running](assets/showrunner-teleprompter-window.png)
+
+![Editing the script in the teleprompter window: cues as chips, and an Events list with a rule set behind each event](assets/showrunner-teleprompter-editor.png)
+
+![The Teleprompter page: the window, its cues and its reading settings](assets/showrunner-teleprompter.png)
+
+![A profile's scripts, with a Start Up script, in an order you choose](assets/showrunner-teleprompter-scripts.png)
+
 ![Profiles: a saved setup for each kind of recording](assets/showrunner-profiles.png)
 
 ![OBS follows the profile: an OBS profile and scene collection for each Showrunner profile](assets/showrunner-obs-profile.png)
@@ -49,11 +57,11 @@ release and is being re-checked; see [Known issues](known-issues.md).
 
 ![Audio: Calibrate and Auto level bring everyone to one target level](assets/showrunner-audio.png)
 
-![Automations: rule sets that run a numbered sequence when an event arrives](assets/showrunner-automations.png)
+![Automations: rule sets, grouped, that run a numbered sequence when an event arrives, with steps that drive the teleprompter](assets/showrunner-automations.png)
 
 ![YouTube: connect once, then upload the recording from a rule set](assets/showrunner-youtube.png)
 
-![A window: a game page captured by OBS as its own source](assets/showrunner-window.png)
+![A window: a game page captured by OBS as its own source, with restart and dock icons in the left rail](assets/showrunner-window.png)
 
 ![Status: every connection and what Showrunner just did](assets/showrunner-status.png)
 

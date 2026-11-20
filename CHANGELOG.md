@@ -9,6 +9,14 @@ in use at the time, except where noted.
 
 Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
+## Unreleased
+
+### Fixed
+- **Window names in the left rail.** With a long window name and the two icons beside it, the status dot shrank away and the name ran into the icons; the name now ends with an ellipsis and the dot stays.
+
+### Changed
+- **Screenshots.** New pictures of the teleprompter (the window, the editor with its Events list, the page and its scripts), and refreshed Automations and window pages that show the new left rail and header.
+
 ## 0.4.8 -- 2026-11-20
 
 ### Added
