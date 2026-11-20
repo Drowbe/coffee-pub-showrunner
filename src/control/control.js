@@ -2886,6 +2886,14 @@ const STUDIO_ACTIONS = [
   { value: 'clearMetadataField', label: 'Clear a Prompt field back to blank', paramType: 'metadataField', group: 'Studio Control' },
   { value: 'showToast', label: 'Send a notification', paramType: 'text', group: 'Studio Control' },
   { value: 'uploadToYouTube', label: 'Upload the recording to YouTube', paramType: 'youtubeUpload', group: 'Studio Control' },
+  { value: 'prompterPlay', label: 'Teleprompter: start scrolling', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterPause', label: 'Teleprompter: pause scrolling', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterToggle', label: 'Teleprompter: play or pause', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterFaster', label: 'Teleprompter: scroll faster', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterSlower', label: 'Teleprompter: scroll slower', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterNext', label: 'Teleprompter: next heading', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterPrev', label: 'Teleprompter: previous heading', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterTop', label: 'Teleprompter: back to the top', paramType: 'none', group: 'Teleprompter' },
 ];
 
 // Live OBS scene/source names, refreshed by refreshAutomationsScenes() below
@@ -3339,7 +3347,7 @@ function tintClassFor(step, actions) {
   if (step.type === 'delay') return 'automation-step-tint-timer';
   const meta = actions.find((a) => a.value === step.action);
   if (meta && meta.group === 'Scenes') return 'automation-step-tint-scenes';
-  if (meta && meta.group === 'Studio Control') return 'automation-step-tint-studio';
+  if (meta && (meta.group === 'Studio Control' || meta.group === 'Teleprompter')) return 'automation-step-tint-studio';
   return 'automation-step-tint-obs';
 }
 

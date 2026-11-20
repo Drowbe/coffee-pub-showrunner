@@ -248,6 +248,8 @@ const STUDIO_ACTIONS = [
   'wakeAudio', 'startAll', 'stopAll', 'dockAll', 'undockAll', 'syncObs',
   'applySessionFilename', 'runRuleSet', 'incrementMetadataField', 'decrementMetadataField',
   'setMetadataField', 'clearMetadataField', 'showToast', 'uploadToYouTube',
+  'prompterPlay', 'prompterPause', 'prompterToggle', 'prompterFaster', 'prompterSlower',
+  'prompterNext', 'prompterPrev', 'prompterTop',
 ];
 const STUDIO_ACTION_SCHEMA = [
   { action: 'wakeAudio', label: 'Wake audio (every open window)', param: null, paramType: 'none', group: 'Studio Control' },
@@ -297,6 +299,16 @@ const STUDIO_ACTION_SCHEMA = [
   // step's "File" valueType already uses (empty = the most recent OBS
   // recording). See runAutomationAction's 'uploadToYouTube' case, src/main.js.
   { action: 'uploadToYouTube', label: 'Upload the recording to YouTube', param: null, paramType: 'youtubeUpload', group: 'Studio Control' },
+  // The teleprompter's reading controls, for a rule set or an outside caller. They need the
+  // teleprompter window open (src/main.js sends the command to its page) and take no param.
+  { action: 'prompterPlay', label: 'Teleprompter: start scrolling', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterPause', label: 'Teleprompter: pause scrolling', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterToggle', label: 'Teleprompter: play or pause', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterFaster', label: 'Teleprompter: scroll faster', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterSlower', label: 'Teleprompter: scroll slower', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterNext', label: 'Teleprompter: next heading', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterPrev', label: 'Teleprompter: previous heading', param: null, paramType: 'none', group: 'Teleprompter' },
+  { action: 'prompterTop', label: 'Teleprompter: back to the top', param: null, paramType: 'none', group: 'Teleprompter' },
 ];
 
 function defaultAutomations() {

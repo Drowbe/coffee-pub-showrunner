@@ -1291,6 +1291,16 @@ async function runAutomationAction(action, param, eventData, stepContext, chain 
     case 'stopStreaming':
       requireObs();
       return obs.stopStreaming();
+    case 'prompterPlay': case 'prompterPause': case 'prompterToggle': case 'prompterFaster': case 'prompterSlower':
+    case 'prompterNext': case 'prompterPrev': case 'prompterTop': {
+      if (!prompterOpen() || !prompterPage || prompterPage.webContents.isDestroyed()) {
+        throw new Error('The teleprompter window is not open.');
+      }
+      const command = { prompterPlay: 'start', prompterPause: 'pause', prompterToggle: 'play', prompterFaster: 'faster',
+        prompterSlower: 'slower', prompterNext: 'next', prompterPrev: 'prev', prompterTop: 'top' }[action];
+      prompterPage.webContents.send('prompter:command', command);
+      return;
+    }
     case 'wakeAudio':
       for (const id of viewWindows.keys()) {
         if (wakeAudio(id)) wakeWhenReady(id, 5000);

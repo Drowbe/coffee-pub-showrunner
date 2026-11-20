@@ -9,6 +9,11 @@ in use at the time, except where noted.
 
 Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
+## Unreleased
+
+### Added
+- **Teleprompter actions for Automations.** Rule set steps (and `POST /api/automations/action`) can start, pause or toggle the scroll, change the speed, jump to the next or previous heading, or go back to the top, so a cue can start the scroll or a scene change can slow it. They need the teleprompter window open.
+
 ## 0.4.7 -- 2026-11-20
 
 ### Added

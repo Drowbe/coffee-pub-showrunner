@@ -93,6 +93,13 @@ A few things to know:
   the Automations page is only for game modules on another machine, and it opens a port on your network; leave it off if
   the teleprompter is all you use.
 
+## Controlling it from Automations
+
+A rule set step can drive the reading controls, under the **Teleprompter** group: start scrolling, pause, play or
+pause, scroll faster, scroll slower, next heading, previous heading, back to the top. For example, a rule set on the
+cue `Start Reading` can switch the scene and then start the scroll. The teleprompter window has to be open, or the step
+reports that it is not.
+
 ## Troubleshooting
 
 - **"No script loaded":** choose a file on the Teleprompter page.

@@ -211,6 +211,14 @@ window.addEventListener('mousemove', () => {
 
 // ---- start ------------------------------------------------------------------------------
 
+// Reading controls sent from Automations (a rule set step or a bare action call).
+window.prompter.onCommand((command) => {
+  if (editing()) return;
+  if (command === 'start') { if (!playing) setPlaying(true); }
+  else if (command === 'pause') { if (playing) setPlaying(false); }
+  else if (actions[command] && command !== 'edit') actions[command]();
+});
+
 window.prompter.onContent(showContent);
 window.prompter.onSettings(applySettings);
 window.prompter.init().then(({ content, settings: initial }) => {
