@@ -41,11 +41,11 @@
       <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS</button>
       <button class="tab" data-tab="metadata" type="button"><span class="dot" id="session-dot" title="Session fields"></span>Session</button>
       <button class="tab" data-tab="teleprompter" type="button"><span class="dot" id="prompter-dot" title="Teleprompter window"></span>Teleprompter</button>
+      <button class="tab" data-tab="automations" id="automations-tab" type="button"><span class="dot" id="automations-dot" title="Rule sets on, or listening for Foundry modules"></span>Automations</button>
     </div>
     <div class="nav-group" id="nav-integrations">
       <div class="nav-heading">Integrations</div>
       <button class="tab" data-tab="tavern" id="tavern-tab" type="button" hidden><span class="dot" id="tavern-dot" title="Chameleon connection"></span>Chameleon</button>
-      <button class="tab" data-tab="automations" id="automations-tab" type="button" hidden><span class="dot" id="automations-dot" title="Automations server"></span>Automations</button>
       <button class="tab" data-tab="youtube" id="youtube-tab" type="button" hidden><span class="dot" id="youtube-dot" title="YouTube connection"></span>YouTube</button>
       <button class="tab tab-add" data-tab="add-integration" id="add-integration" type="button" title="Switch an integration on for this profile"><i class="fa-solid fa-plus" aria-hidden="true"></i>Add integration</button>
     </div>
@@ -168,7 +168,7 @@
           </div>
           <div class="connection-chip" data-connection="automations">
             <span class="dot"></span>
-            <span class="connection-name">Automations</span>
+            <span class="connection-name">Foundry events</span>
             <span class="connection-state hint"></span>
           </div>
           <div class="connection-chip" data-connection="youtube">
@@ -651,19 +651,62 @@
     </section>
 
     <section class="tab-panel" id="tab-automations" hidden>
-      <div class="card automations">
+      <div class="card">
+        <h2>Automations</h2>
+        <p class="hint">
+          A rule set waits for an <strong>event</strong> and then runs its steps: switch an OBS scene, show or hide a
+          source, start or stop recording, mute or unmute, and more. Events come from the
+          <strong>teleprompter</strong> (a heading or cue in your script, named like <code>teleprompter:heading:act-two</code>),
+          from a <strong>Foundry module</strong> such as Herald (set up in the last card on this page), and from the
+          <strong>test box</strong> below. Name the event in a rule set and it runs whenever that event arrives.
+        </p>
+      </div>
+
+      <div class="card">
         <div class="view-head">
           <div class="view-head-left">
-            <h2>Automations</h2>
-            <input id="automations-enabled" class="switch" type="checkbox" aria-label="Enable Automations for this profile" title="Automations is on for this profile">
+            <h2>Rule sets</h2>
+            <span class="hint" id="automations-rulesets-count"></span>
+          </div>
+          <div class="view-actions">
+            <button id="automations-add-ruleset" class="btn btn-primary" type="button" title="Add rule set"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Add Ruleset</button>
+          </div>
+        </div>
+        <p class="hint">Each rule set runs its own numbered sequence when its event arrives. A step marked AND fires together with the step before it instead of waiting for it.</p>
+      </div>
+      <div class="region-cards" id="automations-rulesets"></div>
+      <p class="hint" id="automations-rulesets-empty">No rule sets yet — add one, or send a test event below to see events arrive first.</p>
+
+      <div class="card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Test Events</h2>
+          </div>
+        </div>
+        <p class="hint">Send an event by name to try a rule set without waiting for the real thing: a teleprompter cue, a Foundry module, anything. Recent activity, including this, shows on the Status tab.</p>
+        <div class="row">
+          <label class="field field-inline">
+            <span>Event</span>
+            <input id="automations-test-event" type="text" size="20" placeholder="combat:start" spellcheck="false">
+          </label>
+          <button id="automations-send-test" class="btn" type="button">Send test event</button>
+        </div>
+      </div>
+
+      <div class="card automations" id="automations-foundry">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Events from Foundry modules</h2>
+            <input id="automations-enabled" class="switch" type="checkbox" aria-label="Listen for Foundry modules in this profile" title="Listen for events from Foundry modules">
             <span class="tag" id="automations-tag" hidden>LISTENING</span>
           </div>
         </div>
         <p class="hint">
-          Lets a Foundry module (Herald, for instance) tell Showrunner when something happens in the game — combat
-          starting, a scene changing — so a rule on the <strong>Automations</strong> tab can switch an OBS scene,
-          show or hide a source, or start/stop recording. Foundry usually runs on a different machine, so this
-          listens on your network, not just this Mac — the token is what keeps that port private.
+          Off by default. Switch it on to let a Foundry module (Herald, for instance) tell Showrunner when something
+          happens in the game, such as combat starting or a scene changing, so a rule set above can react. Foundry
+          usually runs on a different machine, so this opens a port on your network, not just on this computer; the
+          token is what keeps it private. You do not need it for the teleprompter, for test events, or for anything
+          else that happens on this computer.
         </p>
         <div id="automations-settings" hidden>
           <div class="row">
@@ -714,36 +757,6 @@
       </div>
 
 
-      <div class="card">
-        <div class="view-head">
-          <div class="view-head-left">
-            <h2>Rule sets</h2>
-            <span class="hint" id="automations-rulesets-count"></span>
-          </div>
-          <div class="view-actions">
-            <button id="automations-add-ruleset" class="btn btn-primary" type="button" title="Add rule set"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Add Ruleset</button>
-          </div>
-        </div>
-        <p class="hint">Each rule set runs its own numbered sequence when its event arrives. A step marked AND fires together with the step before it instead of waiting for it.</p>
-      </div>
-      <div class="region-cards" id="automations-rulesets"></div>
-      <p class="hint" id="automations-rulesets-empty">No rule sets yet — add one, or send a test event below to see events arrive first.</p>
-
-      <div class="card">
-        <div class="view-head">
-          <div class="view-head-left">
-            <h2>Test Events</h2>
-          </div>
-        </div>
-        <p class="hint">Smoke test one of the events above to simulate the end-to-end connection. Recent activity, including this, shows on the Status tab.</p>
-        <div class="row">
-          <label class="field field-inline">
-            <span>Event</span>
-            <input id="automations-test-event" type="text" size="20" placeholder="combat:start" spellcheck="false">
-          </label>
-          <button id="automations-send-test" class="btn" type="button">Send test event</button>
-        </div>
-      </div>
     </section>
 
     <section id="views" class="views"></section>
@@ -760,7 +773,6 @@
 
   <div id="integration-menu" class="add-menu" hidden>
     <button type="button" class="btn" data-integration="tavern">Chameleon</button>
-    <button type="button" class="btn" data-integration="automations">Automations</button>
     <button type="button" class="btn" data-integration="youtube">YouTube</button>
   </div>
 
@@ -878,6 +890,7 @@
   </template>
 
   <datalist id="session-groups"></datalist>
+  <datalist id="automations-event-choices"></datalist>
 
   <!-- One source row inside a person's group: cloned once for their Participant and once for their
        Character. renderTavern()'s renderRow() fills in the kind-specific bits (thumbnail, tooltip, source
@@ -977,7 +990,7 @@
         <div class="row">
           <label class="field field-inline">
             <span>When this event arrives</span>
-            <input data-rsfield="event" type="text" spellcheck="false" placeholder="combat:start">
+            <input data-rsfield="event" type="text" spellcheck="false" placeholder="combat:start" list="automations-event-choices">
           </label>
         </div>
         <div class="automation-steps" data-role="steps"></div>

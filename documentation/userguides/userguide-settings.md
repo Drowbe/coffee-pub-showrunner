@@ -32,9 +32,10 @@ change with the profile; the **Profile** picker below it scopes everything under
   and startup, plus reset and diagnostics).
 - **Profile:** the picker. Its last entry, **Manage profiles...**, opens the page for creating profiles and backups.
 - **Recording:** **OBS** (the connection, and a remote for recording, streaming and scenes) and **Session** (your Session
-  fields and the recording filename format) and **Teleprompter** (a presenter's script window, see
-  [Teleprompter](userguide-teleprompter.md)). OBS comes first because the Session page depends on it.
-- **Integrations:** **Chameleon**, **Automations** and **YouTube**. Each is off until you switch it on. The switch sits
+  fields and the recording filename format), **Teleprompter** (a presenter's script window, see
+  [Teleprompter](userguide-teleprompter.md)) and **Automations** (rule sets that react to events from the teleprompter,
+  a Foundry module or a test box, and the switch for the Foundry listener). OBS comes first because the Session page depends on it.
+- **Integrations:** **Chameleon** and **YouTube**. Each is off until you switch it on. The switch sits
   beside the integration's title on its own page. Click **Add integration** to turn one on and open its page.
   Switching one off hides its page and keeps its settings.
 - **Windows:** one page for each window, and **Add window**.
@@ -51,7 +52,7 @@ type a name and click **New profile** to start an empty one, or click **Duplicat
 copy it, windows and regions included. Rename a profile by editing its name in place: press Enter or click away to save (a message confirms it and the picker updates at once), or press Escape to cancel. Then click **Switch** to make it the
 active profile, and **Delete** to remove one (the last profile cannot be deleted).
 
-Each profile card also has switches for **Chameleon**, **Automations** and **YouTube**: what the profile uses. Flip them for the profile you are in or for any other one, without switching to it. A profile with YouTube off shows no YouTube page in the rail, so a podcast profile can have all three off while a game profile has them on. The YouTube login and defaults are shared by every profile; only whether it is on belongs to the profile.
+Each profile card also has switches for **Chameleon**, **Foundry events** (the Automations listener for Foundry modules) and **YouTube**: what the profile uses. Flip them for the profile you are in or for any other one, without switching to it. A profile with YouTube off shows no YouTube page in the rail, so a podcast profile can have all three off while a game profile has them on. The YouTube login and defaults are shared by every profile; only whether it is on belongs to the profile.
 
 Switching closes the windows of the profile you are leaving and starts the new profile's windows, then
 re-syncs OBS. Showrunner asks first when windows are open. Each profile keeps its own Session field values,

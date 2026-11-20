@@ -61,7 +61,7 @@ A cue tells Showrunner that you have reached a point in the script. There are tw
 - **A cue line** is a line by itself in the form `<!-- cue: Be Right Back -->`. It is not shown as text; in the window it
   appears as a small, dim chip so you can see it coming.
 
-When the reading line crosses a cue, the window fires an **Automations event**, exactly as a Foundry module would. The name
+When the reading line crosses a cue, the window fires an **Automations event**, the same kind of event a Foundry module can send. The name
 comes from the cue's text:
 
 | In the script | Event |
@@ -69,9 +69,18 @@ comes from the cue's text:
 | `<!-- cue: Be Right Back -->` | `teleprompter:be-right-back` |
 | `## Act Two` | `teleprompter:heading:act-two` |
 
-Make a rule set on the Automations page that listens for that event name, and it can switch the scene, show or hide a
-source, start or stop recording, or anything else a rule set does. Every cue appears in the Status page's activity log as it
-fires, so you can check the names before writing a rule.
+Two ways to make a rule set for a cue:
+
+- **From the script.** Open **Events** in the editor (the list beside the text). Each line has **Create rule**: it adds a
+  rule set that already listens for that event, named after the cue, and opens it on the Automations page in Showrunner so
+  you can add its steps (switch the scene, show or hide a source, start or stop recording, and so on). A line that already
+  has a rule set shows **Rule set ✓** instead, and clicking it opens that rule set. **Show headings** turns the headings
+  off in the list so a long script shows only its cues.
+- **From the rule set.** On the **Automations** page (left rail, under Recording), the event box of any rule set suggests
+  the script's events as you click or type in it, along with events that arrived recently. You can still type any name.
+
+Every cue also appears in the Status page's activity log as it fires, so you can check the
+names before writing a rule.
 
 A few things to know:
 
@@ -80,7 +89,9 @@ A few things to know:
   actually crosses fire.
 - The names are the text lowercased, with anything that is not a letter or digit turned into a dash, cut to 36 characters.
   Two cues with the same text fire the same event.
-- Events only reach a rule set while Automations is switched on for the profile, the same as any other event.
+- Nothing needs switching on for this. Cues reach rule sets inside the app. The **Events from Foundry modules** switch on
+  the Automations page is only for game modules on another machine, and it opens a port on your network; leave it off if
+  the teleprompter is all you use.
 
 ## Troubleshooting
 

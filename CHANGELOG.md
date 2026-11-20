@@ -17,6 +17,18 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
   `<!-- cue: Name -->` line, fires an Automations event (`teleprompter:name` or `teleprompter:heading:name`) when
   the reading line reaches it, so rule sets can change scenes from the script. It has its own **Teleprompter** page under
   Recording, one per profile, and is not a capture window. Bundles `marked` (MIT) to read Markdown. **New...** on the Teleprompter page creates a script file. In the window, **Edit** (or E) edits the script in place with a formatting bar, using the rich Markdown editor from Chameleon (ProseMirror); only the blocks you change are rewritten. Cues show as chips there, with an **Insert cue** button, and are renamed by typing in them. A **File** menu in the edit bar holds **New** (a blank script), **Save as...** (a copy) and **Discard changes**; **Save** and **Done** stay on the bar. Save as saves a copy to a file you choose and uses it from then on, and pressing Edit with no file chosen starts a new script that asks where to save on its first Save. An **Events** panel lists every heading and cue with the Automations event it fires, with jump and copy, and flags duplicates.
+- **Rule sets from the script.** The Events list in the teleprompter editor has a **Create rule** button on every line that
+  makes a rule set already listening for that event and opens it on the Automations page, or **Rule set ✓** when one exists.
+  **Show headings** can hide the headings so a long script lists only its cues.
+- **Event suggestions.** A rule set's event box suggests the teleprompter script's events and the events that arrived
+  lately, as the Session page's Group box does with the groups you already have. Any name can still be typed.
+
+### Changed
+- **Automations is its own page, not a Foundry feature.** It now sits under Recording in the left rail and is always there:
+  rule sets react to events from the teleprompter's cues, from game modules and from the test box. The Foundry listener
+  (the port, token and certificate help, and the only part that opens a network port) moved to its own card, **Events from
+  Foundry modules**, with its own switch, off by default. The page's help text now explains events in general, and Automations
+  no longer appears under **Add integration**. The profile card's switch for it is called **Foundry events**.
 
 ## 0.4.6 -- 2026-11-19
 

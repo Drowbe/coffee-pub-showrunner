@@ -734,7 +734,6 @@ function selectTab(name) {
   if (name === 'general' || name === 'configuration' || name === 'about') name = 'status';
   if (name.startsWith('view:') && !config.views.some((v) => `view:${v.id}` === name)) name = 'status';
   if (name === 'tavern' && !config.tavern.enabled) name = 'status';
-  if (name === 'automations' && !config.automations.enabled) name = 'status';
   if (name === 'youtube' && !config.youtube.enabled) name = 'status';
   if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'status';
   activeTab = name;
@@ -749,6 +748,7 @@ function selectTab(name) {
   // automationsScenes/automationsSources, so either tab arriving is worth
   // a fresh read.
   if (name === 'obs' || name === 'automations') refreshAutomationsScenes();
+  if (name === 'automations') loadEventChoices().catch(() => {});
   if (name === 'obs') refreshObsPinChoices();
   for (const [id, card] of cards) card.hidden = name !== `view:${id}`;
   for (const [id, card] of appWinCards) card.hidden = name !== `app:${id}`;
@@ -873,7 +873,8 @@ integrationMenuEl.addEventListener('click', (event) => {
 
 // The Add integration row only shows while there is something left to add.
 function syncIntegrationNav() {
-  $('add-integration').hidden = Object.values(INTEGRATIONS).every((i) => i.enabled());
+  // Automations is not one of them: its page is always there, and its Foundry listener is switched on from that page.
+  $('add-integration').hidden = Object.entries(INTEGRATIONS).filter(([key]) => key !== 'automations').every(([, i]) => i.enabled());
 }
 
 $('tabs').addEventListener('click', (event) => {
@@ -1125,7 +1126,7 @@ function renderProfiles() {
     // start or stop; any other profile's is stored without switching to it.
     const integrations = document.createElement('div');
     integrations.className = 'profile-integrations';
-    for (const [key, label] of [['tavern', 'Chameleon'], ['automations', 'Automations'], ['youtube', 'YouTube']]) {
+    for (const [key, label] of [['tavern', 'Chameleon'], ['automations', 'Foundry events'], ['youtube', 'YouTube']]) {
       const wrap = document.createElement('label');
       wrap.className = 'check';
       const box = document.createElement('input');
@@ -2115,6 +2116,17 @@ prompterEls.create.addEventListener('click', async () => {
   try { applyConfig(await api.newScript()); renderPrompter(); } catch (err) { reportError(err); }
 });
 
+// The teleprompter window's Events panel can open a rule set here (and create one first); main has saved it and sent the status.
+api.onOpenRuleSet((id) => {
+  if (!isDirty() && status && status.config) applyConfig(status.config);
+  selectTab('automations');
+  renderAutomationsRuleSets();
+  requestAnimationFrame(() => {
+    const card = automationsEls.rulesets.querySelector(`[data-ruleset-id="${id}"]`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
 api.onStatus((next) => {
   status = next;
   if (next.config && !isDirty()) applyConfig(next.config);
@@ -2897,8 +2909,7 @@ function applyAutomationsConfig(firstLoad) {
   const a = config.automations;
   automationsEls.enabled.checked = a.enabled;
   automationsEls.settings.hidden = !a.enabled;
-  automationsEls.tab.hidden = !a.enabled;
-  if (!a.enabled && activeTab === 'automations') selectTab('status');
+  updateAutomationsDot();
   if (document.activeElement !== automationsEls.port) automationsEls.port.value = String(a.port);
   if (document.activeElement !== automationsEls.token) automationsEls.token.value = a.token;
   // Every status push -- including the one an OBS action like "Time it"
@@ -3129,11 +3140,19 @@ function copyButton(value, label) {
 
 // The server's own live state (listening/port/addresses/events) -- distinct
 // from config.automations above (the settings that drive it).
+// The rail's dot is on while a rule set is switched on or the Foundry listener is listening.
+function updateAutomationsDot() {
+  const listening = Boolean(status && status.automations && status.automations.state === 'listening');
+  const rules = Boolean(config && config.automations && (config.automations.ruleSets || []).some((r) => r.enabled));
+  automationsEls.dot.classList.toggle('on', listening || rules);
+}
+
 function renderAutomationsStatus() {
   const a = status.automations || { state: 'stopped', message: '', port: 0, addresses: [], events: [] };
   const listening = a.state === 'listening';
   automationsEls.tag.hidden = !listening;
-  automationsEls.dot.classList.toggle('on', listening);
+  updateAutomationsDot();
+  if (eventChoicesReady) renderEventChoices();
   automationsEls.addresses.textContent = '';
   // One row per network interface this Mac has right now -- which one is
   // actually reachable from the Foundry machine depends on the network, so
@@ -4345,6 +4364,35 @@ automationsEls.rulesets.addEventListener('click', async (event) => {
   if (ruleSet.steps[0]) ruleSet.steps[0].and = false;
   saveAutomationsRuleSets();
 });
+
+// ---- Event choices: the rule set's event box suggests the teleprompter script's events and the ones that arrived lately ----
+// (typing any name still works; the suggestions are what the Session page's Group box does with the groups it already has)
+
+var eventChoicesReady = false; // a var so renderAutomationsStatus can ask before this block has run
+let scriptEvents = [];
+
+async function loadEventChoices() {
+  const { cues } = await api.scriptCues();
+  scriptEvents = cues;
+  renderEventChoices();
+}
+
+function renderEventChoices() {
+  const list = $('automations-event-choices');
+  list.textContent = '';
+  const seen = new Set();
+  const add = (event, label) => {
+    if (!event || seen.has(event)) return;
+    seen.add(event);
+    const option = document.createElement('option');
+    option.value = event;
+    if (label) option.label = label;
+    list.appendChild(option);
+  };
+  for (const cue of scriptEvents) add(cue.event, `${cue.kind === 'heading' ? 'Heading' : 'Cue'}: ${cue.label}`);
+  for (const entry of (status && status.automations && status.automations.events) || []) add(entry.event, 'Recently received');
+}
+eventChoicesReady = true;
 
 automationsEls.addRuleset.addEventListener('click', () => {
   const id = `ruleset${Date.now().toString(36)}`;

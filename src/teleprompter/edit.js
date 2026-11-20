@@ -42,20 +42,26 @@ function listEvents() {
   return found;
 }
 
-function renderEvents() {
+let ruleMap = {}; // event name -> the rule sets that listen for it, from the app
+const headingsBox = $('event-headings');
+try { headingsBox.checked = localStorage.getItem('prompter.showHeadings') !== 'no'; } catch (err) { /* keep the default */ }
+
+async function renderEvents() {
+  try { ruleMap = await window.prompter.ruleStatus(); } catch (err) { ruleMap = {}; }
   const list = $('event-list');
   list.textContent = '';
   const found = listEvents();
   const seen = new Map();
   for (const item of found) seen.set(item.event, (seen.get(item.event) || 0) + 1);
-  if (!found.length) {
+  const shown = headingsBox.checked ? found : found.filter((item) => item.kind === 'Cue');
+  if (!shown.length) {
     const none = document.createElement('li');
     none.className = 'none';
-    none.textContent = 'No headings or cues yet.';
+    none.textContent = found.length ? 'No cues yet. Turn on Show headings to see the headings.' : 'No headings or cues yet.';
     list.append(none);
     return;
   }
-  for (const item of found) {
+  for (const item of shown) {
     const li = document.createElement('li');
     const jump = document.createElement('button');
     jump.type = 'button';
@@ -74,6 +80,8 @@ function renderEvents() {
       const dom = editorView.nodeDOM(item.pos);
       if (dom && dom.scrollIntoView) dom.scrollIntoView({ block: 'center' });
     });
+    const actions = document.createElement('div');
+    actions.className = 'actions';
     const copy = document.createElement('button');
     copy.type = 'button';
     copy.className = 'copy';
@@ -83,7 +91,25 @@ function renderEvents() {
       try { await navigator.clipboard.writeText(item.event); copy.textContent = 'Copied'; } catch (err) { copy.textContent = 'Could not copy'; }
       setTimeout(() => { copy.textContent = 'Copy'; }, 1200);
     });
-    li.append(jump, copy);
+    const rule = document.createElement('button');
+    rule.type = 'button';
+    const existing = ruleMap[item.event];
+    if (existing && existing.length) {
+      rule.className = 'copy has-rule';
+      rule.textContent = 'Rule set \u2713';
+      rule.title = `Open ${existing[0].name ? `"${existing[0].name}"` : 'the rule set'} in Showrunner`;
+      rule.addEventListener('click', () => window.prompter.openRule(existing[0].id));
+    } else {
+      rule.className = 'copy';
+      rule.textContent = 'Create rule';
+      rule.title = 'Make a rule set that listens for this event, and open it in Showrunner to add its steps';
+      rule.addEventListener('click', async () => {
+        rule.disabled = true;
+        try { await window.prompter.createRule(item.event, item.label); } finally { renderEvents(); }
+      });
+    }
+    actions.append(copy, rule);
+    li.append(jump, actions);
     if (seen.get(item.event) > 1) {
       const warn = document.createElement('div');
       warn.className = 'warn';
@@ -93,6 +119,13 @@ function renderEvents() {
     list.append(li);
   }
 }
+
+headingsBox.addEventListener('change', () => {
+  try { localStorage.setItem('prompter.showHeadings', headingsBox.checked ? 'yes' : 'no'); } catch (err) { /* not remembered */ }
+  renderEvents();
+});
+// A rule set may have been made or removed in Showrunner meanwhile.
+window.addEventListener('focus', () => { if (!$('events').hidden) renderEvents(); });
 
 function toggleEvents(force) {
   const open = force === undefined ? $('events').hidden : force;
