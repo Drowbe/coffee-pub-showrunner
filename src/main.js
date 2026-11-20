@@ -3,6 +3,7 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { renderScript, MAX_SCRIPT_BYTES } = require('./prompter');
 const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification } = require('electron');
 const backups = require('./backup');
 const { calibrateInputs } = require('./leveling');
@@ -1906,6 +1907,7 @@ function viewStatus(view) {
 function fullStatus() {
   return {
     views: configStore.get().views.map(viewStatus),
+    prompter: { open: prompterOpen() },
     displays: screen.getAllDisplays().map(displaySummary),
     config: configStore.get(),
     obs: { ...obs.status(), hasPassword: readObsPassword() !== '' },
@@ -2449,6 +2451,7 @@ async function switchProfile(id) {
   switchingProfile = true;
   try {
     closeAllViews();
+    closePrompter();
     const deadline = Date.now() + 5000;
     while (viewWindows.size > 0 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
     parked.clear();
@@ -2460,6 +2463,7 @@ async function switchProfile(id) {
     if (saved.tavern.enabled && saved.tavern.autoConnect && !tavern.connected && saved.tavern.url) await tavern.connect().catch(() => {});
     await syncAutomationsServer();
     openLaunchViews();
+    if (configStore.get().teleprompter.enabled) openPrompter();
     setupTray();
     setupDock();
     buildMenu();
@@ -2793,6 +2797,211 @@ function openLaunchViews() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Teleprompter: one window per profile, for the presenter. It looks like the capture windows (the
+// same borderless window and bar) but is not one: it is not in the views, never an OBS source, and
+// not in the dock or Start All. See documentation/plans/plan-teleprompter.md.
+// ---------------------------------------------------------------------------
+
+let prompterWindow = null;
+let prompterPage = null;
+let prompterWatch = null; // { script, watcher, timer }
+
+const prompterOpen = () => isAlive(prompterWindow);
+
+function prompterSettings(t) {
+  return { speed: t.speed, fontSize: t.fontSize, lineHeight: t.lineHeight, textWidth: t.textWidth, mirror: t.mirror };
+}
+
+async function prompterContent(t) {
+  if (!t.script) return { html: '', error: '' };
+  try {
+    const stat = await fs.promises.stat(t.script);
+    if (stat.size > MAX_SCRIPT_BYTES) return { html: '', error: 'That file is larger than 2 MB, which is too big for a script.' };
+    const text = await fs.promises.readFile(t.script, 'utf8');
+    const { html } = await renderScript(text);
+    return { html, name: path.basename(t.script), error: '' };
+  } catch (err) {
+    return { html: '', error: `${err.code === 'ENOENT' ? 'Cannot find' : 'Cannot read'} ${t.script}` };
+  }
+}
+
+function stopPrompterWatch() {
+  if (!prompterWatch) return;
+  clearTimeout(prompterWatch.timer);
+  try { prompterWatch.watcher.close(); } catch (err) { /* already closed */ }
+  prompterWatch = null;
+}
+
+// Watches the script's folder, not the file, so an editor that saves by replacing the file is still seen.
+function watchPrompter(t) {
+  if (prompterWatch && prompterWatch.script === t.script) return;
+  stopPrompterWatch();
+  if (!t.script) return;
+  try {
+    const base = path.basename(t.script);
+    const entry = { script: t.script, timer: null, watcher: null };
+    entry.watcher = fs.watch(path.dirname(t.script), (_event, name) => {
+      if (name && name !== base) return;
+      clearTimeout(entry.timer);
+      entry.timer = setTimeout(async () => {
+        if (prompterPage && !prompterPage.webContents.isDestroyed()) {
+          prompterPage.webContents.send('prompter:content', await prompterContent(configStore.get().teleprompter));
+        }
+      }, 200);
+    });
+    entry.watcher.on('error', () => stopPrompterWatch());
+    prompterWatch = entry;
+  } catch (err) {
+    console.warn(`[teleprompter] Cannot watch ${t.script}: ${err.message}`);
+  }
+}
+
+async function pushPrompter() {
+  if (!prompterPage || prompterPage.webContents.isDestroyed()) return;
+  const t = configStore.get().teleprompter;
+  watchPrompter(t);
+  prompterPage.webContents.send('prompter:content', await prompterContent(t));
+  prompterPage.webContents.send('prompter:settings', prompterSettings(t));
+}
+
+function layoutPrompter() {
+  if (!prompterOpen() || !prompterPage) return;
+  const [w, h] = pageSize(prompterWindow);
+  prompterPage.setBounds({ x: 0, y: BAR_HEIGHT, width: w, height: h });
+}
+
+function sendPrompterBar() {
+  if (!prompterOpen() || prompterWindow.webContents.isDestroyed()) return;
+  const [x, y] = prompterWindow.getPosition();
+  const [width, height] = pageSize(prompterWindow);
+  prompterWindow.webContents.send('bar:state', { id: 'teleprompter', label: 'Teleprompter', x, y, width, height, prompter: true });
+}
+
+// The bar's arrow keys, same as a capture window: 1px, 10px with Shift.
+function resizePrompter(dw, dh) {
+  if (!prompterOpen()) return;
+  const clamp = (n) => Math.min(LIMITS.maxSize, Math.max(LIMITS.minSize, n));
+  const [w, h] = pageSize(prompterWindow);
+  const width = clamp(w + dw);
+  const height = clamp(h + dh);
+  if (width === w && height === h) return;
+  prompterWindow.setContentSize(width, height + BAR_HEIGHT);
+  saveTeleprompter({ width, height });
+}
+
+function saveTeleprompter(patch) {
+  const current = configStore.get();
+  configStore.save({ ...current, teleprompter: { ...current.teleprompter, ...patch } });
+  broadcastStatus();
+}
+
+function openPrompter() {
+  if (prompterOpen()) {
+    prompterWindow.show();
+    return prompterWindow;
+  }
+  const t = configStore.get().teleprompter;
+  const options = {
+    title: `${APP_NAME} - Teleprompter`,
+    width: t.width,
+    height: t.height + BAR_HEIGHT,
+    useContentSize: true,
+    frame: false,
+    roundedCorners: false,
+    hasShadow: false,
+    // Unlike a capture window, which has a fixed size for OBS, the presenter drags this to fit.
+    resizable: true,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    backgroundColor: '#0B0F16',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'bar-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      spellcheck: false,
+    },
+  };
+  if (Number.isInteger(t.x) && Number.isInteger(t.y)) {
+    options.x = t.x;
+    options.y = t.y;
+  }
+  const win = new BrowserWindow(options);
+  prompterWindow = win;
+  win.loadFile(path.join(__dirname, 'bar', 'index.html'));
+  win.webContents.on('did-finish-load', sendPrompterBar);
+  win.on('page-title-updated', (event) => event.preventDefault());
+
+  const page = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, 'teleprompter-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      spellcheck: false,
+    },
+  });
+  prompterPage = page;
+  win.contentView.addChildView(page);
+  page.setBackgroundColor('#0B0F16');
+  layoutPrompter();
+  page.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  page.webContents.on('will-navigate', (event) => event.preventDefault());
+
+  let sizeTimer = null;
+  win.on('move', sendPrompterBar);
+  win.on('moved', () => {
+    if (!isAlive(win)) return;
+    const [x, y] = win.getPosition();
+    saveTeleprompter({ x, y });
+  });
+  win.on('resize', () => {
+    layoutPrompter();
+    sendPrompterBar();
+    // Dragging an edge keeps the new size.
+    clearTimeout(sizeTimer);
+    sizeTimer = setTimeout(() => {
+      if (!isAlive(win)) return;
+      const [width, height] = pageSize(win);
+      const current = configStore.get().teleprompter;
+      if (current.width !== width || current.height !== height) saveTeleprompter({ width, height });
+    }, 300);
+  });
+  win.on('closed', () => {
+    clearTimeout(sizeTimer);
+    stopPrompterWatch();
+    if (prompterWindow === win) {
+      prompterWindow = null;
+      prompterPage = null;
+    }
+    if (!page.webContents.isDestroyed()) page.webContents.close();
+    broadcastStatus();
+  });
+  const show = () => { if (isAlive(win) && !win.isVisible()) { win.show(); broadcastStatus(); } };
+  win.once('ready-to-show', show);
+  setTimeout(show, 5000);
+
+  page.webContents.loadFile(path.join(__dirname, 'teleprompter', 'index.html'));
+  broadcastStatus();
+  return win;
+}
+
+// Settings saved from the control panel: resize the open window to match and hand the page the new values.
+function syncPrompter() {
+  if (!prompterOpen()) return;
+  const t = configStore.get().teleprompter;
+  const [w, h] = pageSize(prompterWindow);
+  if (w !== t.width || h !== t.height) prompterWindow.setContentSize(t.width, t.height + BAR_HEIGHT);
+  pushPrompter().catch(() => {});
+}
+
+function closePrompter() {
+  if (prompterOpen()) prompterWindow.close();
+}
+
 function closeAllViews() {
   for (const win of viewWindows.values()) {
     if (isAlive(win)) win.close();
@@ -3062,6 +3271,7 @@ function registerIpc() {
       : input.views;
     const saved = configStore.save({ ...input, views });
     saved.views.forEach(applyViewSettings);
+    syncPrompter();
     setupTray();
     setupDock();
     buildMenu();
@@ -3106,6 +3316,7 @@ function registerIpc() {
   ipcMain.handle('config:reset', () => {
     const saved = configStore.save({});
     saved.views.forEach(applyViewSettings);
+    syncPrompter();
     setupTray();
     setupDock();
     buildMenu();
@@ -3201,6 +3412,43 @@ function registerIpc() {
     return configStore.get();
   });
   ipcMain.handle('views:add', () => addView());
+  ipcMain.handle('prompter:toggle', () => {
+    if (prompterOpen()) closePrompter();
+    else openPrompter();
+    return prompterOpen();
+  });
+  ipcMain.handle('prompter:chooseScript', async () => {
+    const t = configStore.get().teleprompter;
+    const { canceled, filePaths } = await dialog.showOpenDialog(controlWindow, {
+      title: 'Choose a script',
+      properties: ['openFile'],
+      filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }],
+      defaultPath: t.script ? path.dirname(t.script) : undefined,
+    });
+    if (canceled || !filePaths[0]) return configStore.get();
+    saveTeleprompter({ script: filePaths[0] });
+    syncPrompter();
+    return configStore.get();
+  });
+  ipcMain.handle('prompter:init', async (event) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents) return { content: { html: '', error: '' }, settings: {} };
+    const t = configStore.get().teleprompter;
+    watchPrompter(t);
+    return { content: await prompterContent(t), settings: prompterSettings(t) };
+  });
+  // The reading line reached a cue or a heading: tell Automations, exactly as if a module had.
+  ipcMain.on('prompter:cue', (event, cue) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents) return;
+    if (!cue || typeof cue.event !== 'string' || !cue.event.startsWith('teleprompter:')) return;
+    automations.recordEvent(cue.event.slice(0, 60), { cue: String(cue.label || '').slice(0, 80), kind: cue.kind === 'heading' ? 'heading' : 'cue' });
+  });
+  // Speed, text size and mirroring changed from the page's own controls or keys.
+  ipcMain.on('prompter:save', (event, patch) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents || !patch || typeof patch !== 'object') return;
+    const allowed = {};
+    for (const key of ['speed', 'fontSize', 'lineHeight', 'textWidth', 'mirror']) if (patch[key] !== undefined) allowed[key] = patch[key];
+    saveTeleprompter(allowed);
+  });
   ipcMain.handle('views:remove', (_event, id) => removeView(id));
   ipcMain.handle('views:collapse', () => collapseViews());
   ipcMain.handle('views:expand', () => expandViews());
@@ -3771,15 +4019,27 @@ function registerIpc() {
   });
 
   ipcMain.on('bar:resize', (event, dw, dh) => {
+    if (BrowserWindow.fromWebContents(event.sender) === prompterWindow) {
+      if (Number.isInteger(dw) && Number.isInteger(dh)) resizePrompter(dw, dh);
+      return;
+    }
     const id = viewIdOf(BrowserWindow.fromWebContents(event.sender));
     if (id && Number.isInteger(dw) && Number.isInteger(dh)) resizePage(id, dw, dh);
   });
   ipcMain.on('bar:focusPage', (event) => {
+    if (BrowserWindow.fromWebContents(event.sender) === prompterWindow) {
+      if (prompterPage && !prompterPage.webContents.isDestroyed()) prompterPage.webContents.focus();
+      return;
+    }
     const id = viewIdOf(BrowserWindow.fromWebContents(event.sender));
     const wc = id ? pageOf(id) : null;
     if (wc) wc.focus();
   });
   ipcMain.on('bar:reload', (event) => {
+    if (BrowserWindow.fromWebContents(event.sender) === prompterWindow) {
+      if (prompterPage && !prompterPage.webContents.isDestroyed()) prompterPage.webContents.reloadIgnoringCache();
+      return;
+    }
     const id = viewIdOf(BrowserWindow.fromWebContents(event.sender));
     if (id) reloadView(id);
   });
@@ -3790,6 +4050,10 @@ function registerIpc() {
     setTimeout(broadcastStatus, 800);
   });
   ipcMain.on('bar:devTools', (event) => {
+    if (BrowserWindow.fromWebContents(event.sender) === prompterWindow) {
+      if (prompterPage && !prompterPage.webContents.isDestroyed()) prompterPage.webContents.toggleDevTools();
+      return;
+    }
     const id = viewIdOf(BrowserWindow.fromWebContents(event.sender));
     const wc = id ? pageOf(id) : null;
     if (wc) wc.toggleDevTools();
@@ -3903,6 +4167,7 @@ if (!app.requestSingleInstanceLock()) {
     setupDock();
     createControlWindow();
     openLaunchViews();
+    if (configStore.get().teleprompter.enabled) openPrompter();
     obs.start().catch(() => {});
     tavern.start().catch(() => {});
     syncAutomationsServer().catch(() => {});

@@ -32,7 +32,8 @@ change with the profile; the **Profile** picker below it scopes everything under
   and startup, plus reset and diagnostics).
 - **Profile:** the picker. Its last entry, **Manage profiles...**, opens the page for creating profiles and backups.
 - **Recording:** **OBS** (the connection, and a remote for recording, streaming and scenes) and **Session** (your Session
-  fields and the recording filename format). OBS comes first because the Session page depends on it.
+  fields and the recording filename format) and **Teleprompter** (a presenter's script window, see
+  [Teleprompter](userguide-teleprompter.md)). OBS comes first because the Session page depends on it.
 - **Integrations:** **Chameleon**, **Automations** and **YouTube**. Each is off until you switch it on. The switch sits
   beside the integration's title on its own page. Click **Add integration** to turn one on and open its page.
   Switching one off hides its page and keeps its settings.

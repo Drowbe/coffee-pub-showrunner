@@ -728,7 +728,7 @@ function recallTab() {
 }
 
 // Every page that has a tab-<key> panel; windows have cards of their own.
-const PANEL_KEYS = ['metadata', 'profiles', 'status', 'obs', 'preferences', 'tavern', 'automations', 'youtube'];
+const PANEL_KEYS = ['metadata', 'profiles', 'status', 'obs', 'preferences', 'teleprompter', 'tavern', 'automations', 'youtube'];
 
 function selectTab(name) {
   if (name === 'general' || name === 'configuration' || name === 'about') name = 'status';
@@ -2037,6 +2037,78 @@ document.addEventListener('focusout', (event) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Teleprompter: one window per profile, set up on its own page
+// ---------------------------------------------------------------------------
+
+const prompterEls = {
+  dot: $('prompter-dot'),
+  tag: $('prompter-tag'),
+  toggle: $('prompter-toggle'),
+  script: $('prompter-script'),
+  choose: $('prompter-choose'),
+  speed: $('prompter-speed'),
+  fontSize: $('prompter-fontsize'),
+  lineHeight: $('prompter-lineheight'),
+  textWidth: $('prompter-textwidth'),
+  width: $('prompter-width'),
+  height: $('prompter-height'),
+  enabled: $('prompter-enabled'),
+  mirror: $('prompter-mirror'),
+};
+
+function renderPrompter() {
+  if (!config || !config.teleprompter) return;
+  const t = config.teleprompter;
+  const open = Boolean(status && status.prompter && status.prompter.open);
+  prompterEls.dot.classList.toggle('on', open);
+  prompterEls.tag.hidden = !open;
+  prompterEls.toggle.textContent = open ? 'Close' : 'Open';
+  prompterEls.toggle.classList.toggle('btn-primary', !open);
+  prompterEls.toggle.classList.toggle('btn-danger', open);
+  const set = (el, value) => { if (document.activeElement !== el) el.value = value === null || value === undefined ? '' : String(value); };
+  set(prompterEls.script, t.script);
+  set(prompterEls.speed, t.speed);
+  set(prompterEls.fontSize, t.fontSize);
+  set(prompterEls.lineHeight, t.lineHeight);
+  set(prompterEls.textWidth, t.textWidth);
+  set(prompterEls.width, t.width);
+  set(prompterEls.height, t.height);
+  prompterEls.enabled.checked = Boolean(t.enabled);
+  prompterEls.mirror.checked = Boolean(t.mirror);
+}
+
+function readPrompter() {
+  const number = (el, fallback) => (el.value.trim() === '' ? fallback : Number(el.value));
+  const t = config.teleprompter;
+  config.teleprompter = {
+    ...t,
+    script: prompterEls.script.value,
+    speed: number(prompterEls.speed, t.speed),
+    fontSize: number(prompterEls.fontSize, t.fontSize),
+    lineHeight: number(prompterEls.lineHeight, t.lineHeight),
+    textWidth: number(prompterEls.textWidth, t.textWidth),
+    width: number(prompterEls.width, t.width),
+    height: number(prompterEls.height, t.height),
+    enabled: prompterEls.enabled.checked,
+    mirror: prompterEls.mirror.checked,
+  };
+  scheduleSave();
+}
+
+for (const el of [prompterEls.script, prompterEls.speed, prompterEls.fontSize, prompterEls.lineHeight, prompterEls.textWidth, prompterEls.width, prompterEls.height, prompterEls.enabled, prompterEls.mirror]) {
+  el.addEventListener('input', readPrompter);
+  el.addEventListener('change', readPrompter);
+}
+prompterEls.toggle.addEventListener('click', async () => {
+  await flushSave();
+  try { await api.toggleTeleprompter(); } catch (err) { reportError(err); }
+});
+prompterEls.choose.addEventListener('click', async () => {
+  await flushSave();
+  try { applyConfig(await api.chooseScript()); renderPrompter(); } catch (err) { reportError(err); }
+});
+
 api.onStatus((next) => {
   status = next;
   if (next.config && !isDirty()) applyConfig(next.config);
@@ -2053,6 +2125,7 @@ api.onStatus((next) => {
   renderAutoLevel();
   renderAutomationsObs();
   renderYoutubeStatus();
+  renderPrompter();
   renderConnectionsBoard();
   updateRulesetRunState();
   if (config) updateAppWindowStatus();
@@ -4779,6 +4852,7 @@ $('picker-save').addEventListener('click', async () => {
   renderTavern();
   renderAutomationsStatus();
   renderYoutubeStatus();
+  renderPrompter();
   renderConnectionsBoard();
   $('about-version').textContent = info.revision;
   $('about-build').textContent = info.build && info.build.branch ? `on ${info.build.branch}` : '-';

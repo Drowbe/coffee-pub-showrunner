@@ -7,6 +7,9 @@ const controlsEl = document.getElementById('controls');
 
 window.bar.onState((state) => {
   labelEl.textContent = state.label;
+  // A teleprompter has no page audio to wake.
+  const wake = controlsEl.querySelector('[data-action="wakeAudio"]');
+  if (wake) wake.hidden = Boolean(state.prompter);
   readoutEl.textContent = '';
   readoutEl.append('x ');
   readoutEl.appendChild(Object.assign(document.createElement('b'), { textContent: String(state.x) }));

@@ -112,3 +112,7 @@ body {
   color: var(--text);
   font-weight: 500;
 }
+
+.control[hidden] {
+  display: none;
+}

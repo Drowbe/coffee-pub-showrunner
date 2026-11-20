@@ -57,6 +57,8 @@ contextBridge.exposeInMainWorld('coffeePub', {
   renameProfile: (id, name) => ipcRenderer.invoke('profiles:rename', id, name),
   deleteProfile: (id) => ipcRenderer.invoke('profiles:delete', id),
   addView: () => ipcRenderer.invoke('views:add'),
+  toggleTeleprompter: () => ipcRenderer.invoke('prompter:toggle'),
+  chooseScript: () => ipcRenderer.invoke('prompter:chooseScript'),
   removeView: (id) => ipcRenderer.invoke('views:remove', id),
   collapseViews: () => ipcRenderer.invoke('views:collapse'),
   expandViews: () => ipcRenderer.invoke('views:expand'),

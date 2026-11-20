@@ -9,6 +9,15 @@ in use at the time, except where noted.
 
 Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
+## Unreleased
+
+### Added
+- **Teleprompter window.** A presenter-only window, never an OBS source, that shows a Markdown file, resizable by dragging, with
+  auto-scroll or manual scrolling, text size, mirror and a reading line. Saving the file reloads it. A heading, or a
+  `<!-- cue: Name -->` line, fires an Automations event (`teleprompter:name` or `teleprompter:heading:name`) when
+  the reading line reaches it, so rule sets can change scenes from the script. It has its own **Teleprompter** page under
+  Recording, one per profile, and is not a capture window. Bundles `marked` (MIT) to read Markdown.
+
 ## 0.4.6 -- 2026-11-19
 
 ### Added

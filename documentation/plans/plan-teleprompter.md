@@ -2,7 +2,7 @@
 
 **Audience:** anyone deciding how Showrunner's teleprompter window should work, and the developers building it.
 
-Status: draft for review. Nothing here is built.
+Status: phase 1 built (see "Phase 1 as built" at the end); phases 2 to 4 are not.
 
 ## What it is
 
@@ -28,16 +28,14 @@ hooks for that, so no teleprompter work is thrown away when scene changes arrive
 
 ## The window
 
-- Created with **Add window** and a choice of kind (Web page, Teleprompter), or a separate **Add teleprompter** entry.
-  It is a view in the profile with `kind: "teleprompter"`; the usual fields (size, position, dock on launch, start on
-  launch) apply, and `url` is replaced by `script` (the path of the Markdown file). Its card on the page for the window
-  holds the file picker, the path, and the reading settings below.
+- It is a window of its own, set up on a **Teleprompter** page under Recording in the left rail, one per profile. It
+  has the capture windows' look but none of their options, and is not one of the windows. (The first draft made it a kind
+  of capture window; see "Phase 1 as built".)
 - The page it shows is a local one, `src/teleprompter/`, bundled in the app, not a web address, so there is no login
-  group and no audio wake for this kind.
-- **Loading:** the file is read by the main process and sent to the page. The path is remembered per window (so per
-  profile). The file is watched, and saving it in an editor reloads the text while keeping the reading position as
+  group or audio wake.
+- **Loading:** the file is read by the main process and sent to the page. The path is remembered per profile. The file is watched, and saving it in an editor reloads the text while keeping the reading position as
   close as the headings allow. A missing or unreadable file shows a plain message in the window, not a blank one.
-- **Resizable** like every window, and the text reflows.
+- **Resizable** by dragging, and the text reflows.
 
 ### Reading controls
 
@@ -119,3 +117,32 @@ Showrunner is proprietary and free to download, so everything it bundles has to 
   can be added by hand like any window, but defaults to off.
 - One script per window is assumed. A window that cycles through several scripts is phase 4.
 - Where the speed and size settings live if two profiles use the same file: with the window, so they differ per profile.
+
+## Phase 1 as built
+
+- **Not a capture window.** The first build made it a kind of web window and was corrected: it has the capture windows'
+  look (the same borderless window and `src/bar` bar) but none of their options, and it is outside the views. It is one
+  `teleprompter` object per profile (`defaultTeleprompter`, `sanitizeTeleprompter` in `src/config.js`, carried by
+  `profileFromFlat` and `flatFor`), with its own **Teleprompter** page under Recording in the rail. It is not in Windows,
+  the five-window limit, OBS sync, the edge dock or Start All.
+- The window lives in `src/main.js` (`openPrompter`, `closePrompter`, `syncPrompter`), separate from `createViewWindow`,
+  and reuses only the bar page. The bar's IPC handlers check whether the sender is the teleprompter window first. The bar
+  hides its Wake audio button for it.
+- It is `resizable: true`; a drag-resize and a move are saved (debounced) to the profile's `width`, `height`, `x` and `y`.
+  A profile switch closes it and opens the new profile's if that profile has **Open when this profile starts** ticked.
+- The page is `src/teleprompter/`, loaded with `loadFile`, with its own preload (`src/teleprompter-preload.js`).
+- `src/prompter.js` renders the script with `marked`, loaded with a dynamic `import()` because it is an ES module and the
+  main process is CommonJS. Raw HTML is escaped by overriding the `html` renderer, links and images by overriding
+  theirs, so no sanitizer is bundled. Cue lines are replaced by a placeholder before rendering and swapped for chips after.
+- The main process reads the file, watches its folder (not the file, so a save that replaces the file is still seen) and
+  pushes the rendered text to the page on a change.
+- The page does the cue detection: it counts the cues above the reading line on each scroll and fires the ones newly
+  crossed, except after a jump of more than 60% of the window, which only moves the count. The main process turns a cue
+  into `automations.recordEvent`, the same call a module's event uses, so the rule sets and the activity log need no new code.
+- Event names are the cue text slugged to 36 characters, so the longest (`teleprompter:heading:` + slug) fits the 60
+  character event limit.
+- **Changed from the first plan:** there is no vertical flip, only mirror, since flipping a scrolling page upside down would
+  also invert the scroll direction. Speed is in pixels per second.
+- Tested in a separate profile: the script loads, edits reload it, cues fire in order and a jump fires none, auto-scroll
+  runs at the set speed and a wheel stops it, speed, size and mirror are saved from the page's keys, a drag-resize is saved,
+  and the window opens at its saved size when the app starts.

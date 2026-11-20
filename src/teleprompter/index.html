@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:">
+  <title>Teleprompter</title>
+  <link rel="stylesheet" href="teleprompter.css">
+</head>
+<body>
+  <main id="stage"><article id="script"></article></main>
+  <div id="line" aria-hidden="true"></div>
+  <div id="notice" hidden></div>
+  <nav id="controls" aria-label="Teleprompter controls">
+    <button type="button" data-do="play" title="Play or pause (Space)">Play</button>
+    <span class="group"><button type="button" data-do="slower" title="Slower ([)">&minus;</button><output id="speed">60</output><button type="button" data-do="faster" title="Faster (])">+</button><span class="unit">px/s</span></span>
+    <span class="group"><button type="button" data-do="smaller" title="Smaller text (-)">A&minus;</button><button type="button" data-do="larger" title="Larger text (=)">A+</button></span>
+    <span class="group"><button type="button" data-do="prev" title="Previous heading (P)">&uarr; Heading</button><button type="button" data-do="next" title="Next heading (N)">Heading &darr;</button><button type="button" data-do="top" title="Back to the top (Home)">Top</button></span>
+    <button type="button" data-do="mirror" title="Mirror for a beam-splitter prompter (M)">Mirror</button>
+  </nav>
+  <script src="teleprompter.js"></script>
+</body>
+</html>
