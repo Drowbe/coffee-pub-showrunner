@@ -186,6 +186,6 @@ open:
   sections (requirements, install, releasing, dev setup, project layout).
 - **`documentation/assets/` has no screenshots yet.** A product screenshot for `home.md` and
   README, and any screenshots a future user guide needs, are still owed.
-- **`architecture/` covers only the Automations feature.** The rest of Showrunner (window
-  management, the OBS bridge, the Tavern bridge, the control panel's own structure) has no
+- **`architecture/` covers Automations, and profiles, backups and audio leveling.** The rest of Showrunner (window
+  management, the OBS bridge, the Chameleon bridge, the control panel's own structure) has no
   architecture documentation yet.

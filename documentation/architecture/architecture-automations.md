@@ -6,7 +6,7 @@ How the Automations HTTPS server is built and why. What it lets a caller do is
 [api-automations](../api/api-automations.md); this document is everything you can only learn by
 reading the code.
 
-## Where things live in the control panel's tabs
+## Where things live in the control panel's pages
 
 The control panel used to have one large Configuration page holding connection status, OBS, Chameleon,
 Automations and YouTube settings, layout preferences and diagnostics. With the left rail it is one page per
@@ -18,7 +18,7 @@ topic, in groups. A profile picker sits above the rail; the pages below it are:
 | Showrunner | Preferences | `preferences` | Layout & Startup, and Reset & Diagnostics |
 | Recording | OBS | `obs` | OBS connection settings and OBS Control (manual remote: recording, streaming, scenes) |
 | Recording | Session | `metadata` | Metadata fields (`config.metadataFields`) and the Recording Filename format |
-| Integrations | Chameleon | `tavern` | Chameleon settings, then the room, users, participants and characters |
+| Integrations | Chameleon | `tavern` | Chameleon settings, then the room, the users (one box per person, with Participant and Character rows) and the Audio card |
 | Integrations | Automations | `automations` | Automations server settings, then Rule Sets and Test Events |
 | Integrations | YouTube | `youtube` | YouTube connection settings and upload defaults |
 | Windows | one per window | `view:<id>`, `app:<id>` | The window's card, its OBS sources and regions |
@@ -138,7 +138,7 @@ its parent. Before running each stage, `runRuleSet` also writes that stage's ste
 for an AND-grouped action stage, since those steps really do run together -- into
 `state.activeStepIds` and broadcasts, so the highlight tracks the *specific* step (or Wait) actually
 executing, not just "this rule set is running somewhere." `fullStatus` exposes the run-state map's
-keys as `runningRuleSetIds` and its `activeStepIds` per id, and the Automations tab's own
+keys as `runningRuleSetIds` and its `activeStepIds` per id, and the Automations page's own
 `updateRulesetRunState` (`src/control/control.js`) reads both on every status push: a plain static
 accent border on the card (enough to spot which one, out of a long list, is mid-run) and a pulsing
 one on whichever step row(s) are the current stage -- the pulse belongs on the specific thing
@@ -178,15 +178,15 @@ upload still works either way, just with nothing to update. `fullStatus` exposes
 fills in its width and percentage text on every status push -- the same non-rebuilding update path
 the running-highlight uses, for the same reason.
 
-That per-card bar lives inside a collapsible card on one tab, which is a poor place for the one
+That per-card bar lives inside a collapsible card on one page, which is a poor place for the one
 piece of feedback on a process that can run for an hour. `youtubeUploadActive` (`{ title,
 percent }`, `src/main.js`) tracks the upload in flight whether or not a rule set started it, is
 exposed as `youtube.uploading`, and `renderYoutubeStatus` draws it in the footer status bar --
-visible on every tab. While an upload runs it is the whole bar, on one line that never wraps:
+visible on every page. While an upload runs it is the whole bar, on one line that never wraps:
 `Uploading`, a progress bar, the percentage, then the file name, which gives way with an ellipsis
 when the window is narrow. The idle "All changes saved" steps aside for it; an unsaved or failed
-save still shows. Build details (version, commit, Electron, Chromium) live in the Configuration
-tab's About card rather than the status bar.
+save still shows. Build details (version, commit, Electron, Chromium) live in the Status
+page's About card rather than the status bar.
 
 Each rule-set card can collapse to just its header (`collapsedRulesetIds`, `src/control/control.js`
 -- a `Set`, remembered in `localStorage` the same way `activeTab` is, not sent to the server since
@@ -225,7 +225,7 @@ Showrunner, external or from a rule set you wrote, was already behind `automatio
 one gate that does real work, so it's the only one left.
 
 `applySessionFilename` also dropped its own second gate, `session.filenameFormatEnabled` -- a
-checkbox on the Session tab that did nothing but make the action throw a runtime error if left
+checkbox on the Session page that did nothing but make the action throw a runtime error if left
 unticked, on top of the already-required non-empty `filenameFormat` check. Not a permission
 boundary, just a landmine with no upside: adding the step to a rule set (or calling it directly)
 already *is* the opt-in, the same way it is for every other action here -- a second "are you sure"
@@ -322,7 +322,7 @@ Raised directly as `runIf`'s first real use: something to notice a YouTube uploa
 doesn't just sit quietly in the Connections log until someone happens to check. The first cut pushed
 an in-app toast only -- visible strictly while Showrunner's own window happens to be open and on screen
 at that exact moment, which misses the actual point: a recording session can run for hours, and
-whoever's running it is not necessarily staring at Showrunner's Configuration tab when Stop fires and the
+whoever's running it is not necessarily staring at Showrunner's control panel when Stop fires and the
 upload happens. Corrected to what "notice this without watching the logs" actually needs: a real OS
 notification (`Notification`, Electron's wrapper around Notification Center on macOS / the Action
 Center on Windows -- `Notification.isSupported()` guards platforms or states where it can't show),
@@ -446,7 +446,7 @@ Showrunner restart, repopulated whenever a module reconnects and registers again
 
 Not every value a `setText` step wants comes from a connected module -- the person running Showrunner
 might want their own campaign name, a countdown, or anything else available the same way.
-`config.metadataFields` (`src/config.js`) is a persisted list the Session tab's Metadata card
+`config.metadataFields` (`src/config.js`) is a persisted list the Session page's Metadata card
 creates and edits directly -- unlike `registeredFieldsByModule` above, this is real config, not
 in-memory state, since the whole point of a Number field is that Showrunner remembers its last value
 across restarts. The key freezes at creation (`sanitizeMetadataField` never re-derives it from a
@@ -652,7 +652,7 @@ beyond the certificate files and the configured rule sets.
 
 A separate, smaller log than `automations.js`'s own `events` -- `activityLog`
 (`src/main.js:167`, capped at `ACTIVITY_LOG_LIMIT` = 100) exists so the Connections card on the
-Configuration tab can answer "what just happened" across all three services at a glance, not just
+Status page can answer "what just happened" across all three services at a glance, not just
 Automations' own. `logActivity(source, event, level)` (`src/main.js:169`) pushes an entry and
 broadcasts; fed from four places: OBS's and Chameleon's `'status'` listeners
 (`src/main.js:180`/`204`) only log when `state` itself changed (not every status ping -- OBS/Chameleon
@@ -661,15 +661,15 @@ spam the log on a timer), Automations' own `'status'` listener the same way (`sr
 and its `'event'` listener logging every event received (`src/main.js:515`) plus every rule-set
 step or dispatch failure as a `level: 'error'` entry (`src/main.js:518`, `:708`, `:727`) -- the one
 place those failures were previously only a `console.warn`, invisible outside the main process's
-own stdout. The Automations tab's rule-set "Run Automation" button and the "Time it" button both
+own stdout. The Automations page's rule-set "Run Automation" button and the "Time it" button both
 still work exactly as before; their effects just show up here instead of (or now, in addition to)
-the tab they were run from. Not persisted, same as `automations.js`'s own log -- resets on restart.
+the page they were run from. Not persisted, same as `automations.js`'s own log -- resets on restart.
 
 A fifth place feeds it now: `syncObs()` (`src/main.js`) logs its own sync report -- which sources
 got re-pointed, had their capture restarted, got cropped, were newly linked, or are missing in OBS
 -- but only when at least one of those actually happened. This used to be Showrunner's one real
 exception to "log entries are short": the full report was rebuilt into one long sentence and shoved
-into the OBS card's own status hint on the Configuration tab, rewritten on every sync, drifting
+into the OBS page's own status hint, rewritten on every sync, drifting
 further from that hint's job (a glanceable one-liner) with every source added. `obs.js`'s
 `this.lastSync` existed only to carry that detail to the renderer for this one purpose; removed
 along with it; `syncObs()` already had the same report as a local variable; nothing else read
@@ -960,7 +960,7 @@ before anyone trusts it against a real recording:
   connection made on Sept 23 stopped working a week later -- and every upload after that died at the
   token refresh. Google's answer there is `{"error": "invalid_grant", "error_description": "Bad
   Request"}`, and `googleErrorMessage` preferred `error_description`, so the log said only "Bad
-  Request", which reads like the upload itself was malformed; the Automations tab kept saying
+  Request", which reads like the upload itself was malformed; the Automations page kept saying
   "Connected." because a refresh token was merely *stored*. Three consequences were fixed together:
   the walkthrough now says to publish the app to **In production** before connecting (no Google
   review is needed for own use; the "hasn't verified this app" screen is shown once and is
@@ -992,7 +992,7 @@ before anyone trusts it against a real recording:
   moved all one-off clipboard/link confirmations (view link, token, region address, the YouTube
   device code, opening the verification URL) onto it instead of the footer.
 - **Quick Add for Metadata fields.** Hand-creating whatever fields the Recording Filename template
-  references (and getting each key exactly right) was real setup friction, so the Metadata tab has
+  references (and getting each key exactly right) was real setup friction, so the Session page has
   a "Quick Add" section above the field list (`QUICK_ADD_BUNDLES` in `src/control/control.js`) --
   one button per bundle, shown only when it would actually add something. Today there's one bundle:
   it parses `config.session.filenameFormat` for `{field}` tokens and offers to create whichever
