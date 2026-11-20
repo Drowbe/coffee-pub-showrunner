@@ -2120,6 +2120,8 @@ prompterEls.create.addEventListener('click', async () => {
 api.onOpenRuleSet((id) => {
   if (!isDirty() && status && status.config) applyConfig(status.config);
   selectTab('automations');
+  const target = (config.automations.ruleSets || []).find((r) => r.id === id);
+  if (target && hiddenRulesetGroups.delete(target.group || '')) rememberHiddenRulesetGroups();
   renderAutomationsRuleSets();
   requestAnimationFrame(() => {
     const card = automationsEls.rulesets.querySelector(`[data-ruleset-id="${id}"]`);
@@ -4168,11 +4170,69 @@ function updateRulesetRunState() {
   }
 }
 
+// Which rule set groups are switched off in the list. A view preference kept in this browser, like the
+// collapsed cards; "" stands for rule sets with no group.
+function recallHiddenRulesetGroups() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hiddenRulesetGroups') || '[]');
+    return new Set(Array.isArray(saved) ? saved.filter((g) => typeof g === 'string') : []);
+  } catch (err) {
+    return new Set();
+  }
+}
+const hiddenRulesetGroups = recallHiddenRulesetGroups();
+
+function rememberHiddenRulesetGroups() {
+  try {
+    localStorage.setItem('hiddenRulesetGroups', JSON.stringify([...hiddenRulesetGroups]));
+  } catch (err) {
+    // ignore
+  }
+}
+
+function visibleRuleSets() {
+  return (config.automations.ruleSets || []).filter((r) => !hiddenRulesetGroups.has(r.group || ''));
+}
+
+function renderRulesetGroupFilter(ruleSets) {
+  const groups = [...new Set(ruleSets.map((r) => r.group || ''))].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
+  // With one group (or none) there is nothing to switch, so the row stays out of the way.
+  const wrap = $('automations-group-filter');
+  wrap.hidden = groups.length < 2;
+  const chips = $('automations-group-chips');
+  chips.textContent = '';
+  for (const group of groups) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `group-toggle${hiddenRulesetGroups.has(group) ? '' : ' on'}`;
+    button.dataset.group = group;
+    button.textContent = group || 'No group';
+    button.setAttribute('aria-pressed', String(!hiddenRulesetGroups.has(group)));
+    chips.appendChild(button);
+  }
+}
+
+$('automations-group-chips').addEventListener('click', (event) => {
+  const button = event.target.closest('.group-toggle');
+  if (!button) return;
+  const group = button.dataset.group;
+  if (hiddenRulesetGroups.has(group)) hiddenRulesetGroups.delete(group);
+  else hiddenRulesetGroups.add(group);
+  rememberHiddenRulesetGroups();
+  renderAutomationsRuleSets();
+});
+
 function renderAutomationsRuleSets() {
-  const ruleSets = config.automations.ruleSets || [];
+  const all = config.automations.ruleSets || [];
+  const ruleSets = visibleRuleSets();
   automationsEls.rulesets.textContent = '';
-  automationsEls.rulesetsEmpty.hidden = ruleSets.length > 0;
-  automationsEls.rulesetsCount.textContent = ruleSets.length ? `${ruleSets.length} rule set${ruleSets.length === 1 ? '' : 's'}` : '';
+  renderRulesetGroupFilter(all);
+  automationsEls.rulesetsEmpty.hidden = all.length > 0;
+  automationsEls.rulesetsCount.textContent = all.length
+    ? (ruleSets.length === all.length
+      ? `${all.length} rule set${all.length === 1 ? '' : 's'}`
+      : `${ruleSets.length} of ${all.length} rule sets`)
+    : '';
   ruleSets.forEach((ruleSet, i) => automationsEls.rulesets.appendChild(buildRulesetCard(ruleSet, i, ruleSets.length)));
 }
 
@@ -4236,7 +4296,10 @@ automationsEls.rulesets.addEventListener('click', async (event) => {
   if (action === 'move-ruleset-up' || action === 'move-ruleset-down') {
     const list = config.automations.ruleSets;
     const from = list.findIndex((r) => r.id === ruleSet.id);
-    const to = action === 'move-ruleset-up' ? from - 1 : from + 1;
+    // Move past the next rule set that is showing, not a hidden one, so the card visibly moves.
+    const shown = visibleRuleSets();
+    const neighbour = shown[shown.findIndex((r) => r.id === ruleSet.id) + (action === 'move-ruleset-up' ? -1 : 1)];
+    const to = neighbour ? list.findIndex((r) => r.id === neighbour.id) : -1;
     if (to < 0 || to >= list.length) return;
     const [moved] = list.splice(from, 1);
     list.splice(to, 0, moved);

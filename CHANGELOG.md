@@ -13,6 +13,7 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
 ### Added
 - **Teleprompter actions for Automations.** Rule set steps (and `POST /api/automations/action`) can start, pause or toggle the scroll, change the speed, jump to the next or previous heading, or go back to the top, so a cue can start the scroll or a scene change can slow it. They need the teleprompter window open.
+- **Rule set groups can be switched on and off.** Above the Rule sets on the Automations page, one chip per group (and "No group") shows or hides that group's rule sets; the choice is remembered. Rule sets made with **Create rule** in the teleprompter editor now go in a **Teleprompter** group.
 
 ## 0.4.7 -- 2026-11-20
 

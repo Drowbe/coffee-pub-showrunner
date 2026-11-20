@@ -2318,3 +2318,18 @@ select option { background: var(--bg-card); color: var(--text); }
 .cue-kind { color: var(--text-dim, var(--muted, inherit)); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
 .cue-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .cue-text code { color: var(--accent); font-size: 12px; }
+
+/* Group switches above the rule sets: a group that is off is hidden from the list. */
+.group-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 10px; }
+.group-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.group-toggle {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-dim, #8c97a8);
+  background: transparent;
+  border: 1px solid var(--border, #2a4162);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.group-toggle.on { color: var(--text, #f4ecdd); background: color-mix(in srgb, var(--accent, #5cc8cf) 25%, transparent); border-color: var(--accent, #5cc8cf); }

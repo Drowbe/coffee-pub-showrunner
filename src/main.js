@@ -3549,7 +3549,7 @@ function registerIpc() {
     let id = existing && existing.id;
     if (!id) {
       id = `ruleset${Date.now().toString(36)}`;
-      const ruleSet = { id, name: String(label || name).trim().slice(0, 60), group: '', enabled: true, event: name, steps: [] };
+      const ruleSet = { id, name: String(label || name).trim().slice(0, 60), group: 'Teleprompter', enabled: true, event: name, steps: [] };
       configStore.save({ ...current, automations: { ...current.automations, ruleSets: [...(current.automations.ruleSets || []), ruleSet] } });
       broadcastStatus();
     }

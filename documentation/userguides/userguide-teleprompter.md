@@ -93,6 +93,9 @@ A few things to know:
   the Automations page is only for game modules on another machine, and it opens a port on your network; leave it off if
   the teleprompter is all you use.
 
+A rule made with **Create rule** goes into a group called **Teleprompter**. On the Automations page, the chips above
+the Rule sets switch a group on or off, so a long list shows only the groups you want.
+
 ## Controlling it from Automations
 
 A rule set step can drive the reading controls, under the **Teleprompter** group: start scrolling, pause, play or
