@@ -729,6 +729,7 @@ function defaultConfig() {
     automations: defaultAutomations(),
     session: defaultSession(),
     obsPins: defaultObsPins(),
+    teleprompter: defaultTeleprompter(),
     // No metadata fields on a fresh install -- created by hand via "New" on
     // the Session tab's Metadata card.
     metadataFields: [],
@@ -800,6 +801,50 @@ function sanitizeWindowSource(input, label, fallback) {
   return { enabled, name };
 }
 
+// The teleprompter: one per profile, its own window (not a capture window, so it is not one of the
+// views and never becomes an OBS source). Shows a Markdown script for the presenter.
+const PROMPTER_LIMITS = { speed: [5, 400], fontSize: [16, 200], lineHeight: [1, 3], textWidth: [30, 100], size: [LIMITS.minSize, LIMITS.maxSize] };
+
+function defaultTeleprompter() {
+  return {
+    enabled: false, // open it when the app (or the profile) starts
+    script: '', // the Markdown file
+    speed: 60, // pixels per second when auto-scrolling
+    fontSize: 56,
+    lineHeight: 1.5,
+    textWidth: 80, // percent of the window
+    mirror: false,
+    width: 900,
+    height: 700,
+    x: null,
+    y: null,
+  };
+}
+
+function limited(value, fallback, [min, max]) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
+function sanitizeTeleprompter(input) {
+  const d = defaultTeleprompter();
+  const src = input && typeof input === 'object' ? input : {};
+  const position = (v) => (v === null || v === undefined || v === '' ? null : toInt(v, null));
+  return {
+    enabled: Boolean(src.enabled),
+    script: typeof src.script === 'string' ? src.script.trim().slice(0, 1000) : d.script,
+    speed: Math.round(limited(src.speed, d.speed, PROMPTER_LIMITS.speed)),
+    fontSize: Math.round(limited(src.fontSize, d.fontSize, PROMPTER_LIMITS.fontSize)),
+    lineHeight: Math.round(limited(src.lineHeight, d.lineHeight, PROMPTER_LIMITS.lineHeight) * 10) / 10,
+    textWidth: Math.round(limited(src.textWidth, d.textWidth, PROMPTER_LIMITS.textWidth)),
+    mirror: Boolean(src.mirror),
+    width: Math.round(limited(src.width, d.width, PROMPTER_LIMITS.size)),
+    height: Math.round(limited(src.height, d.height, PROMPTER_LIMITS.size)),
+    x: position(src.x),
+    y: position(src.y),
+  };
+}
+
 function sanitizeObs(input) {
   const d = defaultObs();
   const src = input && typeof input === 'object' ? input : {};
@@ -842,6 +887,7 @@ function sanitizeConfig(input) {
     youtube: sanitizeYoutube(src.youtube),
     session: sanitizeSession(src.session),
     obsPins: sanitizeObsPins(src.obsPins),
+    teleprompter: sanitizeTeleprompter(src.teleprompter),
     metadataFields: sanitizeMetadataFields(src.metadataFields),
     appWindows: sanitizeAppWindows(src.appWindows),
     panel: sanitizePanel(src.panel),
@@ -891,6 +937,7 @@ function profileFromFlat(flat, id, name) {
     metadataFields: flat.metadataFields,
     session: flat.session,
     obsPins: flat.obsPins,
+    teleprompter: flat.teleprompter,
     automations: { enabled: flat.automations.enabled, ruleSets: flat.automations.ruleSets },
     tavern: pick(flat.tavern, TAVERN_PROFILE_KEYS),
     youtube: pick(flat.youtube, YOUTUBE_PROFILE_KEYS),
@@ -932,6 +979,7 @@ function flatFor(stored, profile) {
     metadataFields: profile.metadataFields,
     session: profile.session,
     obsPins: profile.obsPins,
+    teleprompter: profile.teleprompter,
   });
 }
 

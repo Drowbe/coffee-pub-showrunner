@@ -45,6 +45,8 @@ automation step, for example) is updated to match. After installing, delete the 
 - Coffee Pub Chameleon: sign in to the party's voice and video server and publish each player as
   an OBS Browser Source with one click, kept in sync by the player's stable key. Each person's
   Participant and Character sources sit together in one box.
+- Teleprompter: a presenter-only window that shows a Markdown script, scrolls by hand or at a set speed, and fires
+  an Automations event when the reading line reaches a cue or a heading, so scenes can follow the script.
 - Audio leveling: new participants get a noise suppression, compressor and limiter chain in OBS;
   **Calibrate** listens while everyone talks and sets each person's OBS volume to one target level, and
   **Auto level** keeps them there during the session. It only ever changes the Chameleon participants'
@@ -141,6 +143,8 @@ The full walkthrough lives on the wiki, one guide per piece:
   edge dock, keyboard shortcuts, and Retina displays.
 - [Windows and regions as OBS sources](documentation/userguides/userguide-obs.md) -- connecting
   to OBS, the whole-window source, and cropping part of a window into its own source.
+- [Teleprompter](documentation/userguides/userguide-teleprompter.md) -- showing a Markdown script and driving
+  Automations from it.
 - [Coffee Pub Chameleon in OBS](documentation/userguides/userguide-chameleon.md) -- publishing the
   party as OBS sources, audio filters, Calibrate and Auto level.
 - [Configuration file reference](documentation/userguides/userguide-configuration.md) -- the
@@ -230,6 +234,8 @@ src/leveling.js        Audio leveling arithmetic: measuring speech level and wor
 src/autolevel.js       Auto level: keeps participants near the target level while a session runs
 src/backup.js          Automatic and on-demand backups of the settings files, and restore
 src/youtube.js         YouTube sign-in and recording upload
+src/prompter.js        Turns a teleprompter script (Markdown) into HTML and finds its cues
+src/teleprompter/      The teleprompter page (HTML, CSS, JS); src/teleprompter-preload.js bridges it
 src/automations.js     Automations HTTP server: Foundry modules report events, rules trigger OBS
 src/preload.js         Bridge between the control panel page and the main process
 src/bar-preload.js     Bridge between a window's bar page and the main process
@@ -255,7 +261,12 @@ OBS sources in [Windows and regions as OBS sources](documentation/userguides/use
 Proprietary, and free to download and use for now. The source is visible here to read, but it is not
 open source: see [LICENSE](LICENSE) for what is and isn't allowed.
 
-The header uses the Fraunces and Figtree typefaces, bundled under the SIL Open Font License 1.1.
+The header uses the Fraunces and Figtree typefaces, bundled under the SIL Open Font License 1.1. The teleprompter
+uses [marked](https://github.com/markedjs/marked) (MIT license, Copyright (c) 2018-2026 MarkedJS and 2011-2018 Christopher Jeffrey) to read Markdown;
+its license text ships with the app in `node_modules/marked/LICENSE`. The teleprompter's script editor is the Markdown editor from
+Coffee Pub Chameleon, built on [ProseMirror](https://prosemirror.net) (MIT license, Copyright (C) 2015-2017 Marijn Haverbeke and others) and
+[Yjs](https://github.com/yjs/yjs) (MIT license, Copyright (c) 2023 Kevin Jahns and others), with `marked` as its lexer; each package's license text
+is in `src/teleprompter/editor/licenses/`, and the files are listed in `src/teleprompter/editor/README.md`.
 
 ## AI Assistance and the Illusion of Good Code
 

@@ -27,6 +27,8 @@ release and is being re-checked; see [Known issues](known-issues.md).
   whole-window source, and cropping part of a window into its own source.
 - [Coffee Pub Chameleon in OBS](userguides/userguide-chameleon.md) -- publishing the party as OBS
   sources, audio filters, Calibrate and Auto level.
+- [Teleprompter](userguides/userguide-teleprompter.md) -- a presenter-only window that shows a Markdown script and
+  fires Automations events from its cues.
 - [Configuration file reference](userguides/userguide-configuration.md) -- the config.json
   shape, field by field.
 - [Automations API](api/api-automations.md) -- let a Foundry module drive OBS through Showrunner.

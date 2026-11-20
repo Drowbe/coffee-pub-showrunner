@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:">
+  <title>Teleprompter</title>
+  <link rel="stylesheet" href="teleprompter.css">
+</head>
+<body>
+  <main id="stage"><article id="script"></article><div id="editor"></div></main>
+  <nav id="edit-bar" aria-label="Script editor" hidden>
+    <span class="group">
+      <button type="button" data-fmt="bold" title="Bold (Cmd/Ctrl+B)"><b>B</b></button>
+      <button type="button" data-fmt="italic" title="Italic (Cmd/Ctrl+I)"><i>I</i></button>
+      <button type="button" data-fmt="h1" title="Heading 1">H1</button>
+      <button type="button" data-fmt="h2" title="Heading 2">H2</button>
+      <button type="button" data-fmt="h3" title="Heading 3">H3</button>
+      <button type="button" data-fmt="list" title="Bulleted list">&bull; List</button>
+      <button type="button" data-fmt="numbered" title="Numbered list">1. List</button>
+      <button type="button" data-fmt="quote" title="Quote">Quote</button>
+    </span>
+    <span class="group">
+      <button type="button" data-edit="events" title="List the events the headings and cues fire">Events</button>
+      <button type="button" data-edit="cue" title="Insert a cue above this paragraph; it fires an Automations event when the reading line reaches it">Insert cue</button>
+    </span>
+    <span id="edit-status" aria-live="polite"></span>
+    <span class="group">
+      <span class="menu-wrap">
+        <button type="button" data-edit="file" aria-haspopup="menu" aria-expanded="false" title="New script, save a copy, or drop changes">File &#9662;</button>
+        <div id="file-menu" role="menu" hidden>
+          <button type="button" role="menuitem" data-edit="new" title="Start a new script; it asks where to save it the first time you save">New</button>
+          <button type="button" role="menuitem" data-edit="saveas" title="Save a copy to a file you choose, and use it from now on">Save as...</button>
+          <button type="button" role="menuitem" data-edit="cancel" title="Go back to reading and drop unsaved changes">Discard changes</button>
+        </div>
+      </span>
+      <button type="button" data-edit="save" title="Save the file (Cmd/Ctrl+S)">Save</button>
+      <button type="button" data-edit="done" title="Save and go back to reading">Done</button>
+    </span>
+  </nav>
+  <aside id="events" aria-label="Events this script fires" hidden>
+    <h2>Events</h2>
+    <p class="hint">Make a rule set on the Automations page that listens for an event name. Click a line to jump to it.</p>
+    <ul id="event-list"></ul>
+  </aside>
+  <div id="line" aria-hidden="true"></div>
+  <div id="notice" hidden></div>
+  <nav id="controls" aria-label="Teleprompter controls">
+    <button type="button" data-do="play" title="Play or pause (Space)">Play</button>
+    <span class="group"><button type="button" data-do="slower" title="Slower ([)">&minus;</button><output id="speed">60</output><button type="button" data-do="faster" title="Faster (])">+</button><span class="unit">px/s</span></span>
+    <span class="group"><button type="button" data-do="smaller" title="Smaller text (-)">A&minus;</button><button type="button" data-do="larger" title="Larger text (=)">A+</button></span>
+    <span class="group"><button type="button" data-do="prev" title="Previous heading (P)">&uarr; Heading</button><button type="button" data-do="next" title="Next heading (N)">Heading &darr;</button><button type="button" data-do="top" title="Back to the top (Home)">Top</button></span>
+    <button type="button" data-do="edit" title="Edit the script (E)">Edit</button>
+    <button type="button" data-do="mirror" title="Mirror for a beam-splitter prompter (M)">Mirror</button>
+  </nav>
+  <script src="editor/lib-0-marked.js"></script>
+  <script src="editor/lib-0-prosemirror.js"></script>
+  <script src="editor/lib-a-records.js"></script>
+  <script src="editor/lib-d-reader.js"></script>
+  <script src="editor/lib-l-schema.js"></script>
+  <script src="editor/lib-m-parse.js"></script>
+  <script src="editor/lib-n-serialise.js"></script>
+  <script src="editor/lib-o-write.js"></script>
+  <script src="editor/lib-q-rich-rules.js"></script>
+  <script src="editor/lib-r-rich-link.js"></script>
+  <script src="editor/lib-stubs.js"></script>
+  <script src="editor/lib-p-rich-editor.js"></script>
+  <script src="teleprompter.js"></script>
+  <script src="edit.js"></script>
+</body>
+</html>
