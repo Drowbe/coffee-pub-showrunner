@@ -2093,8 +2093,7 @@ const tavernEls = {
   tag: $('tavern-tag'),
   dot: $('tavern-dot'),
   status: $('tavern-status'),
-  participants: $('tavern-participants'),
-  characters: $('tavern-characters'),
+  people: $('tavern-people'),
   empty: $('tavern-empty'),
   summary: $('tavern-summary'),
   title: $('tavern-title'),
@@ -2116,7 +2115,7 @@ const participantCards = new Map();
 /** @type {Map<string, HTMLElement>} */
 const characterCards = new Map();
 const cardsFor = (kind) => (kind === 'character' ? characterCards : participantCards);
-const containerFor = (kind) => (kind === 'character' ? tavernEls.characters : tavernEls.participants);
+const personCards = new Map(); // user key -> the person's group
 
 function applyTavernConfig() {
   const t = config.tavern;
@@ -2153,7 +2152,7 @@ tavernEls.height.addEventListener('input', () => {
 });
 
 // The Audio card's controls; declared here because the save listeners below use them.
-const levelEls = { target: $('tavern-level-target'), targetValue: $('tavern-level-target-value'), auto: $('tavern-autolevel'), autoTag: $('tavern-autolevel-tag'), seconds: $('tavern-level-seconds'), run: $('tavern-level-run'), status: $('tavern-level-status'), results: $('tavern-level-results') };
+const levelEls = { target: $('tavern-level-target'), targetValue: $('tavern-level-target-value'), auto: $('tavern-autolevel'), autoStatus: $('tavern-autolevel-status'), seconds: $('tavern-level-seconds'), run: $('tavern-level-run'), status: $('tavern-level-status'), results: $('tavern-level-results') };
 
 async function saveTavernSettings() {
   await flushSave();
@@ -2225,12 +2224,9 @@ levelEls.target.addEventListener('input', () => {
 // Auto level's live state, from each status update: the tag, and what it did last.
 function renderAutoLevel() {
   const auto = (status && status.autoLevel) || { running: false, watching: 0, last: '' };
-  levelEls.autoTag.hidden = !auto.running;
-  levelEls.autoTag.textContent = auto.running ? `WATCHING ${auto.watching}` : 'AUTO LEVEL';
-  if (levelEls.run.disabled) return; // a calibration is showing its own progress
-  levelEls.status.textContent = auto.running
-    ? `Auto level is on: watching ${auto.watching} participant${auto.watching === 1 ? '' : 's'}.${auto.last ? ` Last change: ${auto.last}.` : ''}`
-    : levelEls.status.textContent.startsWith('Auto level is on') ? '' : levelEls.status.textContent;
+  levelEls.autoStatus.textContent = auto.running
+    ? `Watching ${auto.watching} participant${auto.watching === 1 ? '' : 's'}${auto.last ? `. Last change: ${auto.last}` : ''}`
+    : '';
 }
 
 levelEls.run.addEventListener('click', async () => {
@@ -2350,6 +2346,17 @@ $('tavern-follow-admin').addEventListener('change', async () => {
   renderTavern();
 });
 
+// The group for a person: a header of what is true of them, and a rows list for their sources.
+function personFor(user) {
+  let group = personCards.get(user.key);
+  if (group) return group;
+  group = $('tavern-person-template').content.firstElementChild.cloneNode(true);
+  group.dataset.key = user.key;
+  personCards.set(user.key, group);
+  tavernEls.people.appendChild(group);
+  return group;
+}
+
 function tavernRowFor(user, kind) {
   const cards = cardsFor(kind);
   let card = cards.get(user.key);
@@ -2359,7 +2366,10 @@ function tavernRowFor(user, kind) {
   card.dataset.kind = kind;
   card.addEventListener('click', onTavernRowClick);
   cards.set(user.key, card);
-  containerFor(kind).appendChild(card);
+  // Participant above Character, whichever is created first.
+  const rows = personFor(user).querySelector('[data-role="rows"]');
+  if (kind === 'player') rows.prepend(card);
+  else rows.appendChild(card);
   return card;
 }
 
@@ -2464,8 +2474,7 @@ function renderTavern() {
   // (not deleted) by syncTavern; cleaning it up means switching to a room
   // that does offer it, or Delete All from OBS.
   const allowedFor = { player: !room || room.profile !== 'characters', character: !room || room.profile !== 'participants' };
-  $('tavern-participants-section').hidden = !connected || !allowedFor.player;
-  $('tavern-characters-section').hidden = !connected || !allowedFor.character;
+  tavernEls.people.hidden = !connected;
   // What each user gets: the ticks, defaulting to Participant on and
   // Character per the Configuration tab; the sources exist while they are published.
   const entryFor = (key) => {
@@ -2486,6 +2495,62 @@ function renderTavern() {
   $('tavern-show-all').disabled = !connected || party.every((u) => { const e = entryFor(u.key); return (!e.source || e.player) && (!e.characterSource || e.character); });
   $('tavern-sync').disabled = !connected;
 
+  // What is true of the person, once, in the group header: at the table or not, camera, mic, the level
+  // Calibrate or Auto level set, and where they are.
+  const renderPerson = (user) => {
+    const group = personFor(user);
+    const role = (r) => group.querySelector(`[data-role="${r}"]`);
+    const name = role('name');
+    name.textContent = user.displayName;
+    const dot = role('online');
+    dot.classList.toggle('on', Boolean(user.online));
+    dot.title = user.online ? 'at the table' : 'offline';
+    const inRoom = user.online && user.online.room ? rooms.find((r) => r.id === user.online.room) : null;
+
+    // Always shown, so the slot is never empty: a slashed icon means off (or offline).
+    const setAv = (icon, onIcon, offIcon, on, title) => {
+      icon.hidden = false;
+      icon.classList.toggle('on', on);
+      icon.classList.remove(onIcon, offIcon);
+      icon.classList.add(on ? onIcon : offIcon);
+      icon.title = title;
+    };
+    const mic = Boolean(user.online && user.online.micOn);
+    const cam = Boolean(user.online && user.online.cameraOn);
+    setAv(role('mic'), 'fa-microphone', 'fa-microphone-slash', mic, !user.online ? 'Offline' : mic ? 'Mic on' : 'Mic off');
+    setAv(role('video'), 'fa-video', 'fa-video-slash', cam, !user.online ? 'Offline' : cam ? 'Camera on' : 'Camera off');
+
+    // The level Calibrate or Auto level settled on for this person's Participant source.
+    const levelDb = published[user.key] && published[user.key].levelDb;
+    const level = role('level');
+    const calibrated = levelDb !== null && levelDb !== undefined;
+    level.textContent = calibrated ? `${levelDb > 0 ? '+' : ''}${Math.round(levelDb * 10) / 10} dB` : 'not calibrated';
+    level.classList.toggle('none', !calibrated);
+    level.title = calibrated ? 'The OBS volume Calibrate or Auto level set for this person' : 'Calibrate, or switch on Auto level, to set this person\'s volume';
+
+    // The room they're live in right now, not the room this list happens to
+    // be showing -- the two can differ (a pull-aside, or just a different
+    // room membership), and that gap is exactly what room-profile gating
+    // needs to be visible, not implicit.
+    const roomTag = role('room');
+    roomTag.hidden = !inRoom;
+    roomTag.textContent = inRoom ? inRoom.name : '';
+    roomTag.classList.toggle('on', Boolean(inRoom && room && inRoom.id === room.id));
+
+    role('offline').hidden = Boolean(user.online);
+
+    // Off stream: online, but not in the room the admin/GM is actually in
+    // right now -- not the dropdown's manual pick above, which is only for
+    // Participant/Character gating. A pull-aside room is no different:
+    // whoever's aside together is off stream same as any other room they
+    // could have wandered into.
+    const offStream = adminOnline && Boolean(user.online) && user.online.room !== t.activeRoom;
+    const offStreamTag = role('off-stream');
+    offStreamTag.hidden = !offStream;
+    offStreamTag.textContent = inRoom && inRoom.ephemeral ? 'ASIDE' : 'OFF STREAM';
+  };
+
+  // One source row inside the person's group: their Participant or their Character.
   const renderRow = (user, kind) => {
     const k = TAVERN_KINDS[kind];
     const card = tavernRowFor(user, kind);
@@ -2493,6 +2558,8 @@ function renderTavern() {
     const ticked = entry[k.field];
     const name = entry[k.sourceField];
     const allowed = allowedFor[kind];
+    // A kind the room does not offer has no row at all, as it had no section before.
+    card.hidden = !allowed;
     const thumb = card.querySelector('[data-role="thumb"]');
     thumb.alt = user.displayName;
     thumb.title = user.displayName;
@@ -2501,41 +2568,6 @@ function renderTavern() {
       thumb.dataset.src = thumbUrl;
       thumb.src = thumbUrl;
     }
-    const dot = card.querySelector('[data-role="online"]');
-    dot.classList.toggle('on', Boolean(user.online));
-    dot.title = user.online ? 'at the table' : 'offline';
-    const inRoom = user.online && user.online.room ? rooms.find((r) => r.id === user.online.room) : null;
-
-    const micIcon = card.querySelector('[data-role="mic"]');
-    micIcon.hidden = !user.online;
-    micIcon.classList.toggle('on', Boolean(user.online && user.online.micOn));
-    micIcon.title = user.online ? (user.online.micOn ? 'Mic on' : 'Mic off') : '';
-
-    const videoIcon = card.querySelector('[data-role="video"]');
-    videoIcon.hidden = !user.online;
-    videoIcon.classList.toggle('on', Boolean(user.online && user.online.cameraOn));
-    videoIcon.title = user.online ? (user.online.cameraOn ? 'Camera on' : 'Camera off') : '';
-
-    // The room they're live in right now, not the room this list happens to
-    // be showing -- the two can differ (a pull-aside, or just a different
-    // room membership), and that gap is exactly what room-profile gating
-    // needs to be visible, not implicit.
-    const roomTag = card.querySelector('[data-role="room"]');
-    roomTag.hidden = !inRoom;
-    roomTag.textContent = inRoom ? inRoom.name : '';
-    roomTag.classList.toggle('on', Boolean(inRoom && room && inRoom.id === room.id));
-
-    card.querySelector('[data-role="offline"]').hidden = Boolean(user.online);
-
-    // Off stream: online, but not in the room the admin/GM is actually in
-    // right now -- not the dropdown's manual pick above, which is only for
-    // Participant/Character gating. A pull-aside room is no different:
-    // whoever's aside together is off stream same as any other room they
-    // could have wandered into.
-    const offStream = adminOnline && Boolean(user.online) && user.online.room !== t.activeRoom;
-    const offStreamTag = card.querySelector('[data-role="off-stream"]');
-    offStreamTag.hidden = !offStream;
-    offStreamTag.textContent = inRoom && inRoom.ephemeral ? 'ASIDE' : 'OFF STREAM';
     const exists = obsConnected && Boolean(name) && inputs.has(name);
     // Gating never touches the tick, only OBS-side visibility (syncTavern
     // hides it, not unpublishes it) -- so something ticked on from before,
@@ -2573,8 +2605,16 @@ function renderTavern() {
   };
 
   for (const user of party) {
+    renderPerson(user);
     renderRow(user, 'player');
     renderRow(user, 'character');
+  }
+  // Anyone no longer in the list loses their whole group.
+  for (const [key, group] of personCards) {
+    if (!party.some((u) => u.key === key)) {
+      group.remove();
+      personCards.delete(key);
+    }
   }
   for (const cards of [participantCards, characterCards]) {
     for (const [key, card] of cards) {

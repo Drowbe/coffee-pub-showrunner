@@ -541,41 +541,36 @@
           </div>
         </div>
         <p class="hint" id="tavern-empty">Sign in to Chameleon on the Session tab to see its users here.</p>
+        <div id="tavern-people" class="people"></div>
       </div>
 
-      <div class="card" id="tavern-participants-section">
-        <h2>Participants</h2>
-        <div id="tavern-participants" class="party"></div>
-      </div>
 
       <div class="card" id="tavern-level-card">
         <div class="view-head">
           <div class="view-head-left">
             <h2>Audio</h2>
-            <input id="tavern-autolevel" class="switch" type="checkbox" aria-label="Auto level during the session" title="Auto level: keep everyone near the target level while the session runs">
-            <span class="tag" id="tavern-autolevel-tag" hidden>AUTO LEVEL</span>
           </div>
         </div>
-        <p class="hint">Everyone sounds a different loudness. <strong>Calibrate</strong>: have everyone talk normally and click it, and Showrunner listens to each Participant source in OBS and sets each person's volume so they all land at the target level, saved with the person. <strong>Auto level</strong> (the switch above) keeps doing that quietly during the session, so someone who joins late, or whose microphone changes from game to game, is brought in line without you doing anything. It only acts while a person is speaking, moves slowly, and leaves a volume alone for a minute after you move it yourself. A mic that is clipping, or very quiet, still needs fixing at the source.</p>
+        <p class="hint">Everyone sounds a different loudness. <strong>Calibrate</strong>: have everyone talk normally and click it, and Showrunner listens to each Participant source in OBS and sets each person's volume so they all land at the target level, saved with the person. <strong>Auto level</strong> (the checkbox below) keeps doing that quietly during the session, so someone who joins late, or whose microphone changes from game to game, is brought in line without you doing anything. It only acts while a person is speaking, moves slowly, and leaves a volume alone for a minute after you move it yourself. A mic that is clipping, or very quiet, still needs fixing at the source.</p>
         <div class="row">
-          <label class="check" title="Adds noise suppression, then a compressor, then a limiter to each new Participant source, so people at different mic levels sound closer together. Filters a source already has are left alone."><input id="tavern-audio-filters" type="checkbox"><span>Add audio filters to new participants</span></label>
-          <button id="tavern-add-filters" class="btn btn-small" type="button" title="Add the filters to the Participant sources already in OBS, skipping any kind a source already has">Add to existing participants</button>
+          <div class="level-target"><div class="level-target-head"><span class="level-target-label">Target level</span><output id="tavern-level-target-value">-20 dB</output></div><div class="level-scale"><input id="tavern-level-target" type="range" min="-40" max="-6" step="1" value="-20" aria-label="Target level" title="The average speech level every participant is brought to. Speech usually sits around -20."><div class="level-zones" aria-hidden="true"><span class="zone-low">Quiet</span><span class="zone-mid">Speech</span><span class="zone-hot">Loud</span></div></div></div>
         </div>
         <div class="row">
-          <div class="field level-target"><span>Target level</span><div class="level-scale"><input id="tavern-level-target" type="range" min="-40" max="-6" step="1" value="-20" aria-label="Target level" title="The average speech level every participant is brought to. Speech usually sits around -20."><div class="level-zones" aria-hidden="true"><span class="zone-low">Quiet</span><span class="zone-mid">Typical speech</span><span class="zone-hot">Loud</span></div></div><output id="tavern-level-target-value">-20 dB</output></div>
-        </div>
-        <div class="row">
-          <label class="field field-inline"><span>Calibrate for (seconds)</span><input id="tavern-level-seconds" type="number" min="5" max="60" step="1" size="3" value="10"></label>
+          <span class="level-manual">Manually calibrate</span><input id="tavern-level-seconds" type="number" min="5" max="60" step="1" size="3" value="10" aria-label="Seconds to listen"><span class="level-manual">seconds</span>
           <button id="tavern-level-run" class="btn btn-primary" type="button">Calibrate</button>
         </div>
         <p class="hint" id="tavern-level-status"></p>
         <div id="tavern-level-results" class="level-results"></div>
+        <div class="row">
+          <label class="check level-auto" title="Keep everyone near the target level while the session runs"><input id="tavern-autolevel" type="checkbox"><span>Auto-level during session</span></label>
+          <span class="level-auto-status" id="tavern-autolevel-status"></span>
+        </div>
+        <div class="row">
+          <label class="check" title="Adds noise suppression, then a compressor, then a limiter to each new Participant source, so people at different mic levels sound closer together. Filters a source already has are left alone."><input id="tavern-audio-filters" type="checkbox"><span>Add audio filters to new participants</span></label>
+          <button id="tavern-add-filters" class="btn btn-small" type="button" title="Add the filters to the Participant sources already in OBS, skipping any kind a source already has">Add filters to existing sources</button>
+        </div>
       </div>
 
-      <div class="card" id="tavern-characters-section">
-        <h2>Characters</h2>
-        <div id="tavern-characters" class="party"></div>
-      </div>
     </section>
 
     <section class="tab-panel" id="tab-automations" hidden>
@@ -803,21 +798,16 @@
 
   <datalist id="session-groups"></datalist>
 
-  <!-- Cloned once per user in the Participants list and once in the
-       Characters list; renderTavern()'s renderRow() fills in the
-       kind-specific bits (thumbnail slot, tooltip, source field). -->
+  <!-- One source row inside a person's group: cloned once for their Participant and once for their
+       Character. renderTavern()'s renderRow() fills in the kind-specific bits (thumbnail, tooltip, source
+       name). What belongs to the person -- online, mic, camera, level, where they are -- is in the group
+       header (tavern-person-template). -->
   <template id="tavern-row-template">
     <article class="player-card">
       <img class="player-thumb" data-role="thumb" alt="">
       <div class="player-main">
         <div class="player-head">
-          <span class="dot" data-role="online"></span>
           <span class="chips" data-role="chips"></span>
-          <i class="fa-solid fa-microphone av-icon" data-role="mic" hidden aria-hidden="true"></i>
-          <i class="fa-solid fa-video av-icon" data-role="video" hidden aria-hidden="true"></i>
-          <span class="tag tag-dim" data-role="room" hidden></span>
-          <span class="tag tag-dim" data-role="offline" hidden>OFFLINE</span>
-          <span class="tag tag-dim" data-role="off-stream" hidden title="Online, but not in the room the admin is in right now">OFF STREAM</span>
         </div>
       </div>
       <div class="player-actions">
@@ -826,6 +816,27 @@
         <button class="btn btn-small btn-primary" data-action="toggle" type="button">Add to OBS</button>
       </div>
     </article>
+  </template>
+
+  <!-- A person: the header holds what is true of them, once -- at the table or not, camera, mic, the level
+       Calibrate or Auto level set, and which room they are in -- and the rows below are their sources. -->
+  <template id="tavern-person-template">
+    <section class="person">
+      <div class="person-head">
+        <span class="dot" data-role="online"></span>
+        <b class="person-name" data-role="name"></b>
+        <span class="person-av">
+          <i class="fa-solid fa-video-slash av-icon" data-role="video" aria-hidden="true"></i>
+          <i class="fa-solid fa-microphone-slash av-icon" data-role="mic" aria-hidden="true"></i>
+        </span>
+        <span class="person-level" data-role="level"></span>
+        <span class="person-spacer"></span>
+        <span class="tag tag-dim" data-role="room" hidden></span>
+        <span class="tag tag-dim" data-role="offline" hidden>OFFLINE</span>
+        <span class="tag tag-dim" data-role="off-stream" hidden title="Online, but not in the room the admin is in right now">OFF STREAM</span>
+      </div>
+      <div class="person-rows" data-role="rows"></div>
+    </section>
   </template>
 
   <template id="region-template">
