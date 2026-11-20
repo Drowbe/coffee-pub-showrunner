@@ -101,7 +101,7 @@ the Rule sets switch a group on or off, so a long list shows only the groups you
 A bar along the bottom of the window, always showing and styled like the control panel's, says what just happened and
 which script is loaded. It reports the cue or heading the reading line just crossed, scrolling started or paused, a new
 speed, text size or mirror setting, the script reloading after you save it elsewhere, and any rule set an event
-starts. While a rule set runs, the bar holds a pulsing "Running: Title Sequence · step 2 of 3" (or "waiting 5s" during a delay) until it finishes, so you can tell a title screen is up without Showrunner in view; then it says "Ran rule set", or warns if a step failed. Several at once read "Running: A + B". While editing it also says Unsaved,
+starts. While a rule set runs, the bar holds a pulsing "Running: Title Sequence · step 2 of 3" (and during a delay, what it just did plus a countdown: "Running: Title Screen · switched to Title, paused, 8s left") until it finishes, so you can tell a title screen is up without Showrunner in view; then it says "Ran rule set", or warns if a step failed. Several at once read "Running: A + B". While editing it also says Unsaved,
 File saved, and Cue removed. A message fades after a few seconds.
 
 ## Controlling it from Automations

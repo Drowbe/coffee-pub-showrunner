@@ -1652,6 +1652,7 @@ async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
   const runToken = ++prompterRunToken;
   const stageList = stagesFor(ruleSet.steps);
   let anyFailed = false;
+  let lastDid = ''; // what the last action stage did, shown beside a wait
   let doneText = `Ran rule set: ${runName}`;
   prompterRunUpdate(runToken, runName, '');
   // Tracks whether the last action stage that actually ran had every step
@@ -1683,10 +1684,16 @@ async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
       // highlights all of them at once, since they really are running
       // together, not one after another.
       state.activeStepIds = stage.kind === 'delay' ? [stage.id] : stage.steps.map((s) => s.id);
-      prompterRunUpdate(runToken, runName, stage.kind === 'delay' ? `waiting ${stage.seconds}s` : `step ${stageList.indexOf(stage) + 1} of ${stageList.length}`);
+      prompterRunUpdate(runToken, runName, stage.kind === 'delay' ? `${lastDid ? `${lastDid}, ` : ''}paused ${stage.seconds}s` : `step ${stageList.indexOf(stage) + 1} of ${stageList.length}`);
       broadcastStatus();
       if (stage.kind === 'delay') {
-        await sleepCancellable(stage.seconds * 1000, state);
+        // Count down on the teleprompter's bar, once a second.
+        const endsAt = Date.now() + stage.seconds * 1000;
+        const ticker = setInterval(() => {
+          const left = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+          prompterRunUpdate(runToken, runName, `${lastDid ? `${lastDid}, ` : ''}paused, ${left}s left`);
+        }, 1000);
+        try { await sleepCancellable(stage.seconds * 1000, state); } finally { clearInterval(ticker); }
         continue;
       }
       let stageFailed = false;
@@ -1702,6 +1709,7 @@ async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
         )
       );
       lastOutcome = stageFailed ? 'failure' : 'success';
+      lastDid = stage.steps.map(describeStep).join(' and ');
     }
     if (state.cancelled) doneText = `Stopped rule set: ${runName}`;
     else if (anyFailed) doneText = `Rule set "${runName}" had a failed step`;
@@ -2866,6 +2874,19 @@ function prompterRunUpdate(token, name, detail) {
   prompterRuns.set(token, detail ? `${name} \u00b7 ${detail}` : name);
   prompterStatus(prompterRunsLine(), false, { hold: true });
 }
+// A short, plain description of what a step did, for the status line.
+function describeStep(step) {
+  const p = step.param ? ` ${step.param}` : '';
+  const known = {
+    sceneSwitch: `switched to${p}`, sourceShow: `showed${p}`, sourceHide: `hid${p}`, sourceToggle: `toggled${p}`,
+    setText: `set text on${p}`, sourceMute: `muted${p}`, sourceUnmute: `unmuted${p}`, setVolume: `set volume of${p}`,
+    startRecording: 'started recording', stopRecording: 'stopped recording', pauseRecording: 'paused recording',
+    resumeRecording: 'resumed recording', startStreaming: 'started streaming', stopStreaming: 'stopped streaming',
+    showToast: 'sent a notification', runRuleSet: 'ran another rule set',
+  };
+  return known[step.action] || String(step.action || 'ran a step');
+}
+
 function prompterRunEnd(token, doneText, failed) {
   prompterRuns.delete(token);
   if (prompterRuns.size) prompterStatus(prompterRunsLine(), false, { hold: true });
