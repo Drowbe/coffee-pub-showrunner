@@ -1301,6 +1301,21 @@ async function runAutomationAction(action, param, eventData, stepContext, chain 
       prompterPage.webContents.send('prompter:command', command);
       return;
     }
+    case 'prompterLoadScript': {
+      if (!param) throw new Error('prompterLoadScript needs a script file.');
+      if (prompterIsEditing) throw new Error('The teleprompter is being edited; finish editing before loading another script.');
+      const current = configStore.get().teleprompter.script;
+      const file = path.isAbsolute(param) ? param : path.resolve(current ? path.dirname(current) : app.getPath('documents'), param);
+      let stat;
+      try { stat = await fs.promises.stat(file); } catch (err) { throw new Error(`Cannot find the script ${file}`); }
+      if (!stat.isFile()) throw new Error(`${file} is not a file.`);
+      if (stat.size > MAX_SCRIPT_BYTES) throw new Error('That script is larger than 2 MB.');
+      saveTeleprompter({ script: file });
+      broadcastStatus();
+      syncPrompter(true);
+      prompterStatus(`Loaded script: ${path.basename(file)}`);
+      return;
+    }
     case 'wakeAudio':
       for (const id of viewWindows.keys()) {
         if (wakeAudio(id)) wakeWhenReady(id, 5000);
@@ -2834,6 +2849,7 @@ function openLaunchViews() {
 
 let prompterWindow = null;
 let prompterPage = null;
+let prompterIsEditing = false; // the page says so: a script cannot be swapped under an open editor
 let prompterWatch = null; // { script, watcher, timer }
 
 const prompterOpen = () => isAlive(prompterWindow);
@@ -2924,11 +2940,12 @@ function watchPrompter(t) {
   }
 }
 
-async function pushPrompter() {
+async function pushPrompter(fresh) {
   if (!prompterPage || prompterPage.webContents.isDestroyed()) return;
   const t = configStore.get().teleprompter;
   watchPrompter(t);
-  prompterPage.webContents.send('prompter:content', await prompterContent(t));
+  const content = await prompterContent(t);
+  prompterPage.webContents.send('prompter:content', fresh ? { ...content, fresh: true } : content);
   prompterPage.webContents.send('prompter:settings', prompterSettings(t));
 }
 
@@ -3043,6 +3060,7 @@ function openPrompter() {
     if (prompterWindow === win) {
       prompterWindow = null;
       prompterPage = null;
+      prompterIsEditing = false;
     }
     if (!page.webContents.isDestroyed()) page.webContents.close();
     broadcastStatus();
@@ -3057,12 +3075,12 @@ function openPrompter() {
 }
 
 // Settings saved from the control panel: resize the open window to match and hand the page the new values.
-function syncPrompter() {
+function syncPrompter(fresh) {
   if (!prompterOpen()) return;
   const t = configStore.get().teleprompter;
   const [w, h] = pageSize(prompterWindow);
   if (w !== t.width || h !== t.height) prompterWindow.setContentSize(t.width, t.height + BAR_HEIGHT);
-  pushPrompter().catch(() => {});
+  pushPrompter(fresh).catch(() => {});
 }
 
 function closePrompter() {
@@ -3619,6 +3637,10 @@ function registerIpc() {
     return { ok: true };
   });
   // The reading line reached a cue or a heading: tell Automations, exactly as if a module had.
+  ipcMain.on('prompter:editing', (event, on) => {
+    if (!prompterPage || event.sender !== prompterPage.webContents) return;
+    prompterIsEditing = Boolean(on);
+  });
   ipcMain.on('prompter:cue', (event, cue) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return;
     if (!cue || typeof cue.event !== 'string' || !cue.event.startsWith('teleprompter:')) return;

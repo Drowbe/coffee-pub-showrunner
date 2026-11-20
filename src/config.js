@@ -249,7 +249,7 @@ const STUDIO_ACTIONS = [
   'applySessionFilename', 'runRuleSet', 'incrementMetadataField', 'decrementMetadataField',
   'setMetadataField', 'clearMetadataField', 'showToast', 'uploadToYouTube',
   'prompterPlay', 'prompterPause', 'prompterToggle', 'prompterFaster', 'prompterSlower',
-  'prompterNext', 'prompterPrev', 'prompterTop',
+  'prompterNext', 'prompterPrev', 'prompterTop', 'prompterLoadScript',
 ];
 const STUDIO_ACTION_SCHEMA = [
   { action: 'wakeAudio', label: 'Wake audio (every open window)', param: null, paramType: 'none', group: 'Studio Control' },
@@ -309,6 +309,9 @@ const STUDIO_ACTION_SCHEMA = [
   { action: 'prompterNext', label: 'Teleprompter: next heading', param: null, paramType: 'none', group: 'Teleprompter' },
   { action: 'prompterPrev', label: 'Teleprompter: previous heading', param: null, paramType: 'none', group: 'Teleprompter' },
   { action: 'prompterTop', label: 'Teleprompter: back to the top', param: null, paramType: 'none', group: 'Teleprompter' },
+  // param is a script file: a full path, or a name next to the script already loaded. It becomes the profile's script,
+  // exactly as if chosen on the Teleprompter page, and the window starts it from the top.
+  { action: 'prompterLoadScript', label: 'Teleprompter: load a script', param: 'script file', paramType: 'scriptFile', group: 'Teleprompter' },
 ];
 
 function defaultAutomations() {

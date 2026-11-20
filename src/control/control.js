@@ -2896,6 +2896,7 @@ const STUDIO_ACTIONS = [
   { value: 'prompterNext', label: 'Teleprompter: next heading', paramType: 'none', group: 'Teleprompter' },
   { value: 'prompterPrev', label: 'Teleprompter: previous heading', paramType: 'none', group: 'Teleprompter' },
   { value: 'prompterTop', label: 'Teleprompter: back to the top', paramType: 'none', group: 'Teleprompter' },
+  { value: 'prompterLoadScript', label: 'Teleprompter: load a script', paramType: 'scriptFile', group: 'Teleprompter' },
 ];
 
 // Live OBS scene/source names, refreshed by refreshAutomationsScenes() below
@@ -3746,6 +3747,27 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       pickerToggle.addEventListener('click', () => toggleDataFieldPicker(pickerPanel, paramInput));
 
       mainRow.append(paramInput, pickerToggle, pickerPanel);
+    } else if (meta && meta.paramType === 'scriptFile') {
+      // A script to load: typed (a full path, or a file name next to the script already loaded) or browsed for.
+      const scriptInput = document.createElement('input');
+      scriptInput.type = 'text';
+      scriptInput.className = 'automation-step-value';
+      scriptInput.placeholder = 'Script file: a path, or a name next to the current script';
+      scriptInput.value = step.param || '';
+      scriptInput.dataset.sfield = 'param';
+      scriptInput.spellcheck = false;
+      const scriptBrowse = document.createElement('button');
+      scriptBrowse.type = 'button';
+      scriptBrowse.className = 'btn btn-small';
+      scriptBrowse.textContent = 'Browse';
+      scriptBrowse.addEventListener('click', async () => {
+        const picked = await api.automationsPickTextFile();
+        if (!picked) return;
+        scriptInput.value = picked;
+        step.param = picked;
+        saveAutomationsRuleSets();
+      });
+      mainRow.append(scriptInput, scriptBrowse);
     } else if (meta && meta.paramType !== 'none' && meta.paramType !== 'ruleSet' && meta.paramType !== 'metadataField' && meta.paramType !== 'youtubeUpload') {
       const options = optionsForParamType(meta.paramType);
       const paramSelect = document.createElement('select');

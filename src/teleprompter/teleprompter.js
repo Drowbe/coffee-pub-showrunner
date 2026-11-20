@@ -151,8 +151,9 @@ function showContent(content) {
   }
   const before = window.scrollY;
 
+  const sameScript = (content.name || '') === scriptName;
   showScriptName(content.name || '');
-  if (loadedOnce && !content.error && content.html) status('Script reloaded');
+  if (loadedOnce && sameScript && !content.error && content.html && !content.fresh) status('Script reloaded');
   loadedOnce = true;
   if (content.error || !content.html) {
     scriptEl.innerHTML = '';
@@ -164,6 +165,7 @@ function showContent(content) {
   scriptEl.innerHTML = content.html;
   resetCues();
   let target = before;
+  if (content.fresh) { target = 0; anchor = null; }
   if (anchor) {
     const el = cueEls.find((c) => c.dataset.kind === 'heading' && c.dataset.cue === anchor.event && c.dataset.label === anchor.label);
     if (el) target = el.getBoundingClientRect().top + window.scrollY - (y - anchor.delta);

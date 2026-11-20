@@ -158,7 +158,7 @@ request itself needs.
 `group` on each is meant for building a menu -- `"Controls"`, `"Scenes"`, `"Sources"`, or
 `"Studio Control"` -- grouped the same way Showrunner's own OBS Control card is laid out. `paramType`
 says what kind of thing `param` holds (`"scene"`, `"source"`, `"ruleSet"`, `"metadataField"`,
-`"text"`, `"youtubeUpload"`, or `"none"`) -- `"text"` (`showToast` alone, currently) means `param` is
+`"text"`, `"scriptFile"`, `"youtubeUpload"`, or `"none"`) -- `"text"` (`showToast` alone, currently) means `param` is
 free text, not a picker value; `youtubeUpload` (`uploadToYouTube` alone) is the one exception to
 "one param": it has five named fields instead (see the Showrunner actions table below), not
 discoverable or callable meaningfully via this API at all -- Showrunner's own step editor is the only
@@ -385,6 +385,7 @@ disconnected:
 | `prompterPlay` / `prompterPause` / `prompterToggle` | Starts, pauses, or flips the teleprompter's auto-scroll. Group `Teleprompter`; no `param`. Fails with a clear error if the teleprompter window isn't open |
 | `prompterFaster` / `prompterSlower` | Changes the scroll speed one step, the same step as the `]` and `[` keys (saved to the profile) |
 | `prompterNext` / `prompterPrev` / `prompterTop` | Jumps to the next or previous heading, or back to the top of the script |
+| `prompterLoadScript` | Loads a script into the teleprompter and starts it from the top. `param` is a full path, or a file name next to the script already loaded. It becomes the profile's script, as if chosen on the Teleprompter page, so it is also what loads next time. Fails if the file is missing or too big, or while the script is being edited |
 
 `setMetadataField`'s value, on a direct `POST /api/automations/action` call, comes from `data.value`
 (a literal string) -- the same shape `setText` uses for `data.text`, just a different key name since

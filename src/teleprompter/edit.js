@@ -212,6 +212,7 @@ async function enter() {
   hasFile = Boolean(source.path); // with no script chosen, this is a new one: it asks where to save the first time
   readingY = window.scrollY;
   document.body.classList.add('editing');
+  window.prompter.editing(true);
   editBar.hidden = false;
   showFile(source.path);
   ed = dlRichEditor(DlPM, document, (markdown) => lexer.lexer(markdown), editBox, { onView: (view) => { editorView = view; } });
@@ -290,6 +291,7 @@ function leave() {
   statusFile.title = '';
   showScriptName(scriptName);
   document.body.classList.remove('editing');
+  window.prompter.editing(false);
   if (heldContent) { showContent(heldContent); heldContent = null; }
   requestAnimationFrame(() => { window.scrollTo(0, readingY); pos = window.scrollY; resetCues(); });
 }

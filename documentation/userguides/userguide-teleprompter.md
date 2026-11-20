@@ -107,9 +107,16 @@ File saved, and Cue removed. A message fades after a few seconds.
 ## Controlling it from Automations
 
 A rule set step can drive the reading controls, under the **Teleprompter** group: start scrolling, pause, play or
-pause, scroll faster, scroll slower, next heading, previous heading, back to the top. For example, a rule set on the
+pause, scroll faster, scroll slower, next heading, previous heading, back to the top, and **load a script**. For example, a rule set on the
 cue `Start Reading` can switch the scene and then start the scroll. The teleprompter window has to be open, or the step
 reports that it is not.
+
+**Load a script** swaps in a different file and starts it from the top: type a full path, or just a file name to use
+one in the same folder as the script that is loaded now, or use Browse. Use it to run a show in segments. A script
+ends with a cue such as `<!-- cue: Next Segment -->`; a rule set on that cue switches the scene and then loads the next
+script, and its own last cue does the same for the one after. The loaded script becomes the profile's script (the
+Teleprompter page shows it, and it is what opens next time), so finish a show with a step that loads the first one
+again. It cannot run while you are editing.
 
 ## Troubleshooting
 
