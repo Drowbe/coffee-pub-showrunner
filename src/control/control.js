@@ -771,11 +771,35 @@ function renderTabs() {
     dot.dataset.viewDot = view.id;
     tab.appendChild(dot);
     tab.append(view.label);
-    viewTabsEl.appendChild(tab);
+    // The same arrow icon as the teleprompter's: start or stop this window without opening its page.
+    const row = document.createElement('div');
+    row.className = 'tab-row';
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'tab-action';
+    open.dataset.viewOpen = view.id;
+    open.innerHTML = '<i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>';
+    row.append(tab, open);
+    viewTabsEl.appendChild(row);
   }
   $('tabs').querySelector('.tab-add').hidden = config.views.length >= limits.maxViews && (config.appWindows || []).length >= MAX_APP_WINDOWS;
   selectTab(activeTab);
 }
+
+// Start or stop a window from its arrow in the left rail.
+viewTabsEl.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-view-open]');
+  if (!button || button.disabled) return;
+  const id = button.dataset.viewOpen;
+  await flushSave();
+  const open = Boolean((status.views.find((v) => v.id === id) || {}).open);
+  try {
+    if (open) await api.closeView(id);
+    else await api.openView(id);
+  } catch (err) {
+    reportError(err);
+  }
+});
 
 async function addWebWindow() {
   await flushSave();
@@ -1503,6 +1527,13 @@ function renderStatus() {
 
     const dot = document.querySelector(`[data-view-dot="${view.id}"]`);
     if (dot) dot.classList.toggle('on', Boolean(s.open));
+    const rail = document.querySelector(`[data-view-open="${view.id}"]`);
+    if (rail) {
+      rail.classList.toggle('on', Boolean(s.open));
+      rail.disabled = !s.open && !view.url;
+      rail.title = s.open ? `Stop ${view.label}` : view.url ? `Start ${view.label}` : 'Enter a URL first';
+      rail.setAttribute('aria-label', rail.title);
+    }
 
     const tag = card.querySelector('[data-role="tag"]');
     tag.hidden = !s.open;
