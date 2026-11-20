@@ -29,30 +29,30 @@ body { cursor: default; }
 
 body.mirror #stage { transform: scaleX(-1); }
 
-#script {
+:is(#script, #editor .ProseMirror) {
   font-size: var(--size);
   line-height: var(--leading);
   font-weight: 500;
   overflow-wrap: anywhere;
 }
 
-#script h1, #script h2, #script h3, #script h4 {
+:is(#script, #editor .ProseMirror) h1, :is(#script, #editor .ProseMirror) h2, :is(#script, #editor .ProseMirror) h3, :is(#script, #editor .ProseMirror) h4 {
   line-height: 1.2;
   margin: 1.1em 0 0.4em;
   color: var(--accent);
 }
-#script h1 { font-size: 1.35em; }
-#script h2 { font-size: 1.2em; }
-#script h3, #script h4 { font-size: 1.05em; }
-#script p, #script ul, #script ol, #script blockquote, #script pre { margin: 0 0 0.7em; }
-#script ul, #script ol { padding-left: 1.2em; }
-#script blockquote { border-left: 0.12em solid var(--dim); padding-left: 0.6em; color: var(--dim); }
-#script code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85em; }
-#script hr { border: 0; border-top: 2px solid var(--dim); margin: 1em 0; }
-#script .link { text-decoration: underline; text-decoration-color: var(--dim); }
+:is(#script, #editor .ProseMirror) h1 { font-size: 1.35em; }
+:is(#script, #editor .ProseMirror) h2 { font-size: 1.2em; }
+:is(#script, #editor .ProseMirror) h3, :is(#script, #editor .ProseMirror) h4 { font-size: 1.05em; }
+:is(#script, #editor .ProseMirror) p, :is(#script, #editor .ProseMirror) ul, :is(#script, #editor .ProseMirror) ol, :is(#script, #editor .ProseMirror) blockquote, :is(#script, #editor .ProseMirror) pre { margin: 0 0 0.7em; }
+:is(#script, #editor .ProseMirror) ul, :is(#script, #editor .ProseMirror) ol { padding-left: 1.2em; }
+:is(#script, #editor .ProseMirror) blockquote { border-left: 0.12em solid var(--dim); padding-left: 0.6em; color: var(--dim); }
+:is(#script, #editor .ProseMirror) code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85em; }
+:is(#script, #editor .ProseMirror) hr { border: 0; border-top: 2px solid var(--dim); margin: 1em 0; }
+:is(#script, #editor .ProseMirror) .link { text-decoration: underline; text-decoration-color: var(--dim); }
 
 /* A cue the presenter can see coming: small and dim, never part of the spoken text. */
-#script .cue {
+:is(#script, #editor .ProseMirror) .cue {
   margin: 0.4em 0;
   font-size: 0.34em;
   line-height: 1;
@@ -60,7 +60,7 @@ body.mirror #stage { transform: scaleX(-1); }
   letter-spacing: 0.12em;
   color: var(--dim);
 }
-#script .cue span {
+:is(#script, #editor .ProseMirror) .cue span {
   display: inline-block;
   padding: 0.35em 0.8em;
   border: 1px solid var(--dim);
@@ -137,3 +137,48 @@ body.hide-cursor { cursor: none; }
 #controls button.on { background: color-mix(in srgb, var(--accent) 30%, #182c47); border-color: var(--accent); }
 #controls output { min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
 #controls .unit { color: var(--dim); font-size: 12px; }
+
+/* Edit mode ------------------------------------------------------------------------------- */
+#editor { display: none; }
+body.editing #editor { display: block; }
+body.editing #script, body.editing #line, body.editing #controls { display: none; }
+body.editing #stage { transform: none; padding: 84px 0 40vh; }
+#editor .ProseMirror { min-height: 60vh; outline: none; white-space: pre-wrap; word-wrap: break-word; caret-color: var(--accent); }
+#editor .ProseMirror ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+#editor .ProseMirror li { position: relative; }
+#editor .ProseMirror > :last-child { margin-bottom: 0; }
+#editor .ProseMirror .dl-source, #editor .ProseMirror .dl-source-inline {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.4em;
+  color: var(--dim);
+}
+#editor .ProseMirror pre.dl-source { margin: 0.4em 0; white-space: pre-wrap; }
+
+#edit-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: rgba(20, 28, 42, 0.97);
+  border-bottom: 1px solid #2a4162;
+  font-size: 13px;
+}
+#edit-bar .group { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+#edit-bar button {
+  font: inherit;
+  color: var(--text);
+  background: #182c47;
+  border: 1px solid #2a4162;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+#edit-bar button:hover { border-color: var(--accent); }
+#edit-bar button.on { background: color-mix(in srgb, var(--accent) 30%, #182c47); border-color: var(--accent); }
+#edit-status { flex: 1; text-align: center; color: var(--dim); }

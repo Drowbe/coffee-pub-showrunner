@@ -263,7 +263,10 @@ open source: see [LICENSE](LICENSE) for what is and isn't allowed.
 
 The header uses the Fraunces and Figtree typefaces, bundled under the SIL Open Font License 1.1. The teleprompter
 uses [marked](https://github.com/markedjs/marked) (MIT license, Copyright (c) 2018-2026 MarkedJS and 2011-2018 Christopher Jeffrey) to read Markdown;
-its license text ships with the app in `node_modules/marked/LICENSE`.
+its license text ships with the app in `node_modules/marked/LICENSE`. The teleprompter's script editor is the Markdown editor from
+Coffee Pub Chameleon, built on [ProseMirror](https://prosemirror.net) (MIT license, Copyright (C) 2015-2017 Marijn Haverbeke and others) and
+[Yjs](https://github.com/yjs/yjs) (MIT license, Copyright (c) 2023 Kevin Jahns and others), with `marked` as its lexer; each package's license text
+is in `src/teleprompter/editor/licenses/`, and the files are listed in `src/teleprompter/editor/README.md`.
 
 ## AI Assistance and the Illusion of Good Code
 

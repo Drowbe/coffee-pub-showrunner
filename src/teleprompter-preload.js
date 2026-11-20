@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('prompter', {
   onSettings: (callback) => ipcRenderer.on('prompter:settings', (_event, settings) => callback(settings)),
   cue: (cue) => ipcRenderer.send('prompter:cue', cue),
   save: (patch) => ipcRenderer.send('prompter:save', patch),
+  readSource: () => ipcRenderer.invoke('prompter:readScript'),
+  writeSource: (text) => ipcRenderer.invoke('prompter:writeScript', text),
 });

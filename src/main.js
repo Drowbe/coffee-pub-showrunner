@@ -3439,11 +3439,11 @@ function registerIpc() {
   // The script editor on the Teleprompter page: read the file, save it back, list the cues in the text.
   ipcMain.handle('prompter:readScript', async () => {
     const t = configStore.get().teleprompter;
-    if (!t.script) return { text: '', error: '' };
+    if (!t.script) return { text: '', path: '', error: '' };
     try {
       const stat = await fs.promises.stat(t.script);
       if (stat.size > MAX_SCRIPT_BYTES) return { text: '', error: 'That file is larger than 2 MB, which is too big for a script.' };
-      return { text: await fs.promises.readFile(t.script, 'utf8'), error: '' };
+      return { text: await fs.promises.readFile(t.script, 'utf8'), path: t.script, error: '' };
     } catch (err) {
       return { text: '', error: `${err.code === 'ENOENT' ? 'Cannot find' : 'Cannot read'} ${t.script}` };
     }

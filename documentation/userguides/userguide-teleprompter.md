@@ -18,6 +18,13 @@ profile has its own script, settings and window position, so a podcast profile a
 (or Cmd/Ctrl+S). Under the editor is the list of events your headings and cues will fire, ready to use in a rule set.
 **Revert** reads the file again and drops unsaved changes.
 
+**In the window.** Press **Edit** on the window's controls, or E, to edit the script where it is read. The text looks as it
+does when reading, in the same size and width, and you type into it: `# `, `- `, `1. ` and `> ` at the start of a line make
+a heading, list or quote, and `**bold**` and `*italic*` work as you type. The bar at the top has bold, italic, three heading levels, lists and a quote. **Save** (or Cmd/Ctrl+S) writes the file, **Done** saves and goes back to reading,
+and **Cancel** drops unsaved changes. Auto-scroll and cues are off while you edit, and the keys that run the window (Space, `[`,
+`]` and the rest) type normally. The file stays Markdown, and only the blocks you change are rewritten; the rest of the
+file is left exactly as it was.
+
 Saving the file, here or in another editor, reloads it in the window, and the window keeps your place by the nearest heading.
 
 ## Drag it to the size you want

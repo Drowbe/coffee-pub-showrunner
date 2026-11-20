@@ -20,6 +20,8 @@ let cueEls = [];
 let lastIndex = 0; // how many cues the reading line has passed
 let lastScrollY = 0;
 let saveTimer = null;
+let heldContent = null; // text that arrived while editing; shown when editing ends
+const editing = () => document.body.classList.contains('editing');
 
 const lineY = () => window.innerHeight / 3;
 const maxScroll = () => Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
@@ -66,6 +68,7 @@ function resetCues() {
 }
 
 function checkCues() {
+  if (editing()) return;
   const n = passed();
   const jump = Math.abs(window.scrollY - lastScrollY) > window.innerHeight * 0.6;
   if (n > lastIndex && !jump) {
@@ -94,6 +97,7 @@ function notice(text) {
 }
 
 function showContent(content) {
+  if (editing()) { heldContent = content; return; }
   // Keep the reader's place across a reload: the heading nearest above the line, and how far past it.
   let anchor = null;
   const y = lineY();
@@ -173,6 +177,7 @@ const actions = {
   next: () => { manual(); headingStep(1); },
   top: () => { manual(); window.scrollTo(0, 0); pos = 0; },
   mirror: () => change({ mirror: !settings.mirror }),
+  edit: () => { manual(); window.scriptEdit.enter(); },
 };
 
 document.querySelector('#controls').addEventListener('click', (event) => {
@@ -181,8 +186,9 @@ document.querySelector('#controls').addEventListener('click', (event) => {
   button && button.blur();
 });
 
-const KEYS = { ' ': 'play', '[': 'slower', ']': 'faster', '-': 'smaller', '=': 'larger', '+': 'larger', m: 'mirror', n: 'next', p: 'prev', Home: 'top' };
+const KEYS = { ' ': 'play', '[': 'slower', ']': 'faster', '-': 'smaller', '=': 'larger', '+': 'larger', m: 'mirror', e: 'edit', n: 'next', p: 'prev', Home: 'top' };
 window.addEventListener('keydown', (event) => {
+  if (editing()) return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'End'].includes(event.key)) { manual(); return; }
   const action = KEYS[event.key];
