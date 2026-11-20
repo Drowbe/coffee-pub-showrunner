@@ -2510,15 +2510,18 @@ function renderTavern() {
     dot.title = user.online ? 'at the table' : 'offline';
     const inRoom = user.online && user.online.room ? rooms.find((r) => r.id === user.online.room) : null;
 
-    const micIcon = role('mic');
-    micIcon.hidden = !user.online;
-    micIcon.classList.toggle('on', Boolean(user.online && user.online.micOn));
-    micIcon.title = user.online ? (user.online.micOn ? 'Mic on' : 'Mic off') : '';
-
-    const videoIcon = role('video');
-    videoIcon.hidden = !user.online;
-    videoIcon.classList.toggle('on', Boolean(user.online && user.online.cameraOn));
-    videoIcon.title = user.online ? (user.online.cameraOn ? 'Camera on' : 'Camera off') : '';
+    // Always shown, so the slot is never empty: a slashed icon means off (or offline).
+    const setAv = (icon, onIcon, offIcon, on, title) => {
+      icon.hidden = false;
+      icon.classList.toggle('on', on);
+      icon.classList.remove(onIcon, offIcon);
+      icon.classList.add(on ? onIcon : offIcon);
+      icon.title = title;
+    };
+    const mic = Boolean(user.online && user.online.micOn);
+    const cam = Boolean(user.online && user.online.cameraOn);
+    setAv(role('mic'), 'fa-microphone', 'fa-microphone-slash', mic, !user.online ? 'Offline' : mic ? 'Mic on' : 'Mic off');
+    setAv(role('video'), 'fa-video', 'fa-video-slash', cam, !user.online ? 'Offline' : cam ? 'Camera on' : 'Camera off');
 
     // The level Calibrate or Auto level settled on for this person's Participant source.
     const levelDb = published[user.key] && published[user.key].levelDb;
