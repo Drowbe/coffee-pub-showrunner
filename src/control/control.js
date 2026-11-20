@@ -3315,6 +3315,13 @@ function recallCollapsedRulesets() {
 
 const collapsedRulesetIds = recallCollapsedRulesets();
 
+// The step as it is in the config now. A save swaps in fresh copies of the rule sets, so the step object a row was
+// built from can be an old copy; a handler that runs later (after a file dialog, say) must edit the live one.
+function liveStep(ruleSetId, step) {
+  const ruleSet = (config.automations.ruleSets || []).find((r) => r.id === ruleSetId);
+  return (ruleSet && ruleSet.steps.find((x) => x.id === step.id)) || step;
+}
+
 function ruleSetFromCard(card) {
   return (config.automations.ruleSets || []).find((r) => r.id === card.dataset.rulesetId);
 }
@@ -3764,10 +3771,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
         const picked = await api.automationsPickTextFile();
         if (!picked) return;
         scriptInput.value = picked;
-        // Look the step up again: a save swaps in fresh copies of the rule sets, so the one this row was built
-        // from may no longer be the one that gets sent.
-        const live = ((config.automations.ruleSets || []).find((r) => r.id === ruleSetId) || { steps: [] }).steps.find((x) => x.id === step.id);
-        (live || step).param = picked;
+        liveStep(ruleSetId, step).param = picked;
         saveAutomationsRuleSets();
       });
       mainRow.append(scriptInput, scriptBrowse);
@@ -3937,7 +3941,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
         const picked = await api.youtubePickVideoFile();
         if (!picked) return;
         fileInput.value = picked;
-        step.filePath = picked;
+        liveStep(ruleSetId, step).filePath = picked;
         saveAutomationsRuleSets();
       });
       filePathGroup.appendChild(browseBtn);
@@ -3947,9 +3951,9 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       fileModeSelect.addEventListener('change', () => {
         const specific = fileModeSelect.value === 'specific';
         filePathGroup.hidden = !specific;
-        if (!specific && step.filePath) {
+        if (!specific && liveStep(ruleSetId, step).filePath) {
           fileInput.value = '';
-          step.filePath = '';
+          liveStep(ruleSetId, step).filePath = '';
           saveAutomationsRuleSets();
         }
       });
@@ -4023,7 +4027,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
           const picked = await api.automationsPickTextFile();
           if (!picked) return;
           fileInput.value = picked;
-          step.filePath = picked;
+          liveStep(ruleSetId, step).filePath = picked;
           saveAutomationsRuleSets();
         });
         mainRow.appendChild(browseBtn);
