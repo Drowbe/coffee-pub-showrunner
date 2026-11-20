@@ -2152,7 +2152,7 @@ tavernEls.height.addEventListener('input', () => {
   if (tavernEls.lock.checked && Number(tavernEls.height.value) > 0) tavernEls.width.value = String(Math.round(Number(tavernEls.height.value) * RATIO_16_9));
 });
 
-// The Level the participants card's controls; declared here because the save listeners below use them.
+// The Audio card's controls; declared here because the save listeners below use them.
 const levelEls = { target: $('tavern-level-target'), targetValue: $('tavern-level-target-value'), auto: $('tavern-autolevel'), autoTag: $('tavern-autolevel-tag'), seconds: $('tavern-level-seconds'), run: $('tavern-level-run'), status: $('tavern-level-status'), results: $('tavern-level-results') };
 
 async function saveTavernSettings() {

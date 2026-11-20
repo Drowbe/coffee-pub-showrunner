@@ -58,7 +58,7 @@ opens in your browser, along with passwords, links, images and rooms.
 
 ## Audio filters
 
-Everyone is at a different microphone level, and OBS has no setting that balances several speakers. With
+These live in the **Audio** card on the Chameleon page. Everyone is at a different microphone level, and OBS has no setting that balances several speakers. With
 **Add audio filters to new participants** on (it is on by default), each new Participant source gets three OBS
 audio filters, in this order: noise suppression, a compressor with makeup gain, and a limiter. The compressor
 evens out loud and quiet moments for that person, and the limiter catches peaks. They are named
@@ -73,7 +73,7 @@ people to each other, so you may still nudge a volume.
 ## Level the participants
 
 The audio filters even out each person; **Calibrate** and **Auto level** match people to each other. Both are on the
-Chameleon page, under **Level the participants** (below the participant list), and both bring everyone's speech to the
+Chameleon page, under **Audio** (below the participant list), and both bring everyone's speech to the
 **Target level** slider (-20 dB by default; speech usually sits around there).
 
 **Calibrate** is the manual one. Have everyone talk normally and click **Calibrate**. Showrunner listens to the
