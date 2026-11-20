@@ -6,7 +6,6 @@
 
 const editBar = $('edit-bar');
 const editBox = $('editor');
-const editStatus = $('edit-status');
 const lexer = new marked.Marked({ gfm: true });
 
 let ed = null;
@@ -176,16 +175,17 @@ function toggleEvents(force) {
 
 const dirty = () => Boolean(ed) && ed.revision() !== baseRevision;
 
-function say(text, isError) {
-  editStatus.textContent = text;
-  editStatus.classList.toggle('error', Boolean(isError));
+// What the status bar says when nothing has just happened.
+function editIdle() {
+  if (!ed) return 'Ready';
+  if (dirty()) return 'Unsaved';
+  return hasFile ? 'Ready' : 'Not saved yet';
 }
+function say(text, isError) { status(text || editIdle(), isError); }
 
-const statusBar = $('status-bar');
-const fileLabel = $('edit-file');
 function showFile(path) {
-  fileLabel.textContent = path ? path.split(/[\\/]/).pop() : 'New script, not saved yet';
-  fileLabel.title = path || '';
+  statusFile.textContent = path ? path.split(/[\\/]/).pop() : 'New script, not saved yet';
+  statusFile.title = path || '';
 }
 
 function paint() {
@@ -197,8 +197,8 @@ function paint() {
     button.classList.toggle('on', heading ? active.heading === Number(heading[1]) : active[id] === true);
   }
   markCurrent();
-  if (dirty()) say('Unsaved');
-  else if (editStatus.textContent === 'Unsaved') say('');
+  if (dirty()) status('Unsaved');
+  else if (statusText.textContent === 'Unsaved') status(editIdle());
 }
 
 async function enter() {
@@ -213,7 +213,6 @@ async function enter() {
   readingY = window.scrollY;
   document.body.classList.add('editing');
   editBar.hidden = false;
-  statusBar.hidden = false;
   showFile(source.path);
   ed = dlRichEditor(DlPM, document, (markdown) => lexer.lexer(markdown), editBox, { onView: (view) => { editorView = view; } });
   ed.setText(source.text || (hasFile ? '' : STARTER));
@@ -240,7 +239,7 @@ async function saveAs() {
     showFile(result.path);
     savedText = text;
     baseRevision = ed.revision();
-    say('Saved');
+    say('File saved');
     return true;
   } finally {
     saving = false;
@@ -266,14 +265,14 @@ async function save() {
   if (!ed || saving) return false;
   if (!hasFile) return saveAs();
   const text = ed.getText();
-  if (text === savedText) { baseRevision = ed.revision(); say('Saved'); return true; }
+  if (text === savedText) { baseRevision = ed.revision(); say('File saved'); return true; }
   saving = true;
   try {
     const result = await window.prompter.writeSource(text);
     if (!result.ok) { say(result.error || 'Could not save', true); return false; }
     savedText = text;
     baseRevision = ed.revision();
-    say('Saved');
+    say('File saved');
     return true;
   } finally {
     saving = false;
@@ -288,7 +287,8 @@ function leave() {
   editorView = null;
   toggleEvents(false);
   editBar.hidden = true;
-  statusBar.hidden = true;
+  statusFile.title = '';
+  showScriptName(scriptName);
   document.body.classList.remove('editing');
   if (heldContent) { showContent(heldContent); heldContent = null; }
   requestAnimationFrame(() => { window.scrollTo(0, readingY); pos = window.scrollY; resetCues(); });

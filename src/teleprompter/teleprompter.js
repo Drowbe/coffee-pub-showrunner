@@ -23,6 +23,28 @@ let saveTimer = null;
 let heldContent = null; // text that arrived while editing; shown when editing ends
 const editing = () => document.body.classList.contains('editing');
 
+// ---- status bar ---------------------------------------------------------------------------
+
+const statusText = document.getElementById('status-text');
+const statusFile = document.getElementById('status-file');
+let statusTimer = null;
+let scriptName = '';
+let loadedOnce = false;
+// A message stays a few seconds, then the bar goes back to what is always true (edit.js says "Unsaved" while there are changes).
+function status(text, isError) {
+  statusText.textContent = text;
+  statusText.classList.toggle('error', Boolean(isError));
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => {
+    statusText.classList.remove('error');
+    statusText.textContent = typeof editIdle === 'function' ? editIdle() : 'Ready';
+  }, 6000);
+}
+function showScriptName(name) {
+  scriptName = name || '';
+  statusFile.textContent = scriptName;
+}
+
 const lineY = () => window.innerHeight / 3;
 const maxScroll = () => Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
 
@@ -43,6 +65,9 @@ function applySettings(next) {
 let pending = {};
 function change(patch) {
   applySettings(patch);
+  if ('speed' in patch) status(`Speed ${Math.round(settings.speed)} px/s`);
+  else if ('fontSize' in patch) status(`Text size ${settings.fontSize}px`);
+  else if ('mirror' in patch) status(settings.mirror ? 'Mirror on' : 'Mirror off');
   pending = { ...pending, ...patch };
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { window.prompter.save(pending); pending = {}; }, 400);
@@ -75,6 +100,7 @@ function checkCues() {
     for (let i = lastIndex; i < n; i += 1) {
       const el = cueEls[i];
       window.prompter.cue({ event: el.dataset.cue, label: el.dataset.label, kind: el.dataset.kind });
+      status(`${el.dataset.kind === 'heading' ? 'Heading' : 'Cue'}: ${el.dataset.label}`);
     }
   }
   lastIndex = n;
@@ -108,6 +134,9 @@ function showContent(content) {
   }
   const before = window.scrollY;
 
+  showScriptName(content.name || '');
+  if (loadedOnce && !content.error && content.html) status('Script reloaded');
+  loadedOnce = true;
   if (content.error || !content.html) {
     scriptEl.innerHTML = '';
     notice(content.error || 'No script loaded. Choose a Markdown file on the Teleprompter page in Showrunner.');
@@ -129,9 +158,12 @@ function showContent(content) {
 
 // ---- scrolling --------------------------------------------------------------------------
 
+let playing0 = false;
 function setPlaying(on) {
   playing = on;
   pos = window.scrollY;
+  if (on !== playing0) status(on ? 'Scrolling' : 'Paused');
+  playing0 = on;
   playButton.textContent = on ? 'Pause' : 'Play';
   playButton.classList.toggle('on', on);
   if (on) { previous = performance.now(); requestAnimationFrame(tick); }
@@ -219,6 +251,7 @@ window.prompter.onCommand((command) => {
   else if (actions[command] && command !== 'edit') actions[command]();
 });
 
+window.prompter.onStatus((message) => status(message.text, message.error));
 window.prompter.onContent(showContent);
 window.prompter.onSettings(applySettings);
 window.prompter.init().then(({ content, settings: initial }) => {

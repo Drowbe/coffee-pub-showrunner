@@ -1648,6 +1648,8 @@ async function sleepCancellable(ms, state) {
 // aborting, and a step failing doesn't roll back the ones before it either.
 async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
   const state = beginRuleSetRun(ruleSet.id);
+  prompterStatus(`Running rule set: ${ruleSet.name || ruleSet.event}`);
+  let anyFailed = false;
   // Tracks whether the last action stage that actually ran had every step
   // succeed, or at least one fail -- what an "On Success"/"On Failure"
   // stage checks itself against. Starts 'success' (vacuously: nothing has
@@ -1687,6 +1689,7 @@ async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
         stage.steps.map((step) =>
           runAutomationAction(step.action, step.param, eventData, step, chain, ruleSet.id).catch((err) => {
             stageFailed = true;
+            anyFailed = true;
             const message = `Rule set "${ruleSet.name}" step -> ${step.action} failed: ${err.message}`;
             console.warn(`[automations] ${message}`);
             logActivity('Automations', message, 'error');
@@ -1695,6 +1698,8 @@ async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
       );
       lastOutcome = stageFailed ? 'failure' : 'success';
     }
+    if (state.cancelled) prompterStatus(`Stopped rule set: ${ruleSet.name || ruleSet.event}`);
+    else prompterStatus(anyFailed ? `Rule set "${ruleSet.name || ruleSet.event}" had a failed step` : `Ran rule set: ${ruleSet.name || ruleSet.event}`, anyFailed);
   } finally {
     state.activeStepIds = [];
     endRuleSetRun(ruleSet.id);
@@ -2834,6 +2839,12 @@ async function prompterContent(t) {
   } catch (err) {
     return { html: '', error: `${err.code === 'ENOENT' ? 'Cannot find' : 'Cannot read'} ${t.script}` };
   }
+}
+
+// A line for the teleprompter's status bar: what Automations just did, for the presenter to see.
+function prompterStatus(text, error) {
+  if (!prompterOpen() || !prompterPage || prompterPage.webContents.isDestroyed()) return;
+  prompterPage.webContents.send('prompter:status', { text: String(text).slice(0, 120), error: Boolean(error) });
 }
 
 function stopPrompterWatch() {

@@ -19,7 +19,7 @@ profile has its own script, settings and window position, so a podcast profile a
 does when reading, in the same size and width, and you type into it: `# `, `- `, `1. ` and `> ` at the start of a line make
 a heading, list or quote, and `**bold**` and `*italic*` work as you type. The bar at the top has bold, italic, three heading levels, lists and a quote. **Save** (or Cmd/Ctrl+S) writes the file and **Done** saves and goes back to reading. The **File** menu holds **New** (a blank script; it asks before dropping unsaved changes, and your current script stays as it is until the new one is saved), **Save as...** (asks where to save a copy and uses that file from then on) and **Discard changes** (goes back to reading without saving).
 Auto-scroll and cues are off while you edit, and the keys that run the window (Space, `[`,
-`]` and the rest) type normally. A cue shows as a small outlined chip with its name. **Insert cue** adds one above the paragraph the cursor is in, with the name selected so you type over it; click into a chip to rename it, and press Enter in one to move to the line below. The cue's event name is the chip's name turned into a name, so renaming a cue changes the event a rule set listens for. **Events** (on the toolbar after Insert cue) opens a list beside the text of every heading and cue with the event it fires, in order. Click a line to jump to it, or click a cue or heading in the text and its line is highlighted in the list. **Copy** copies the event name for a rule set, and **Delete** takes the cue or heading out of the script (Cmd/Ctrl+Z brings it back; a heading asks first, since its text goes too). A status bar along the bottom of the editing window says what just happened (Unsaved, Saved, Cue removed) and which file you are editing. A line is flagged when two share an event name, since a rule set cannot tell them apart. The file stays Markdown, and only the blocks you change are rewritten; the rest of the
+`]` and the rest) type normally. A cue shows as a small outlined chip with its name. **Insert cue** adds one above the paragraph the cursor is in, with the name selected so you type over it; click into a chip to rename it, and press Enter in one to move to the line below. The cue's event name is the chip's name turned into a name, so renaming a cue changes the event a rule set listens for. **Events** (on the toolbar after Insert cue) opens a list beside the text of every heading and cue with the event it fires, in order. Click a line to jump to it, or click a cue or heading in the text and its line is highlighted in the list. **Copy** copies the event name for a rule set, and **Delete** takes the cue or heading out of the script (Cmd/Ctrl+Z brings it back; a heading asks first, since its text goes too).  A line is flagged when two share an event name, since a rule set cannot tell them apart. The file stays Markdown, and only the blocks you change are rewritten; the rest of the
 file is left exactly as it was.
 
 Saving the file, here or in another editor, reloads it in the window, and the window keeps your place by the nearest heading.
@@ -95,6 +95,14 @@ A few things to know:
 
 A rule made with **Create rule** goes into a group called **Teleprompter**. On the Automations page, the chips above
 the Rule sets switch a group on or off, so a long list shows only the groups you want.
+
+## The status bar
+
+A bar along the bottom of the window, always showing and styled like the control panel's, says what just happened and
+which script is loaded. It reports the cue or heading the reading line just crossed, scrolling started or paused, a new
+speed, text size or mirror setting, the script reloading after you save it elsewhere, and any rule set an event
+starts ("Running rule set", then "Ran rule set", or a warning if a step failed). While editing it also says Unsaved,
+File saved, and Cue removed. A message fades after a few seconds.
 
 ## Controlling it from Automations
 
