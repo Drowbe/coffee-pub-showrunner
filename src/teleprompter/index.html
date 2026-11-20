@@ -25,11 +25,16 @@
     </span>
     <span id="edit-status" aria-live="polite"></span>
     <span class="group">
-      <button type="button" data-edit="new" title="Start a new script; it asks where to save it the first time you save">New</button>
+      <span class="menu-wrap">
+        <button type="button" data-edit="file" aria-haspopup="menu" aria-expanded="false" title="New script, save a copy, or drop changes">File &#9662;</button>
+        <div id="file-menu" role="menu" hidden>
+          <button type="button" role="menuitem" data-edit="new" title="Start a new script; it asks where to save it the first time you save">New</button>
+          <button type="button" role="menuitem" data-edit="saveas" title="Save a copy to a file you choose, and use it from now on">Save as...</button>
+          <button type="button" role="menuitem" data-edit="cancel" title="Go back to reading and drop unsaved changes">Discard changes</button>
+        </div>
+      </span>
       <button type="button" data-edit="save" title="Save the file (Cmd/Ctrl+S)">Save</button>
-      <button type="button" data-edit="saveas" title="Save a copy to a file you choose, and use it from now on">Save as...</button>
       <button type="button" data-edit="done" title="Save and go back to reading">Done</button>
-      <button type="button" data-edit="cancel" title="Go back to reading and drop unsaved changes">Cancel</button>
     </span>
   </nav>
   <aside id="events" aria-label="Events this script fires" hidden>

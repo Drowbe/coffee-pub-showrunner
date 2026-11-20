@@ -114,8 +114,8 @@ function paint() {
     button.classList.toggle('on', heading ? active.heading === Number(heading[1]) : active[id] === true);
   }
   if (!$('events').hidden) { clearTimeout(eventsTimer); eventsTimer = setTimeout(renderEvents, 200); }
-  if (dirty()) say('Unsaved changes');
-  else if (editStatus.textContent === 'Unsaved changes') say('');
+  if (dirty()) say('Unsaved');
+  else if (editStatus.textContent === 'Unsaved') say('');
 }
 
 async function enter() {
@@ -169,7 +169,7 @@ function startNew() {
   hasFile = false;
   savedText = '';
   baseRevision = ed.revision();
-  say('New script: not saved yet');
+  say('Not saved yet');
   window.scrollTo(0, 0);
   ed.focus();
   paint();
@@ -209,9 +209,20 @@ function leave() {
 editBar.addEventListener('mousedown', (event) => {
   if (event.target.closest('button')) event.preventDefault(); // keep the selection in the text
 });
+const fileMenu = $('file-menu');
+const fileButton = editBar.querySelector('[data-edit="file"]');
+function toggleFileMenu(open) {
+  fileMenu.hidden = !open;
+  fileButton.setAttribute('aria-expanded', String(open));
+}
+document.addEventListener('click', (event) => { if (!event.target.closest('.menu-wrap')) toggleFileMenu(false); });
+window.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !fileMenu.hidden) toggleFileMenu(false); });
+
 editBar.addEventListener('click', async (event) => {
   const button = event.target.closest('button');
   if (!button || !ed) return;
+  if (button.dataset.edit === 'file') { toggleFileMenu(fileMenu.hidden); return; }
+  if (button.closest('#file-menu')) toggleFileMenu(false);
   if (button.dataset.fmt) { ed.run(button.dataset.fmt); ed.focus(); paint(); return; }
   if (button.dataset.edit === 'events') { toggleEvents(); return; }
   if (button.dataset.edit === 'cue') { dlInsertCue(DlPM, editorView, 'Cue name'); paint(); return; }
