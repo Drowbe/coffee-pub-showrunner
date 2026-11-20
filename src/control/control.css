@@ -2218,3 +2218,5 @@ select.automation-step-param-missing {
 .level-manual { color: var(--text); font-size: 13px; }
 .level-auto-status { color: var(--text-dim); font-size: 12px; }
 .level-slider { display: flex; align-items: center; gap: 14px; }
+.level-target-head { display: flex; align-items: baseline; justify-content: space-between; }
+.level-target-head output { font-weight: 600; color: var(--accent); }
