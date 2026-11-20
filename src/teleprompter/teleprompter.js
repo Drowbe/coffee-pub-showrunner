@@ -92,11 +92,17 @@ function change(patch) {
 
 // ---- cues -------------------------------------------------------------------------------
 
+// A cue or heading counts as reached when the reading line is through the middle of it, not when its top edge touches the line.
+function middleOf(el) {
+  const rect = el.getBoundingClientRect();
+  return rect.top + rect.height / 2;
+}
+
 function passed() {
   const y = lineY() + 1;
   let n = 0;
   for (const el of cueEls) {
-    if (el.getBoundingClientRect().top <= y) n += 1;
+    if (middleOf(el) <= y) n += 1;
     else break;
   }
   return n;
@@ -209,9 +215,9 @@ function headingStep(direction) {
   const headings = cueEls.filter((el) => el.dataset.kind === 'heading');
   const y = lineY();
   let target = null;
-  if (direction > 0) target = headings.find((el) => el.getBoundingClientRect().top > y + 4);
-  else target = [...headings].reverse().find((el) => el.getBoundingClientRect().top < y - 4);
-  const top = target ? target.getBoundingClientRect().top + window.scrollY - y : direction > 0 ? maxScroll() : 0;
+  if (direction > 0) target = headings.find((el) => middleOf(el) > y + 4);
+  else target = [...headings].reverse().find((el) => middleOf(el) < y - 4);
+  const top = target ? middleOf(target) + window.scrollY - y : direction > 0 ? maxScroll() : 0;
   window.scrollTo(0, Math.max(0, top));
   pos = window.scrollY;
 }
