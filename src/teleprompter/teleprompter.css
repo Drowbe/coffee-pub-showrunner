@@ -142,7 +142,7 @@ body.hide-cursor { cursor: none; }
 #editor { display: none; }
 body.editing #editor { display: block; }
 body.editing #script, body.editing #line, body.editing #controls { display: none; }
-body.editing #stage { transform: none; padding: 84px 0 40vh; }
+body.editing #stage { transform: none; padding: 40px 0 40vh; }
 #editor .ProseMirror { min-height: 60vh; outline: none; white-space: pre-wrap; word-wrap: break-word; caret-color: var(--accent); }
 #editor .ProseMirror ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 #editor .ProseMirror li { position: relative; }
@@ -171,21 +171,31 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 
 #edit-bar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 5;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 6;
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 8px 14px;
+  max-width: calc(100% - 20px);
+  padding: 8px 12px;
   background: rgba(20, 28, 42, 0.97);
-  border-bottom: 1px solid #2a4162;
+  border: 1px solid #2a4162;
+  border-radius: 10px;
   font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
 }
-#edit-bar .group { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+body.show-controls #edit-bar, #edit-bar:hover, #edit-bar:focus-within { opacity: 1; pointer-events: auto; }
+#edit-bar [data-edit="save"], #edit-bar [data-edit="done"], #edit-bar [data-edit="cancel"] { flex: none; }
+#edit-bar .group { display: inline-flex; flex-wrap: nowrap; gap: 6px; flex: none; }
+#edit-bar .group:first-child { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 #edit-bar button {
+  flex: none;
+  white-space: nowrap;
   font: inherit;
   color: var(--text);
   background: #182c47;
@@ -196,18 +206,34 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 }
 #edit-bar button:hover { border-color: var(--accent); }
 #edit-bar button.on { background: color-mix(in srgb, var(--accent) 30%, #182c47); border-color: var(--accent); }
-#edit-status { flex: 1; text-align: center; color: var(--dim); }
+#edit-status { flex: 0 1 auto; min-width: 0; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+
+/* Visible whether or not the bar is: unsaved changes, a save, or an error. */
+#edit-flag {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 7;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(20, 28, 42, 0.97);
+  border: 1px solid var(--accent);
+  pointer-events: none;
+}
+#edit-flag.warn { border-color: #e6b450; color: #e6b450; }
 
 /* The list of events the script fires, beside the text while editing. */
 #events {
   position: fixed;
-  top: 52px;
+  top: 0;
   right: 0;
   bottom: 0;
   width: 320px;
   z-index: 4;
   overflow-y: auto;
-  padding: 14px;
+  padding: 14px 14px 70px;
   background: rgba(20, 28, 42, 0.97);
   border-left: 1px solid #2a4162;
   font-size: 13px;
