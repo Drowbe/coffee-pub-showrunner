@@ -305,7 +305,27 @@ function composeMetadataFieldValue(field) {
 // (see metadataEls.addConfirm below) since it has nothing worth reading yet.
 let editingMetadataFieldId = null;
 
+// The Session rail dot: green when every field that needs a value has one, red when something is
+// blank. A Prompt field is asked for when the session starts, so it never counts as missing;
+// YouTube fields only count while YouTube is on for this profile.
+function updateSessionDot() {
+  const dot = $('session-dot');
+  if (!dot || !config) return;
+  const fields = (config.metadataFields || []).filter((f) => config.youtube.enabled || !String(f.key).startsWith('youtube'));
+  const missing = fields.filter((f) => {
+    if (f.type === 'text') return String(f.value ?? '').trim() === '';
+    if (f.type === 'textNumber' || f.type === 'numberText') return String(f.text ?? '').trim() === '';
+    return false;
+  });
+  dot.classList.toggle('on', fields.length > 0 && missing.length === 0);
+  dot.classList.toggle('error', missing.length > 0);
+  dot.title = fields.length === 0 ? 'No session fields yet'
+    : missing.length ? `Missing a value: ${missing.map((f) => f.label).join(', ')}`
+    : 'Every session field has a value';
+}
+
 function renderMetadataFields() {
+  updateSessionDot();
   const fields = (config && config.metadataFields) || [];
   metadataEls.fields.textContent = '';
   metadataEls.fieldsEmpty.hidden = fields.length > 0;
@@ -332,6 +352,7 @@ function renderMetadataFields() {
 
     const updateField = (patch) => {
       config.metadataFields = config.metadataFields.map((f) => (f.id === field.id ? { ...f, ...patch } : f));
+      updateSessionDot();
       updateFilenamePreview();
       scheduleSave();
     };
@@ -4766,3 +4787,127 @@ $('picker-save').addEventListener('click', async () => {
   $('about-chromium').textContent = info.chrome;
   document.title = `Coffee Pub Showrunner - Control Panel - ${info.revision}`;
 })().catch((err) => setSaveState(`Failed to start: ${err.message}`, 'error'));
+
+
+// ---- Dropdown menus ------------------------------------------------------------------------
+// The browser draws a <select>'s open list itself and it cannot be styled, so a click on any
+// select opens this menu instead. The select stays where it is, visible, and stays the source of
+// truth: choosing an entry sets it and fires its own input and change events, so every existing
+// handler, label and programmatic .value keeps working untouched.
+(() => {
+  let menu = null;
+  let owner = null;
+  let active = -1;
+
+  function close() {
+    if (!menu) return;
+    menu.remove();
+    menu = null;
+    if (owner) owner.setAttribute('aria-expanded', 'false');
+    owner = null;
+  }
+
+  function choose(option) {
+    const select = owner;
+    close();
+    if (!select || option.disabled || select.selectedIndex === option.index) return;
+    select.selectedIndex = option.index;
+    select.dispatchEvent(new Event('input', { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function setActive(items, index) {
+    active = Math.max(0, Math.min(items.length - 1, index));
+    items.forEach((el, i) => el.classList.toggle('active', i === active));
+    if (items[active]) items[active].scrollIntoView({ block: 'nearest' });
+  }
+
+  function open(select) {
+    close();
+    owner = select;
+    select.setAttribute('aria-expanded', 'true');
+    menu = document.createElement('div');
+    menu.className = 'dropmenu';
+    menu.setAttribute('role', 'listbox');
+    const items = [];
+    const addOption = (option, parent) => {
+      if (option.disabled && /^[\s\u2500-\u257F\-\u2014]+$/.test(option.textContent)) {
+        const rule = document.createElement('div');
+        rule.className = 'dropmenu-rule';
+        parent.append(rule);
+        return;
+      }
+      const el = document.createElement('div');
+      el.className = 'dropmenu-item';
+      el.setAttribute('role', 'option');
+      el.textContent = option.textContent;
+      if (option.disabled) el.classList.add('disabled');
+      if (option.index === select.selectedIndex) { el.classList.add('selected'); el.setAttribute('aria-selected', 'true'); }
+      el.addEventListener('mousedown', (e) => e.preventDefault());
+      el.addEventListener('click', () => choose(option));
+      el.addEventListener('mousemove', () => { if (!option.disabled) setActive(items, items.indexOf(el)); });
+      if (!option.disabled) { items.push(el); el.dataset.index = String(option.index); }
+      parent.append(el);
+    };
+    for (const child of select.children) {
+      if (child.tagName === 'OPTGROUP') {
+        const heading = document.createElement('div');
+        heading.className = 'dropmenu-group';
+        heading.textContent = child.label;
+        menu.append(heading);
+        for (const option of child.children) addOption(option, menu);
+      } else if (child.tagName === 'OPTION') {
+        addOption(child, menu);
+      }
+    }
+    document.body.append(menu);
+    const box = select.getBoundingClientRect();
+    menu.style.minWidth = `${box.width}px`;
+    const height = menu.offsetHeight;
+    const below = window.innerHeight - box.bottom - 8;
+    const above = box.top - 8;
+    const flip = height > below && above > below;
+    menu.style.maxHeight = `${Math.max(120, flip ? above : below)}px`;
+    menu.style.left = `${Math.min(box.left, window.innerWidth - menu.offsetWidth - 8)}px`;
+    menu.style.top = flip ? `${box.top - menu.offsetHeight - 4}px` : `${box.bottom + 4}px`;
+    const current = items.findIndex((el) => el.classList.contains('selected'));
+    setActive(items, current < 0 ? 0 : current);
+    menu._items = items;
+  }
+
+  document.addEventListener('mousedown', (e) => {
+    const select = e.target instanceof Element ? e.target.closest('select') : null;
+    if (menu && menu.contains(e.target)) return;
+    if (!select) { close(); return; }
+    e.preventDefault();
+    if (select.disabled) return;
+    select.focus();
+    if (menu && owner === select) close(); else open(select);
+  }, true);
+
+  document.addEventListener('keydown', (e) => {
+    if (menu) {
+      const items = menu._items;
+      if (e.key === 'Escape') { e.preventDefault(); const s = owner; close(); if (s) s.focus(); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActive(items, active + 1); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setActive(items, active - 1); return; }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const el = items[active];
+        if (el) choose(owner.options[Number(el.dataset.index)]);
+        return;
+      }
+      if (e.key === 'Tab') close();
+      return;
+    }
+    const select = e.target instanceof Element && e.target.tagName === 'SELECT' ? e.target : null;
+    if (select && !select.disabled && (e.key === 'Enter' || e.key === ' ' || (e.altKey && e.key === 'ArrowDown'))) {
+      e.preventDefault();
+      open(select);
+    }
+  }, true);
+
+  window.addEventListener('blur', close);
+  window.addEventListener('resize', close);
+  document.addEventListener('scroll', (e) => { if (menu && !menu.contains(e.target)) close(); }, true);
+})();
