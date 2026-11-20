@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('coffeePub', {
   toggleTeleprompter: () => ipcRenderer.invoke('prompter:toggle'),
   chooseScript: () => ipcRenderer.invoke('prompter:chooseScript'),
   newScript: () => ipcRenderer.invoke('prompter:newScript'),
+  scriptCues: () => ipcRenderer.invoke('prompter:cues'),
   removeView: (id) => ipcRenderer.invoke('views:remove', id),
   collapseViews: () => ipcRenderer.invoke('views:collapse'),
   expandViews: () => ipcRenderer.invoke('views:expand'),

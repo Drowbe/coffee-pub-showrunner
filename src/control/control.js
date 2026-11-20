@@ -734,7 +734,6 @@ function selectTab(name) {
   if (name === 'general' || name === 'configuration' || name === 'about') name = 'status';
   if (name.startsWith('view:') && !config.views.some((v) => `view:${v.id}` === name)) name = 'status';
   if (name === 'tavern' && !config.tavern.enabled) name = 'status';
-  if (name === 'automations' && !config.automations.enabled) name = 'status';
   if (name === 'youtube' && !config.youtube.enabled) name = 'status';
   if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'status';
   activeTab = name;
@@ -749,6 +748,7 @@ function selectTab(name) {
   // automationsScenes/automationsSources, so either tab arriving is worth
   // a fresh read.
   if (name === 'obs' || name === 'automations') refreshAutomationsScenes();
+  if (name === 'automations') loadCueList().catch(() => {});
   if (name === 'obs') refreshObsPinChoices();
   for (const [id, card] of cards) card.hidden = name !== `view:${id}`;
   for (const [id, card] of appWinCards) card.hidden = name !== `app:${id}`;
@@ -873,7 +873,8 @@ integrationMenuEl.addEventListener('click', (event) => {
 
 // The Add integration row only shows while there is something left to add.
 function syncIntegrationNav() {
-  $('add-integration').hidden = Object.values(INTEGRATIONS).every((i) => i.enabled());
+  // Automations is not one of them: its page is always there, and its Foundry listener is switched on from that page.
+  $('add-integration').hidden = Object.entries(INTEGRATIONS).filter(([key]) => key !== 'automations').every(([, i]) => i.enabled());
 }
 
 $('tabs').addEventListener('click', (event) => {
@@ -1125,7 +1126,7 @@ function renderProfiles() {
     // start or stop; any other profile's is stored without switching to it.
     const integrations = document.createElement('div');
     integrations.className = 'profile-integrations';
-    for (const [key, label] of [['tavern', 'Chameleon'], ['automations', 'Automations'], ['youtube', 'YouTube']]) {
+    for (const [key, label] of [['tavern', 'Chameleon'], ['automations', 'Foundry events'], ['youtube', 'YouTube']]) {
       const wrap = document.createElement('label');
       wrap.className = 'check';
       const box = document.createElement('input');
@@ -2897,8 +2898,7 @@ function applyAutomationsConfig(firstLoad) {
   const a = config.automations;
   automationsEls.enabled.checked = a.enabled;
   automationsEls.settings.hidden = !a.enabled;
-  automationsEls.tab.hidden = !a.enabled;
-  if (!a.enabled && activeTab === 'automations') selectTab('status');
+  updateAutomationsDot();
   if (document.activeElement !== automationsEls.port) automationsEls.port.value = String(a.port);
   if (document.activeElement !== automationsEls.token) automationsEls.token.value = a.token;
   // Every status push -- including the one an OBS action like "Time it"
@@ -3129,11 +3129,18 @@ function copyButton(value, label) {
 
 // The server's own live state (listening/port/addresses/events) -- distinct
 // from config.automations above (the settings that drive it).
+// The rail's dot is on while a rule set is switched on or the Foundry listener is listening.
+function updateAutomationsDot() {
+  const listening = Boolean(status && status.automations && status.automations.state === 'listening');
+  const rules = Boolean(config && config.automations && (config.automations.ruleSets || []).some((r) => r.enabled));
+  automationsEls.dot.classList.toggle('on', listening || rules);
+}
+
 function renderAutomationsStatus() {
   const a = status.automations || { state: 'stopped', message: '', port: 0, addresses: [], events: [] };
   const listening = a.state === 'listening';
   automationsEls.tag.hidden = !listening;
-  automationsEls.dot.classList.toggle('on', listening);
+  updateAutomationsDot();
   automationsEls.addresses.textContent = '';
   // One row per network interface this Mac has right now -- which one is
   // actually reachable from the Foundry machine depends on the network, so
@@ -4147,6 +4154,7 @@ function renderAutomationsRuleSets() {
   automationsEls.rulesetsEmpty.hidden = ruleSets.length > 0;
   automationsEls.rulesetsCount.textContent = ruleSets.length ? `${ruleSets.length} rule set${ruleSets.length === 1 ? '' : 's'}` : '';
   ruleSets.forEach((ruleSet, i) => automationsEls.rulesets.appendChild(buildRulesetCard(ruleSet, i, ruleSets.length)));
+  if (cueListReady) renderCueList();
 }
 
 async function saveAutomationsRuleSets() {
@@ -4346,19 +4354,80 @@ automationsEls.rulesets.addEventListener('click', async (event) => {
   saveAutomationsRuleSets();
 });
 
-automationsEls.addRuleset.addEventListener('click', () => {
+// ---- Teleprompter cues: the script's headings and cues, each a one-click rule set --------------------------
+
+var cueListReady = false; // set below; a var so renderAutomationsRuleSets can ask before this block has run
+const cueListEls = { hint: $('automations-cues-hint'), list: $('automations-cues-list'), refresh: $('automations-cues-refresh') };
+let cueList = { script: '', cues: [], error: '' };
+
+async function loadCueList() {
+  cueList = await api.scriptCues();
+  renderCueList();
+}
+
+function renderCueList() {
+  const { script, cues, error } = cueList;
+  cueListEls.list.textContent = '';
+  if (!script) {
+    cueListEls.hint.textContent = 'No script yet. Choose or create one on the Teleprompter page, and its headings and cues are listed here, each with the event it fires.';
+    return;
+  }
+  const name = script.split(/[\\/]/).pop();
+  if (error) { cueListEls.hint.textContent = error; return; }
+  cueListEls.hint.textContent = cues.length
+    ? `From ${name}. A heading or a cue fires its event when the reading line reaches it. Create a rule set for one and give it steps below.`
+    : `${name} has no headings or cues yet. Edit it in the teleprompter window and they are listed here.`;
+  const ruleSets = config.automations.ruleSets || [];
+  for (const cue of cues) {
+    const row = document.createElement('div');
+    row.className = 'cue-row';
+    const kind = document.createElement('span');
+    kind.className = 'cue-kind';
+    kind.textContent = cue.kind === 'heading' ? 'Heading' : 'Cue';
+    const text = document.createElement('span');
+    text.className = 'cue-text';
+    const label = document.createElement('span');
+    label.textContent = cue.label || '(empty)';
+    const code = document.createElement('code');
+    code.textContent = cue.event;
+    text.append(label, code);
+    const existing = ruleSets.find((r) => r.event === cue.event);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-small';
+    button.textContent = existing ? 'Show rule set' : 'Create rule set';
+    button.addEventListener('click', () => {
+      if (existing) {
+        const card = automationsEls.rulesets.querySelector(`[data-ruleset-id="${existing.id}"]`);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      createRuleSet({ name: cue.label.slice(0, 60), event: cue.event });
+    });
+    row.append(kind, text, button);
+    cueListEls.list.appendChild(row);
+  }
+}
+cueListEls.refresh.addEventListener('click', () => loadCueList().catch(reportError));
+cueListReady = true;
+
+function createRuleSet(fields) {
   const id = `ruleset${Date.now().toString(36)}`;
   config.automations.ruleSets = [
     ...(config.automations.ruleSets || []),
-    { id, name: '', group: '', enabled: true, event: '', steps: [] },
+    { id, name: '', group: '', enabled: true, event: '', steps: [], ...fields },
   ];
   renderAutomationsRuleSets();
-  setSaveState('Unsaved changes...', 'dirty');
+  // A blank new rule set waits for its first edit, as it always has. One made from a cue already has its name and event, so it is saved now.
+  if (fields.event) saveAutomationsRuleSets();
+  else setSaveState('Unsaved changes...', 'dirty');
   // New rule sets always land at the end of a possibly-long list -- without
-  // this, "Add Ruleset" looks like it did nothing until you scroll down.
+  // this, a new one looks like it did nothing until you scroll down.
   const card = automationsEls.rulesets.querySelector(`[data-ruleset-id="${id}"]`);
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
+}
+
+automationsEls.addRuleset.addEventListener('click', () => createRuleSet({}));
 
 automationsEls.sendTest.addEventListener('click', async () => {
   const name = automationsEls.testEvent.value.trim();

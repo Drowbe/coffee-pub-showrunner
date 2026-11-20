@@ -28,9 +28,11 @@ follows the profile.
 
 Manage profiles (`profiles`) is a page too, but it is reached from the profile picker rather than the rail.
 
-Each integration has an enable switch beside its title. A tab for an integration shows only
+Chameleon and YouTube each have an enable switch beside their title. A tab for one shows only
 while its switch is on, and **Add integration** at the end of the group turns one on and opens its page, the same
-way **Add window** works. Turning an integration off keeps its settings. Internally the tab keys and element ids
+way **Add window** works. Automations is not one of them: its page sits under Recording and is always there, because
+rule sets also react to the teleprompter's cues, which need no network. Its switch (`automations.enabled`) is on the
+**Events from Foundry modules** card and only starts the HTTPS listener; `runAutomationRuleSets` never looks at it. Turning an integration off keeps its settings. Internally the tab keys and element ids
 stayed where the code already had them (`tavern` for Chameleon), so this was a relocation of cards in
 `src/control/index.html` plus `selectTab` in `src/control/control.js` toggling every `tab-<key>` panel from one
 list (`PANEL_KEYS`). `recallTab()` maps a saved `'session'`, `'configuration'`, `'general'` or `'about'` to `status`, so a

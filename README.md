@@ -39,7 +39,7 @@ automation step, for example) is updated to match. After installing, delete the 
 - Backups: an automatic copy of your settings before an update changes their format, a Back up now button, and one-click restore.
 - Profiles: save a setup per kind of recording (D&D, a livestream, a podcast, a product review) and switch between them; each profile has its own windows, Session fields, filename format, Automations rules and Chameleon settings. A profile can pin an OBS profile and scene collection, so switching Showrunner profiles switches OBS too.
 - A left rail that groups the control panel into pages: Status and Preferences, the profile picker, Recording
-  (OBS and Session), Integrations (Chameleon, Automations, YouTube) and one page per window.
+  (OBS, Session, Teleprompter and Automations), Integrations (Chameleon, YouTube) and one page per window.
 - Session fields: your own values (a campaign, a title, an episode counter) that build the recording's
   filename and feed rules, plus an optional YouTube upload of the recording from a rule set.
 - Coffee Pub Chameleon: sign in to the party's voice and video server and publish each player as
@@ -157,9 +157,10 @@ not aware of what's actually happening in the game. Automations closes that gap:
 module (Herald first) tells Showrunner when something happens -- combat starting, a scene changing --
 and a rule turns that into an OBS action: switch scene, show or hide a source, start or stop
 recording or streaming. The same tab also works as a plain manual remote for OBS with no Foundry
-module involved at all. Switch it on under Integrations in the left rail (use **Add integration** if it is not listed), and set
-a token on the **Automations** page; the page itself covers the manual remote, the rule editor, and the exact click-by-click
-steps for trusting Showrunner's certificate on the machine running Foundry.
+module involved at all. The **Automations** page is always in the left rail, under Recording. Rule sets there react to events
+from the teleprompter's cues and from the test box with nothing to switch on; to hear from a Foundry module, switch on
+**Events from Foundry modules** on that page and set a token. The page itself covers the rule editor and the exact
+click-by-click steps for trusting Showrunner's certificate on the machine running Foundry.
 
 The full HTTP contract and a worked integration example are on the wiki:
 [Automations API](https://github.com/Drowbe/coffee-pub-showrunner/wiki/api-automations). How the

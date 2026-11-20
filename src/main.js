@@ -3500,6 +3500,19 @@ function registerIpc() {
     syncPrompter();
     return configStore.get();
   });
+  // The Automations page's list of the script's cues and headings, in reading order, each with the event it fires.
+  ipcMain.handle('prompter:cues', async () => {
+    const t = configStore.get().teleprompter;
+    if (!t.script) return { script: '', cues: [], error: '' };
+    try {
+      const stat = await fs.promises.stat(t.script);
+      if (stat.size > MAX_SCRIPT_BYTES) return { script: t.script, cues: [], error: 'That file is larger than 2 MB.' };
+      const { cues } = await renderScript(await fs.promises.readFile(t.script, 'utf8'));
+      return { script: t.script, cues, error: '' };
+    } catch (err) {
+      return { script: t.script, cues: [], error: `${err.code === 'ENOENT' ? 'Cannot find' : 'Cannot read'} ${t.script}` };
+    }
+  });
   // The reading line reached a cue or a heading: tell Automations, exactly as if a module had.
   ipcMain.on('prompter:cue', (event, cue) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return;

@@ -62,7 +62,18 @@ async function renderScript(source) {
     if (!cue) return '';
     return `<div class="cue" data-cue="${escapeHtml(cue.event)}" data-label="${escapeHtml(cue.label)}" data-kind="cue"><span>${escapeHtml(cue.label)}</span></div>\n`;
   });
-  return { html, cues };
+  return { html, cues: cuesInOrder(html) };
+}
+
+// The cues and headings in the order they are read in the script. (Cue lines are found before the text is rendered and
+// headings while it is, so the list built along the way is not in reading order; the rendered text is.)
+function cuesInOrder(html) {
+  const unescape = (s) => s.replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+  const found = [];
+  const pattern = /data-cue="([^"]*)" data-label="([^"]*)" data-kind="(heading|cue)"/g;
+  let m;
+  while ((m = pattern.exec(html))) found.push({ event: unescape(m[1]), label: unescape(m[2]), kind: m[3] });
+  return found;
 }
 
 module.exports = { renderScript, slug, MAX_SCRIPT_BYTES };

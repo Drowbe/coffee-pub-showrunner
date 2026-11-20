@@ -2304,3 +2304,17 @@ select option { background: var(--bg-card); color: var(--text); }
 #tab-status .activity-log-box { flex: 1 1 0; min-height: 120px; max-height: none; }
 #tab-status > .about { flex: none; }
 .wake-row .unit { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text-dim); }
+
+/* The Automations page's list of the teleprompter script's headings and cues. */
+.cue-list { display: flex; flex-direction: column; }
+.cue-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.cue-kind { color: var(--text-dim, var(--muted, inherit)); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.cue-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.cue-text code { color: var(--accent); font-size: 12px; }
