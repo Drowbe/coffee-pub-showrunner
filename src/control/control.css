@@ -2220,3 +2220,7 @@ select.automation-step-param-missing {
 .level-slider { display: flex; align-items: center; gap: 14px; }
 .level-target-head { display: flex; align-items: baseline; justify-content: space-between; }
 .level-target-head output { font-weight: 600; color: var(--accent); }
+/* Audio card: line the checkboxes up with the text above them, and let empty status areas take no room. */
+#tavern-level-card .check input[type="checkbox"] { margin: 0; }
+#tavern-level-card #tavern-level-status:empty,
+#tavern-level-card #tavern-level-results:empty { display: none; }
