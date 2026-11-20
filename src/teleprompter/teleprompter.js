@@ -30,15 +30,32 @@ const statusFile = document.getElementById('status-file');
 let statusTimer = null;
 let scriptName = '';
 let loadedOnce = false;
-// A message stays a few seconds, then the bar goes back to what is always true (edit.js says "Unsaved" while there are changes).
-function status(text, isError) {
+// A message stays a few seconds, then the bar goes back to what is always true (edit.js says "Unsaved" while there are
+// changes). What Automations is running now is held instead: it stays until that finishes, and a short message in
+// between (a cue crossed, a speed change) gives way back to it.
+let heldText = '';
+function paintStatus(text, isError, running) {
   statusText.textContent = text;
   statusText.classList.toggle('error', Boolean(isError));
+  statusText.classList.toggle('running', Boolean(running));
+}
+function status(text, isError) {
+  paintStatus(text, isError, false);
   clearTimeout(statusTimer);
   statusTimer = setTimeout(() => {
-    statusText.classList.remove('error');
-    statusText.textContent = typeof editIdle === 'function' ? editIdle() : 'Ready';
+    if (heldText) paintStatus(heldText, false, true);
+    else paintStatus(typeof editIdle === 'function' ? editIdle() : 'Ready', false, false);
   }, 6000);
+}
+function fromApp(message) {
+  if (message.hold) {
+    heldText = message.text;
+    clearTimeout(statusTimer);
+    paintStatus(heldText, false, true);
+    return;
+  }
+  if (message.release) heldText = '';
+  status(message.text, message.error);
 }
 function showScriptName(name) {
   scriptName = name || '';
@@ -251,7 +268,7 @@ window.prompter.onCommand((command) => {
   else if (actions[command] && command !== 'edit') actions[command]();
 });
 
-window.prompter.onStatus((message) => status(message.text, message.error));
+window.prompter.onStatus(fromApp);
 window.prompter.onContent(showContent);
 window.prompter.onSettings(applySettings);
 window.prompter.init().then(({ content, settings: initial }) => {

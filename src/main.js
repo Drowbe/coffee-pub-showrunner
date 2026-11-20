@@ -1648,8 +1648,12 @@ async function sleepCancellable(ms, state) {
 // aborting, and a step failing doesn't roll back the ones before it either.
 async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
   const state = beginRuleSetRun(ruleSet.id);
-  prompterStatus(`Running rule set: ${ruleSet.name || ruleSet.event}`);
+  const runName = ruleSet.name || ruleSet.event || 'rule set';
+  const runToken = ++prompterRunToken;
+  const stageList = stagesFor(ruleSet.steps);
   let anyFailed = false;
+  let doneText = `Ran rule set: ${runName}`;
+  prompterRunUpdate(runToken, runName, '');
   // Tracks whether the last action stage that actually ran had every step
   // succeed, or at least one fail -- what an "On Success"/"On Failure"
   // stage checks itself against. Starts 'success' (vacuously: nothing has
@@ -1661,7 +1665,7 @@ async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
   // outcome further back.
   let lastOutcome = 'success';
   try {
-    for (const stage of stagesFor(ruleSet.steps)) {
+    for (const stage of stageList) {
       if (state.cancelled) break;
       if (stage.kind === 'action' && stage.runIf && stage.runIf !== 'always') {
         const wantsSuccess = stage.runIf === 'onSuccess';
@@ -1679,6 +1683,7 @@ async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
       // highlights all of them at once, since they really are running
       // together, not one after another.
       state.activeStepIds = stage.kind === 'delay' ? [stage.id] : stage.steps.map((s) => s.id);
+      prompterRunUpdate(runToken, runName, stage.kind === 'delay' ? `waiting ${stage.seconds}s` : `step ${stageList.indexOf(stage) + 1} of ${stageList.length}`);
       broadcastStatus();
       if (stage.kind === 'delay') {
         await sleepCancellable(stage.seconds * 1000, state);
@@ -1698,9 +1703,10 @@ async function runRuleSet(ruleSet, eventData, chain = new Set([ruleSet.id])) {
       );
       lastOutcome = stageFailed ? 'failure' : 'success';
     }
-    if (state.cancelled) prompterStatus(`Stopped rule set: ${ruleSet.name || ruleSet.event}`);
-    else prompterStatus(anyFailed ? `Rule set "${ruleSet.name || ruleSet.event}" had a failed step` : `Ran rule set: ${ruleSet.name || ruleSet.event}`, anyFailed);
+    if (state.cancelled) doneText = `Stopped rule set: ${runName}`;
+    else if (anyFailed) doneText = `Rule set "${runName}" had a failed step`;
   } finally {
+    prompterRunEnd(runToken, doneText, anyFailed && !state.cancelled);
     state.activeStepIds = [];
     endRuleSetRun(ruleSet.id);
   }
@@ -2841,10 +2847,29 @@ async function prompterContent(t) {
   }
 }
 
-// A line for the teleprompter's status bar: what Automations just did, for the presenter to see.
-function prompterStatus(text, error) {
+// A line for the teleprompter's status bar. `hold` keeps it up (it is what is happening now) until a later message
+// with `release` replaces it; without either it shows for a few seconds. See status() in src/teleprompter/teleprompter.js.
+function prompterStatus(text, error, flags = {}) {
   if (!prompterOpen() || !prompterPage || prompterPage.webContents.isDestroyed()) return;
-  prompterPage.webContents.send('prompter:status', { text: String(text).slice(0, 120), error: Boolean(error) });
+  prompterPage.webContents.send('prompter:status', { text: String(text).slice(0, 120), error: Boolean(error), hold: Boolean(flags.hold), release: Boolean(flags.release) });
+}
+
+// The rule sets running right now, so the presenter can tell (their screen is this window, not Showrunner's): the
+// bar says "Running: Title Sequence · step 2 of 3" for as long as it runs, and a wait shows as "waiting 5s".
+const prompterRuns = new Map(); // run token -> what to say about it
+let prompterRunToken = 0;
+function prompterRunsLine() {
+  const lines = [...prompterRuns.values()];
+  return lines.length === 1 ? `Running: ${lines[0]}` : `Running: ${lines.join(' + ')}`;
+}
+function prompterRunUpdate(token, name, detail) {
+  prompterRuns.set(token, detail ? `${name} \u00b7 ${detail}` : name);
+  prompterStatus(prompterRunsLine(), false, { hold: true });
+}
+function prompterRunEnd(token, doneText, failed) {
+  prompterRuns.delete(token);
+  if (prompterRuns.size) prompterStatus(prompterRunsLine(), false, { hold: true });
+  else prompterStatus(doneText, failed, { release: true });
 }
 
 function stopPrompterWatch() {

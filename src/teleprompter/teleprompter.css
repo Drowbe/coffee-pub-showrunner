@@ -229,6 +229,9 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 }
 #status-bar span { overflow: hidden; text-overflow: ellipsis; }
 #status-text.error { color: #e6b450; }
+#status-text.running { color: var(--accent); }
+#status-text.running::before { content: "\25CF"; margin-right: 8px; animation: running-pulse 1.4s ease-in-out infinite; }
+@keyframes running-pulse { 50% { opacity: 0.3; } }
 #status-file { flex: 0 1 50%; text-align: right; }
 
 /* The File menu drops down from the bar. */
