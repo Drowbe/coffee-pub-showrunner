@@ -2152,7 +2152,7 @@ tavernEls.height.addEventListener('input', () => {
 });
 
 // The Audio card's controls; declared here because the save listeners below use them.
-const levelEls = { target: $('tavern-level-target'), targetValue: $('tavern-level-target-value'), auto: $('tavern-autolevel'), autoTag: $('tavern-autolevel-tag'), seconds: $('tavern-level-seconds'), run: $('tavern-level-run'), status: $('tavern-level-status'), results: $('tavern-level-results') };
+const levelEls = { target: $('tavern-level-target'), targetValue: $('tavern-level-target-value'), auto: $('tavern-autolevel'), autoStatus: $('tavern-autolevel-status'), seconds: $('tavern-level-seconds'), run: $('tavern-level-run'), status: $('tavern-level-status'), results: $('tavern-level-results') };
 
 async function saveTavernSettings() {
   await flushSave();
@@ -2224,12 +2224,9 @@ levelEls.target.addEventListener('input', () => {
 // Auto level's live state, from each status update: the tag, and what it did last.
 function renderAutoLevel() {
   const auto = (status && status.autoLevel) || { running: false, watching: 0, last: '' };
-  levelEls.autoTag.hidden = !auto.running;
-  levelEls.autoTag.textContent = auto.running ? `WATCHING ${auto.watching}` : 'AUTO LEVEL';
-  if (levelEls.run.disabled) return; // a calibration is showing its own progress
-  levelEls.status.textContent = auto.running
-    ? `Auto level is on: watching ${auto.watching} participant${auto.watching === 1 ? '' : 's'}.${auto.last ? ` Last change: ${auto.last}.` : ''}`
-    : levelEls.status.textContent.startsWith('Auto level is on') ? '' : levelEls.status.textContent;
+  levelEls.autoStatus.textContent = auto.running
+    ? `Watching ${auto.watching} participant${auto.watching === 1 ? '' : 's'}${auto.last ? `. Last change: ${auto.last}` : ''}`
+    : '';
 }
 
 levelEls.run.addEventListener('click', async () => {

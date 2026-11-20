@@ -2216,3 +2216,4 @@ select.automation-step-param-missing {
 .backup-row .backup-when { flex: 1; min-width: 0; }
 .backup-row .backup-why { color: var(--text-dim, #8aa0b8); font-size: 12px; }
 .level-manual { color: var(--text); font-size: 13px; }
+.level-auto-status { color: var(--text-dim); font-size: 12px; }
