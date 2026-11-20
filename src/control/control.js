@@ -3764,7 +3764,10 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
         const picked = await api.automationsPickTextFile();
         if (!picked) return;
         scriptInput.value = picked;
-        step.param = picked;
+        // Look the step up again: a save swaps in fresh copies of the rule sets, so the one this row was built
+        // from may no longer be the one that gets sent.
+        const live = ((config.automations.ruleSets || []).find((r) => r.id === ruleSetId) || { steps: [] }).steps.find((x) => x.id === step.id);
+        (live || step).param = picked;
         saveAutomationsRuleSets();
       });
       mainRow.append(scriptInput, scriptBrowse);
