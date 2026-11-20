@@ -2215,3 +2215,4 @@ select.automation-step-param-missing {
 .backup-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); }
 .backup-row .backup-when { flex: 1; min-width: 0; }
 .backup-row .backup-why { color: var(--text-dim, #8aa0b8); font-size: 12px; }
+.level-manual { color: var(--text); font-size: 13px; }

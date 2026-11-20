@@ -554,7 +554,7 @@
         </div>
         <p class="hint">Everyone sounds a different loudness. <strong>Calibrate</strong>: have everyone talk normally and click it, and Showrunner listens to each Participant source in OBS and sets each person's volume so they all land at the target level, saved with the person. <strong>Auto level</strong> (the switch below) keeps doing that quietly during the session, so someone who joins late, or whose microphone changes from game to game, is brought in line without you doing anything. It only acts while a person is speaking, moves slowly, and leaves a volume alone for a minute after you move it yourself. A mic that is clipping, or very quiet, still needs fixing at the source.</p>
         <div class="row">
-          <label class="check level-auto" title="Auto level: keep everyone near the target level while the session runs"><input id="tavern-autolevel" class="switch" type="checkbox"><span>Auto level during the session</span></label>
+          <label class="check level-auto" title="Auto level: keep everyone near the target level while the session runs"><input id="tavern-autolevel" type="checkbox"><span>Auto level during the session</span></label>
         </div>
         <div class="row">
           <label class="check" title="Adds noise suppression, then a compressor, then a limiter to each new Participant source, so people at different mic levels sound closer together. Filters a source already has are left alone."><input id="tavern-audio-filters" type="checkbox"><span>Add audio filters to new participants</span></label>
@@ -564,7 +564,7 @@
           <div class="level-target"><span class="level-target-label">Target level</span><div class="level-scale"><input id="tavern-level-target" type="range" min="-40" max="-6" step="1" value="-20" aria-label="Target level" title="The average speech level every participant is brought to. Speech usually sits around -20."><div class="level-zones" aria-hidden="true"><span class="zone-low">Quiet</span><span class="zone-mid">Speech</span><span class="zone-hot">Loud</span></div></div><output id="tavern-level-target-value">-20 dB</output></div>
         </div>
         <div class="row">
-          <label class="field field-inline"><span>Calibrate for (seconds)</span><input id="tavern-level-seconds" type="number" min="5" max="60" step="1" size="3" value="10"></label>
+          <span class="level-manual">Manually calibrate</span><input id="tavern-level-seconds" type="number" min="5" max="60" step="1" size="3" value="10" aria-label="Seconds to listen"><span class="level-manual">seconds</span>
           <button id="tavern-level-run" class="btn btn-primary" type="button">Calibrate</button>
         </div>
         <p class="hint" id="tavern-level-status"></p>
