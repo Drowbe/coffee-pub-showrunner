@@ -1,14 +1,14 @@
-# The built-in recorder
+# The Showrunner Recorder
 
 **Audience:** anyone who wants to record Showrunner's windows without setting up OBS.
 
-The built-in recorder saves the pictures and sound of your Showrunner windows to an **MP4** file. It is on the **Recorder** page
+The Showrunner Recorder saves the pictures and sound of your Showrunner windows to an **MP4** file. It is on its own page, which appears under **Recordings** once you choose it
 (under Recording in the left rail). OBS still works exactly as before: the Recorder page just says which of the two the Start, Pause
 and Stop recording steps use for this profile.
 
 ## Set it up
 
-1. Open **Recorder** and set **Records with** to **Built-in recorder**.
+1. Open **Recordings** and set **Records with** to **Showrunner Recorder**; its page appears just below.
 2. Choose the **Window** to record. For two windows side by side, set **Layout** to *Two windows side by side* and choose a
    **Second window**.
 3. Pick the **Size** (1920 x 1080 or 1280 x 720) and **Frames per second** (24, 30 or 60).

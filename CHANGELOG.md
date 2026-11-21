@@ -11,7 +11,7 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
 ## Unreleased
 
-- **Built-in recorder (Mac).** A new Recorder page chooses what records for the profile: OBS, or Showrunner itself, which saves
+- **Built-in recorder (Mac).** A new Recordings page chooses what records for the profile: OBS, or Showrunner itself, which saves
   one window, or two side by side, with their sound to an MP4 (H.264 and AAC, 1080p or 720p, up to 60 fps), with pause. The Start,
   Pause, Resume and Stop recording steps work with either. The file is written as it records. See
   `documentation/userguides/userguide-recorder.md`.

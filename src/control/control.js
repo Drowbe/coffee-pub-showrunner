@@ -727,7 +727,7 @@ function recallTab() {
 }
 
 // Every page that has a tab-<key> panel; windows have cards of their own.
-const PANEL_KEYS = ['recording', 'metadata', 'profiles', 'status', 'obs', 'preferences', 'teleprompter', 'tavern', 'automations', 'youtube'];
+const PANEL_KEYS = ['recording', 'builtin', 'metadata', 'profiles', 'status', 'obs', 'preferences', 'teleprompter', 'tavern', 'automations', 'youtube'];
 
 function selectTab(name) {
   if (name === 'general' || name === 'configuration' || name === 'about') name = 'status';
@@ -2213,10 +2213,12 @@ function renderRecording() {
   const st = (status && status.recording && status.recording.builtIn) || { state: 'idle', seconds: 0, file: '', error: '' };
   const builtin = r.backend === 'builtin';
   recEls.backend.value = r.backend;
-  recEls.card.hidden = !builtin;
   const obsTab = document.querySelector('.tab[data-tab="obs"]');
+  const builtinTab = document.querySelector('.tab[data-tab="builtin"]');
   if (obsTab) obsTab.hidden = builtin;
-  if (builtin && activeTab === 'obs') selectTab('recording');
+  if (builtinTab) builtinTab.hidden = !builtin;
+  if (builtin && activeTab === 'obs') selectTab('builtin');
+  if (!builtin && activeTab === 'builtin') selectTab('obs');
   fillWindowSelect(recEls.s1, r.sources[0], false);
   fillWindowSelect(recEls.s2, r.sources[1], true);
   recEls.layout.value = r.layout;

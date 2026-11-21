@@ -36,8 +36,9 @@
     </div>
     <div class="nav-group">
       <div class="nav-heading">Recording</div>
-      <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS</button>
-      <button class="tab" data-tab="recording" type="button"><span class="dot" id="recording-dot" title="Recording"></span>Recorder</button>
+      <button class="tab" data-tab="recording" type="button"><i class="fa-solid fa-circle-dot tab-icon" aria-hidden="true"></i>Recordings</button>
+      <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS Recorder</button>
+      <button class="tab" data-tab="builtin" type="button" hidden><span class="dot" id="recording-dot" title="Recording"></span>Showrunner Recorder</button>
       <button class="tab" data-tab="metadata" type="button"><span class="dot" id="session-dot" title="Session fields"></span>Session</button>
       <div class="tab-row">
         <button class="tab" data-tab="teleprompter" type="button"><span class="dot" id="prompter-dot" title="Teleprompter window"></span>Teleprompter</button>
@@ -214,22 +215,29 @@
       <div class="card">
         <div class="view-head">
           <div class="view-head-left">
-            <h2>Recorder</h2>
-            <span class="tag" id="rec-tag" hidden>RECORDING</span>
+            <h2>Recordings</h2>
           </div>
         </div>
-        <p class="hint">What records for this profile: OBS, or the built-in recorder, which saves Showrunner's own windows to an MP4 with no OBS. The Start, Pause and Stop recording steps in Automations use whichever you choose here.</p>
+        <p class="hint">What records for this profile: OBS, or the Showrunner Recorder, which saves Showrunner's own windows to an MP4 with no OBS. The Start, Pause and Stop recording steps in Automations use whichever you choose here. The one you choose gets its own page just below.</p>
         <label class="field">
           <span>Records with</span>
           <select id="rec-backend">
             <option value="obs">OBS</option>
-            <option value="builtin">Built-in recorder</option>
+            <option value="builtin">Showrunner Recorder</option>
           </select>
         </label>
       </div>
 
+    </section>
+
+    <section class="tab-panel" id="tab-builtin" hidden>
       <div class="card" id="rec-builtin-card">
-        <h2>Built-in recorder</h2>
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Showrunner Recorder</h2>
+            <span class="tag" id="rec-tag" hidden>RECORDING</span>
+          </div>
+        </div>
         <p class="hint">Records the pictures and sound of the windows below, as they are on your screen, into one MP4. Windows must be open (docked windows record too). Sound is mixed into one track. Mac for now.</p>
         <div class="row">
           <label class="field field-inline"><span>Window</span><select id="rec-source-1"></select></label>
@@ -259,7 +267,7 @@
       <div class="card obs">
         <div class="view-head">
           <div class="view-head-left">
-            <h2>OBS</h2>
+            <h2>OBS Recorder</h2>
             <span class="tag" id="obs-tag" hidden>CONNECTED</span>
           </div>
           <div class="view-actions">

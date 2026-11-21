@@ -85,7 +85,7 @@ class ObsBackend extends RecordingBackend {
 // The built-in recorder (src/recorder.js): records Showrunner's own windows to an MP4. It has no scenes, sources or levels of its own.
 class BuiltInBackend extends RecordingBackend {
   constructor(recorder, getSettings) {
-    super({ id: 'builtin', label: 'Built-in recorder', capabilities: ['record', 'pause'] });
+    super({ id: 'builtin', label: 'Showrunner Recorder', capabilities: ['record', 'pause'] });
     this.recorder = recorder;
     this.getSettings = getSettings;
   }
