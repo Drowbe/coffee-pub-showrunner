@@ -8,6 +8,21 @@ contextBridge.exposeInMainWorld('__srTap', (l, r, rate) => ipcRenderer.send('tap
 webFrame.executeJavaScript(`(() => {
   const orig = AudioNode.prototype.connect;
   const taps = new WeakMap();
+  // Media elements (<audio>, <video>, and WebRTC streams played in them): copy their stream, leaving the element playing as it was.
+  const tapElement = (el) => {
+    if (el.__srTapped || !el.captureStream) return;
+    try {
+      const stream = el.srcObject instanceof MediaStream ? el.srcObject : el.captureStream(); // a live stream (WebRTC) is tapped directly: capturing it back out of the element drops audio
+      if (!stream.getAudioTracks().length) return;
+      el.__srTapped = true;
+      const ctx = new AudioContext();
+      const src = ctx.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
+      const tap = ctx.createScriptProcessor(2048, 2, 2);
+      tap.onaudioprocess = (e) => window.__srTap(new Float32Array(e.inputBuffer.getChannelData(0)), new Float32Array(e.inputBuffer.getChannelData(1)), ctx.sampleRate);
+      src.connect(tap); orig.call(tap, ctx.destination);
+    } catch (err) { /* never break the page */ }
+  };
+  document.addEventListener('playing', (e) => { if (e.target instanceof HTMLMediaElement) tapElement(e.target); }, true);
   AudioNode.prototype.connect = function (target, ...rest) {
     const result = orig.call(this, target, ...rest);
     try {

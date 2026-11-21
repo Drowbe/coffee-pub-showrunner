@@ -12,12 +12,39 @@ const c = document.getElementById('c'), g = c.getContext('2d'), flash = document
 const shapes = Array.from({ length: heavy }, (_, i) => ({ x: Math.random() * 1280, y: Math.random() * 580, vx: (Math.random() - .5) * 8, vy: (Math.random() - .5) * 8, s: 10 + Math.random() * 40, h: i * 7 % 360 }));
 const webgl = q.get('webgl') === '1';
 let ctx = null;
+const media = q.get('media') || 'webaudio'; // webaudio | element (an <audio> playing a file) | webrtc (audio arriving over a peer connection)
+let mediaEl = null, rtcDest = null;
+function wavBlob(seconds) { // a 880 Hz beep at the start of every second
+  const rate = 48000, n = rate * seconds, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i += 1) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i += 1) { const t = (i % rate) / rate; v.setInt16(44 + i * 2, t < 0.1 ? Math.sin(2 * Math.PI * 880 * t) * 0.5 * 32767 : 0, true); }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+async function setupMedia() {
+  if (media === 'element') { mediaEl = document.createElement('audio'); mediaEl.src = URL.createObjectURL(wavBlob(700)); document.body.appendChild(mediaEl); }
+  if (media === 'webrtc') {
+    ctx = new AudioContext(); rtcDest = ctx.createMediaStreamDestination();
+    const a = new RTCPeerConnection(), b = new RTCPeerConnection();
+    a.onicecandidate = (e) => e.candidate && b.addIceCandidate(e.candidate); b.onicecandidate = (e) => e.candidate && a.addIceCandidate(e.candidate);
+    b.ontrack = (e) => { if (!q.get('noanalyser')) { const ac2 = new AudioContext(); const an = ac2.createAnalyser(); an.fftSize = 1024; ac2.createMediaStreamSource(e.streams[0]).connect(an); const buf = new Float32Array(1024); let loud = false, n = 0; setInterval(() => { an.getFloatTimeDomainData(buf); let s = 0; for (const x of buf) s += x * x; const on = Math.sqrt(s / 1024) > 0.05; if (on && !loud) { n += 1; document.title = 'received ' + n + ' pings ' + (window.__pings || 0); } loud = on; }, 5); } mediaEl = document.createElement('audio'); mediaEl.srcObject = e.streams[0]; document.body.appendChild(mediaEl); mediaEl.play().catch((err) => console.log('play failed', err)); };
+    rtcDest.stream.getTracks().forEach((t) => a.addTrack(t, rtcDest.stream));
+    await a.setLocalDescription(await a.createOffer()); await b.setRemoteDescription(a.localDescription);
+    await b.setLocalDescription(await b.createAnswer()); await a.setRemoteDescription(b.localDescription);
+  }
+}
+setupMedia();
+let steady = null;
 function ping() {
+  if (media === 'webrtc' && q.get('steady')) { if (!steady) { steady = ctx.createOscillator(); const gn = ctx.createGain(); gn.gain.value = 0.5; steady.connect(gn); gn.connect(rtcDest); steady.start(); } return; }
+  window.__pings = (window.__pings || 0) + 1;
+  if (media === 'element') { if (mediaEl && mediaEl.paused) mediaEl.play().catch(() => {}); return; }
   if (!ctx) ctx = new AudioContext();
   const o = ctx.createOscillator(), gain = ctx.createGain();
   o.frequency.value = 880; gain.gain.value = 0.5;
-  o.connect(gain); gain.connect(ctx.destination);
-  o.start(); o.stop(ctx.currentTime + 0.1);
+  o.connect(gain); gain.connect(media === 'webrtc' ? rtcDest : ctx.destination);
+  o.start(); o.stop(ctx.currentTime + (media === 'webrtc' ? 0.4 : 0.1));
 }
 let glr = null;
 function initGl() {

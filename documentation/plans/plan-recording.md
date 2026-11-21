@@ -2,7 +2,7 @@
 
 **Audience:** anyone deciding how Showrunner should record on its own, and the developers building it.
 
-Status: spike 1 done (below); nothing is built. The code is in `spikes/recording/`.
+Status: spikes 1 and 2 done (below); the backend interface is in PR #68; the recorder itself is not built. The code is in `spikes/recording/`.
 
 ## The idea
 
@@ -37,13 +37,39 @@ windows into a 1920x1080 canvas and records it with `MediaRecorder`. Ten-second 
 
 The raw numbers are in `spikes/recording/results.json`.
 
+## Spike 2: what was measured (run overnight, Mac only)
+
+| Question | Result |
+| --- | --- |
+| Audio from `<audio>` / `<video>` elements | **Works.** Copying the element's stream (leaving it playing) found 20 of 20 beeps. |
+| Audio from WebRTC (what Chameleon uses) | **Works for continuous audio**: tapping the remote stream directly got 100% of the chunks of a steady tone over 10 s. Short beeps through a same-page loopback were caught only about half the time, although the page itself heard them all. Likely a quirk of the loopback test, but **a real Chameleon room still has to confirm it**. Tap the stream itself, not the element's `captureStream()`. |
+| Audio and video in step | **Fixed.** A 0.04 s audio cushion (was 0.12) plus holding the picture back 60 ms puts beep and flash within about 20 ms of each other (was about 150 ms late). The 60 ms is a measured constant for this pipeline, so re-measure on Windows. |
+| 30-minute recording | **Held.** Exactly 1800.0 s, 1800 of 1800 beeps, 1800 flashes, longest frame gap 201 ms at 4x check speed (so not a real figure), and **no drift**: the audio-to-picture offset averaged -6 ms over the first 100 beeps and -5 ms over the last 100. About 48% of one core throughout. 1.82 GB file at 8 Mbps video. |
+| Memory over 30 minutes | **Grew from 1.1 GB to 2.8 GB** (about 57 MB a minute) because this harness keeps the whole recording in memory until the end. The real recorder must write each chunk to disk as it arrives. (Writing straight from the recorder window's data event stalled in my first try, so that path needs its own small test.) |
+| Microphone | Skipped on purpose (it prompts). Still to do with someone at the machine. |
+| System audio in a packaged app | Not done (needs a packaged build). |
+| Windows | Not done. |
+| Streaming (RTMP) | Not covered. |
+
+Decisions taken: **mixed audio only is acceptable for the first version, Mac first.** Per-window audio from the page is available anyway.
+
+Raw numbers: `spikes/recording/results.json` and the soak run.
+
+## The backend interface (PR #68)
+
+`src/recording.js` defines what a backend can do (record, pause, stream, scenes, sources, levels), wraps OBS as the first backend, and
+routes the six record and stream actions through the active backend. Choosing a backend in the profile and filtering the step menu by
+capability come with the built-in recorder.
+
 ## What this means
 
 The video side of a built-in recorder looks **feasible and cheap**: real windows (including docked ones) can be read with
 `capturePage()`, drawn into a layout, and written as a normal MP4 by the browser, at 30 fps for the cost of roughly half a core. The
 risk has moved to **audio**, which is also what makes Showrunner worth having over a plain screen recorder (each person leveled on their own).
 
-## Still unproven (spike 2)
+## Still unproven after spike 2
+
+(Items 1 and 5 are largely answered above; 2, 4, 6 and 7 remain.)
 
 1. **Audio for the pages that matter.** Only Web Audio was tested. Foundry's sound may use media elements (`<audio>`, `<video>`), and
    Chameleon's people arrive as WebRTC streams in media elements, so the copy has to cover those (`createMediaElementSource`, element
@@ -68,6 +94,5 @@ risk has moved to **audio**, which is also what makes Showrunner worth having ov
 
 ## Open decisions
 
-- Is a first version allowed to be **mixed audio only**?
-- Does it need to work on **Windows** in the first release?
+- Decided: mixed audio only is fine for a first version; Mac first, Windows after.
 - Where recordings go, and whether the YouTube upload step can take the built-in recorder's file the way it takes OBS's.

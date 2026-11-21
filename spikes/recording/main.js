@@ -23,12 +23,13 @@ function metadata(file) {
 }
 
 function cpuSampler() {
-  const samples = [];
+  const samples = []; const mem = [];
   const timer = setInterval(() => {
     const total = app.getAppMetrics().reduce((sum, m) => sum + m.cpu.percentCPUUsage, 0);
     samples.push(total);
+    if (samples.length % 30 === 0) mem.push({ atSeconds: samples.length, workingSetMB: Math.round(app.getAppMetrics().reduce((s, x) => s + x.memory.workingSetSize, 0) / 1024) });
   }, 1000);
-  return () => { clearInterval(timer); const s = samples.slice(1); return { avgPercentOfOneCore: Math.round(s.reduce((a, b) => a + b, 0) / Math.max(1, s.length)), maxPercentOfOneCore: Math.round(Math.max(0, ...s)), samples: s.length }; };
+  return () => { clearInterval(timer); const s = samples.slice(1); return { avgPercentOfOneCore: Math.round(s.reduce((a, b) => a + b, 0) / Math.max(1, s.length)), maxPercentOfOneCore: Math.round(Math.max(0, ...s)), samples: s.length, memory: mem }; };
 }
 
 // A second opinion on CPU, from the system's own `top` (the app's own numbers are per process and easy to misread): the sum for this
@@ -47,7 +48,7 @@ function topSample() {
   });
 }
 
-function openSource(index, { beep, heavy, fps, webgl, tapForward, mode }) {
+function openSource(index, { beep, heavy, fps, webgl, tapForward, mode, media }) {
   // mode: 'osr' (an offscreen window), 'visible' (a normal window on screen) or 'parked' (a normal window moved off every screen,
   // as the edge dock does). The last two are what Showrunner's real windows are: you log in to them and move them.
   const visible = mode !== 'osr';
@@ -84,14 +85,14 @@ function openSource(index, { beep, heavy, fps, webgl, tapForward, mode }) {
   win.on('closed', () => clearInterval(pump));
   win.webContents.on('ipc-message', () => {});
   win.webContents.ipc.on('tap', (_e, data) => { if (beep && tapForward) recorder.webContents.send('tap', data); });
-  win.loadFile(path.join(__dirname, 'page.html'), { query: { beep: beep ? '1' : '0', heavy: String(heavy), webgl: webgl ? '1' : '0' } });
+  win.loadFile(path.join(__dirname, 'page.html'), { query: { beep: beep ? '1' : '0', heavy: String(heavy), webgl: webgl ? '1' : '0', media: media || 'webaudio', ...(process.env.NOANALYSER ? { noanalyser: '1' } : {}), ...(process.env.STEADY ? { steady: '1' } : {}) } });
   return { win, stats };
 }
 
-async function runTest(name, { layout, sources = 0, audio = false, heavy = 400, webgl = false, mode = 'osr', width = 1920, height = 1080, fps = 30 }) {
+async function runTest(name, { media, layout, sources = 0, audio = false, heavy = 400, webgl = false, mode = 'osr', width = 1920, height = 1080, fps = 30 }) {
   currentName = name;
   const wins = [];
-  for (let i = 0; i < sources; i += 1) wins.push(openSource(i, { beep: Boolean(audio) && i === 0, tapForward: audio === 'tap', heavy, fps, webgl, mode }));
+  for (let i = 0; i < sources; i += 1) wins.push(openSource(i, { beep: Boolean(audio) && i === 0, tapForward: audio === 'tap', heavy, fps, webgl, mode, media }));
   await wait(2000); // let the pages load and start painting
   const started = new Promise((resolve) => ipcMain.once('started', (_e, v) => resolve(v)));
   recorder.webContents.send('start', { layout, audio, width, height, fps });
@@ -104,16 +105,24 @@ async function runTest(name, { layout, sources = 0, audio = false, heavy = 400, 
   recorder.webContents.send('stop');
   const r = await stopped;
   const sourceStats = wins.map((w) => { const life = (Date.now() - w.stats.born) / 1000; return ({ paintsPerSecond: Math.round(w.stats.paints / life), mbPerSecondToRecorder: Math.round(w.stats.bytes / life / 1e6), sentPerSecond: Math.round(w.stats.sent / life), avgToBitmapMs: Math.round((w.stats.toBitmapMs / Math.max(1, w.stats.sent)) * 10) / 10 }); });
+  const pageTitles = wins.map((w) => w.win.getTitle());
   wins.forEach((w) => w.win.destroy());
-  results.tests[name] = { config: { layout, sources, audio, heavy, webgl, mode, width, height, fps, seconds: SECONDS }, encoder: info, cpu, sourceStats, recorder: r, mdls: metadata(r.file) };
+  results.tests[name] = { config: { layout, sources, audio, heavy, webgl, mode, width, height, fps, seconds: SECONDS }, encoder: info, pageTitles, cpu, sourceStats, recorder: r, mdls: metadata(r.file) };
   console.log(`${name}:`, JSON.stringify(results.tests[name], null, 1));
   await wait(500);
 }
 
 ipcMain.on('log', (_e, m) => console.log('[recorder]', m));
-ipcMain.handle('save', (_e, buf, mime) => {
+let outStream = null;
+ipcMain.on('chunk', (_e, buf) => {
+  if (!outStream) outStream = fs.createWriteStream(path.join(OUT, `${currentName}.partial`));
+  outStream.write(Buffer.from(buf));
+});
+ipcMain.handle('finish', async (_e, mime) => {
   const file = path.join(OUT, `${currentName}.${mime.includes('mp4') ? 'mp4' : 'webm'}`);
-  fs.writeFileSync(file, Buffer.from(buf));
+  await new Promise((resolve) => outStream.end(resolve));
+  outStream = null;
+  fs.renameSync(path.join(OUT, `${currentName}.partial`), file);
   return file;
 });
 
@@ -136,6 +145,8 @@ app.whenReady().then(async () => {
     '12-capturepage-parked-window': { layout: 'one', sources: 1, mode: 'capture-parked', webgl: true },
     '13-capturepage-visible-audio-tap': { layout: 'one', sources: 1, mode: 'capture-visible', audio: 'tap' },
     '14-capturepage-two-visible': { layout: 'two', sources: 2, mode: 'capture-visible', webgl: true },
+    '15-media-element-audio': { layout: 'one', sources: 1, mode: 'capture-visible', audio: 'tap', media: 'element' },
+    '16-webrtc-audio': { layout: 'one', sources: 1, mode: 'capture-visible', audio: 'tap', media: 'webrtc' },
     '9-one-window-system-audio': { layout: 'one', sources: 1, audio: 'loopback' },
     '5-one-window-1080p60': { layout: 'one', sources: 1, fps: 60 },
     '6-two-windows-heavy': { layout: 'two', sources: 2, heavy: 3000 },

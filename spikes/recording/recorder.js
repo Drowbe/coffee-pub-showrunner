@@ -13,17 +13,21 @@ const swizzle = (u32) => { // BGRA to RGBA, in place
   for (let i = 0; i < u32.length; i += 1) { const v = u32[i]; u32[i] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >> 16) & 0xff); }
 };
 
-ipcRenderer.on('frame', (_e, { i, w, h, buf }) => {
+const VDELAY = Number(process.env.VDELAY) || 0; // ms to hold the picture back so it lines up with the audio
+ipcRenderer.on('frame', (_e, msg) => { if (VDELAY) setTimeout(() => onFrame(msg), VDELAY); else onFrame(msg); });
+function onFrame({ i, w, h, buf }) {
   const data = new Uint8ClampedArray(buf.buffer, buf.byteOffset, buf.byteLength);
   swizzle(new Uint32Array(data.buffer, data.byteOffset, data.byteLength / 4));
   let s = sources[i];
   if (!s || s.width !== w || s.height !== h) { s = document.createElement('canvas'); s.width = w; s.height = h; sources[i] = s; }
   s.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0);
   frameStats[i] += 1;
-});
+}
 
+let tapLoud = false; let tapBeeps = 0; let tapChunks = 0; let tapLoudChunks = 0;
 ipcRenderer.on('tap', (_e, { l, r, rate }) => {
   if (!actx) return;
+  { let s = 0; for (const x of l) s += x * x; const on = Math.sqrt(s / l.length) > 0.05; tapChunks += 1; if (on) tapLoudChunks += 1; if (on && !tapLoud) { tapBeeps += 1; ipcRenderer.send('log', 'tap beep at ' + Math.round(performance.now())); } tapLoud = on; } // how many beeps the copy itself saw, before mixing and encoding
   const n = l.length;
   const buffer = actx.createBuffer(2, n, rate);
   buffer.copyToChannel(new Float32Array(l.buffer ? l.buffer : l), 0);
@@ -32,7 +36,7 @@ ipcRenderer.on('tap', (_e, { l, r, rate }) => {
   node.buffer = buffer;
   node.connect(adest);
   const now = actx.currentTime;
-  if (!nextAt || nextAt < now) nextAt = now + 0.12; // a little cushion so chunks that arrive unevenly still play evenly
+  if (!nextAt || nextAt < now) nextAt = now + (Number(process.env.CUSHION) || 0.12); // a little cushion so chunks that arrive unevenly still play evenly
   node.start(nextAt);
   nextAt += n / rate;
 });
@@ -64,7 +68,7 @@ function markerRect() { // where the source's white flash lands in the composite
 }
 
 async function startTest(config) {
-  cfg = config; drawn = 0; frameStats[0] = frameStats[1] = 0; chunks = []; nextAt = 0;
+  cfg = config; tapBeeps = 0; drawn = 0; frameStats[0] = frameStats[1] = 0; chunks = []; nextAt = 0;
   canvas = document.createElement('canvas'); canvas.width = cfg.width; canvas.height = cfg.height; g = canvas.getContext('2d');
   const stream = canvas.captureStream(0);
   track = stream.getVideoTracks()[0];
@@ -84,7 +88,7 @@ async function startTest(config) {
     : ['video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1', 'video/webm;codecs=vp9'];
   const mimeType = candidates.find((m) => MediaRecorder.isTypeSupported(m)) || '';
   rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 });
-  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); }; // Blobs are held by the browser, which can keep them off the JS heap
   const started = performance.now();
   rec.start(1000);
   tickTimer = setInterval(() => draw(performance.now() - started), 1000 / cfg.fps);
@@ -99,16 +103,18 @@ async function stopTest() {
   if (actx) { await actx.close(); actx = null; }
   if (loopStream) { loopStream.getTracks().forEach((t) => t.stop()); loopStream = null; }
   const blob = new Blob(chunks, { type: rec.mimeType });
-  const file = await ipcRenderer.invoke('save', await blob.arrayBuffer(), rec.mimeType);
-  const analysis = await analyze(blob);
-  return { file, bytes: blob.size, mimeType: rec.mimeType, drawn, sourceFrames: [...frameStats], analysis };
+  const written = blob.size;
+  for (let at = 0; at < blob.size; at += 16 * 1024 * 1024) ipcRenderer.send('chunk', await blob.slice(at, at + 16 * 1024 * 1024).arrayBuffer()); // to disk in slices, never one giant buffer
+  const file = await ipcRenderer.invoke('finish', rec.mimeType);
+  const analysis = await analyze(file);
+  return { file, bytes: written, mimeType: rec.mimeType, drawn, sourceFrames: [...frameStats], tapBeeps, tapChunks, tapLoudChunks, analysis };
 }
 
 // Play the recording back and measure it: how many frames really made it, the longest gap, and (when the source flashes and beeps
 // together) how far apart the flash and the beep are in the file.
-async function analyze(blob) {
+async function analyze(file) {
   const v = document.createElement('video');
-  v.src = URL.createObjectURL(blob);
+  v.src = 'file://' + file;
   v.muted = false;
   await new Promise((resolve, reject) => { v.onloadedmetadata = resolve; v.onerror = () => reject(new Error('cannot decode the recording')); });
   const out = { width: v.videoWidth, height: v.videoHeight, duration: v.duration };
@@ -123,7 +129,7 @@ async function analyze(blob) {
     analyser = ac.createAnalyser(); analyser.fftSize = 1024; src.connect(analyser);
     samples = new Float32Array(analyser.fftSize);
   }
-  v.playbackRate = 1;
+  v.playbackRate = out.duration > 120 ? 4 : 1; // a long recording is checked at 4x speed
   const onFrame = (_now, meta) => {
     frames.push(meta.mediaTime);
     if (mr) {
