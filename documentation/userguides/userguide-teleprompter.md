@@ -5,7 +5,7 @@ to change scenes from it.
 
 The teleprompter is a window for the presenter that shows a **Markdown file**. It has the same look as the capture
 windows, a borderless window with the slim bar on top, but it is not one: it is never an OBS source, so it stays off the
-stream, and it does not appear under Windows, in the edge dock or in Start All and Stop All.
+stream, and it does not appear under Windows, in the edge dock, or in the window controls (restart, dock and show) there.
 
 ## Set it up
 
