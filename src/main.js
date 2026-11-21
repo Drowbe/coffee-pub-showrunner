@@ -10,6 +10,7 @@ const { calibrateInputs } = require('./leveling');
 const { AutoLevelService } = require('./autolevel');
 const { ConfigStore, LIMITS, REGION_LIMITS, DEFAULT_GROUP, AUTOMATIONS_ACTION_SCHEMA, STUDIO_ACTION_SCHEMA, SOURCE_SUFFIX, upgradeSourceName } = require('./config');
 const { ObsBridge, parseWindowChoice } = require('./obs');
+const { ObsBackend, RecordingBackends } = require('./recording');
 const { TavernBridge } = require('./tavern');
 const { AutomationsServer } = require('./automations');
 const { YouTubeUploader } = require('./youtube');
@@ -819,6 +820,8 @@ automations.on('event', (entry) => {
   });
 });
 
+const recordingBackends = new RecordingBackends([new ObsBackend(obs)]);
+
 function requireObs() {
   if (!obs.connected) throw new Error('OBS is not connected.');
 }
@@ -1273,24 +1276,9 @@ async function runAutomationAction(action, param, eventData, stepContext, chain 
       if (!Number.isFinite(db)) throw new Error(`setVolume needs a level in dB, such as -6 (got "${raw}").`);
       return obs.setInputVolumeDb(param, db);
     }
-    case 'startRecording':
-      requireObs();
-      return obs.startRecording();
-    case 'pauseRecording':
-      requireObs();
-      return obs.pauseRecording();
-    case 'resumeRecording':
-      requireObs();
-      return obs.resumeRecording();
-    case 'stopRecording':
-      requireObs();
-      return obs.stopRecording();
-    case 'startStreaming':
-      requireObs();
-      return obs.startStreaming();
-    case 'stopStreaming':
-      requireObs();
-      return obs.stopStreaming();
+    case 'startRecording': case 'pauseRecording': case 'resumeRecording': case 'stopRecording':
+    case 'startStreaming': case 'stopStreaming':
+      return recordingBackends.run(action); // the active backend (OBS today): see src/recording.js
     case 'prompterPlay': case 'prompterPause': case 'prompterToggle': case 'prompterFaster': case 'prompterSlower':
     case 'prompterNext': case 'prompterPrev': case 'prompterTop': {
       if (!prompterOpen() || !prompterPage || prompterPage.webContents.isDestroyed()) {
@@ -1961,6 +1949,7 @@ function fullStatus() {
     displays: screen.getAllDisplays().map(displaySummary),
     config: configStore.get(),
     obs: { ...obs.status(), hasPassword: readObsPassword() !== '' },
+    recording: { active: recordingBackends.active.id, backends: recordingBackends.list() },
     tavern: { ...tavern.status(), hasPassword: readSecret(TAVERN_SECRET_PATH) !== '', sync: tavernSync },
     automations: {
       ...automations.status(),
@@ -3819,12 +3808,12 @@ function registerIpc() {
   ipcMain.handle('obs:listScenes', () => obs.listScenes());
   ipcMain.handle('obs:listSources', () => obs.listSourceNames());
   ipcMain.handle('obs:setScene', (_event, sceneName) => obs.setCurrentScene(sceneName));
-  ipcMain.handle('obs:startRecording', () => obs.startRecording());
-  ipcMain.handle('obs:pauseRecording', () => obs.pauseRecording());
-  ipcMain.handle('obs:resumeRecording', () => obs.resumeRecording());
-  ipcMain.handle('obs:stopRecording', () => obs.stopRecording());
-  ipcMain.handle('obs:startStreaming', () => obs.startStreaming());
-  ipcMain.handle('obs:stopStreaming', () => obs.stopStreaming());
+  ipcMain.handle('obs:startRecording', () => recordingBackends.run('startRecording'));
+  ipcMain.handle('obs:pauseRecording', () => recordingBackends.run('pauseRecording'));
+  ipcMain.handle('obs:resumeRecording', () => recordingBackends.run('resumeRecording'));
+  ipcMain.handle('obs:stopRecording', () => recordingBackends.run('stopRecording'));
+  ipcMain.handle('obs:startStreaming', () => recordingBackends.run('startStreaming'));
+  ipcMain.handle('obs:stopStreaming', () => recordingBackends.run('stopStreaming'));
   // --- The whole window as an OBS source ---
   // Saves the switch and the name. Switching off hides the source in OBS
   // and stops maintaining it; renaming while the source exists in OBS renames
