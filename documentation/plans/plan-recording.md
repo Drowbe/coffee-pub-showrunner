@@ -61,6 +61,21 @@ Raw numbers: `spikes/recording/results.json` and the soak run.
 routes the six record and stream actions through the active backend. Choosing a backend in the profile and filtering the step menu by
 capability come with the built-in recorder.
 
+## Step 3: what building the recorder taught us (PR #68)
+
+- **MediaRecorder's MP4 is not streamed.** Chrome holds the whole MP4 until you stop (no `dataavailable` data during recording, with or
+  without `requestData()`), which is the 57 MB a minute seen in the soak: a three-hour session would be about 10 GB of memory and
+  a crash would lose everything. The built-in recorder therefore uses **WebCodecs** (the computer's H.264 and AAC encoders) and the
+  vendored MIT `mp4-muxer` to write a **fragmented MP4** to disk as it goes. Memory is flat and a crash loses about a second.
+- **Still pictures need a nudge.** A page that does not change (an idle map) gave the encoder almost no new frames. One pixel in the
+  corner changes every frame, so every frame counts.
+- **The "none" audio output made the sound drift** (about 4 ms per second against the picture). A normal (silent) output context stays
+  put; remaining slow drift is corrected by nudging the audio timestamps 1% of the way towards the wall clock each block.
+- **Sync, re-measured on the final pipeline:** within about -20 to +15 ms for 60 seconds, no drift (picture delay 70 ms, 2048-sample blocks).
+- **Reading a window inside the app:** `capturePage()` on the page view inside each window works (without the title bar), including
+  two side by side. A still page records at full length.
+- Not yet verified: Windows, microphone, a real Foundry/Chameleon page, a window that reloads mid-recording.
+
 ## What this means
 
 The video side of a built-in recorder looks **feasible and cheap**: real windows (including docked ones) can be read with
