@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>spike source</title>
+<style>html,body{margin:0;background:#101820;color:#fff;font:28px system-ui;overflow:hidden}#flash{position:absolute;left:0;top:0;width:100px;height:100px;background:#000}#t{position:absolute;left:130px;top:20px}</style>
+<div id="flash"></div><div id="t"></div><canvas id="c" width="1280" height="720" style="position:absolute;left:0;top:140px"></canvas>
+<script>
+// A stand-in for a busy page: lots of moving shapes, a clock, and (optionally) a beep once a second that coincides with the white flash.
+const q = new URLSearchParams(location.search);
+const heavy = Number(q.get('heavy') || 400);
+const beep = q.get('beep') === '1';
+const c = document.getElementById('c'), g = c.getContext('2d'), flash = document.getElementById('flash'), t = document.getElementById('t');
+const shapes = Array.from({ length: heavy }, (_, i) => ({ x: Math.random() * 1280, y: Math.random() * 580, vx: (Math.random() - .5) * 8, vy: (Math.random() - .5) * 8, s: 10 + Math.random() * 40, h: i * 7 % 360 }));
+const webgl = q.get('webgl') === '1';
+let ctx = null;
+function ping() {
+  if (!ctx) ctx = new AudioContext();
+  const o = ctx.createOscillator(), gain = ctx.createGain();
+  o.frequency.value = 880; gain.gain.value = 0.5;
+  o.connect(gain); gain.connect(ctx.destination);
+  o.start(); o.stop(ctx.currentTime + 0.1);
+}
+let glr = null;
+function initGl() {
+  const cv = document.createElement('canvas'); cv.width = 1280; cv.height = 580; cv.style.cssText = 'position:absolute;left:0;top:140px';
+  document.body.appendChild(cv);
+  const gl = cv.getContext('webgl');
+  const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+  const fs = 'precision mediump float;uniform float t;void main(){vec2 u=gl_FragCoord.xy/vec2(1280.,580.);float v=0.;for(int i=0;i<40;i++){float f=float(i);v+=sin(u.x*(8.+f)+t*(1.+f*.1))*cos(u.y*(6.+f)-t*.7);}gl_FragColor=vec4(.5+.5*sin(v),.5+.5*cos(v*1.3),.5+.5*sin(v*.7),1.);}';
+  const mk = (type, src) => { const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh); return sh; };
+  const pr = gl.createProgram(); gl.attachShader(pr, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(pr); gl.useProgram(pr);
+  const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  glr = (now) => { gl.uniform1f(gl.getUniformLocation(pr, 't'), now / 1000); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
+}
+if (webgl) initGl();
+function frame(now) {
+  if (glr) glr(now);
+  if (!webgl) { g.fillStyle = '#16212d'; g.fillRect(0, 0, 1280, 720); } else g.clearRect(0, 0, 1280, 720);
+  if (!webgl) for (const s of shapes) {
+    s.x += s.vx; s.y += s.vy;
+    if (s.x < 0 || s.x > 1280 - s.s) s.vx *= -1;
+    if (s.y < 0 || s.y > 580 - s.s) s.vy *= -1;
+    g.fillStyle = `hsl(${(s.h + now / 20) % 360} 70% 55%)`; g.fillRect(s.x, s.y, s.s, s.s);
+  }
+  t.textContent = (now / 1000).toFixed(2) + ' s';
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+// The flash and the beep start together once a second, from a timer.
+let n = 0;
+setInterval(() => {
+  n += 1;
+  flash.style.background = '#fff';
+  setTimeout(() => { flash.style.background = '#000'; }, 150);
+  if (beep) ping();
+}, 1000);
+</script>
