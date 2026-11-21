@@ -10,7 +10,8 @@ const { calibrateInputs } = require('./leveling');
 const { AutoLevelService } = require('./autolevel');
 const { ConfigStore, LIMITS, REGION_LIMITS, DEFAULT_GROUP, AUTOMATIONS_ACTION_SCHEMA, STUDIO_ACTION_SCHEMA, SOURCE_SUFFIX, upgradeSourceName } = require('./config');
 const { ObsBridge, parseWindowChoice } = require('./obs');
-const { ObsBackend, RecordingBackends } = require('./recording');
+const { ObsBackend, BuiltInBackend, RecordingBackends } = require('./recording');
+const { BuiltInRecorder } = require('./recorder');
 const { TavernBridge } = require('./tavern');
 const { AutomationsServer } = require('./automations');
 const { YouTubeUploader } = require('./youtube');
@@ -820,7 +821,17 @@ automations.on('event', (entry) => {
   });
 });
 
-const recordingBackends = new RecordingBackends([new ObsBackend(obs)]);
+// The built-in recorder reads the pages of the windows the profile chose (the page inside each window, without its bar).
+const builtInRecorder = new BuiltInRecorder({
+  getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
+  folderFor: (folder) => folder || app.getPath('videos'),
+});
+builtInRecorder.on('recording', noteRecording);
+builtInRecorder.on('status', () => broadcastStatus());
+const recordingBackends = new RecordingBackends(
+  [new ObsBackend(obs), new BuiltInBackend(builtInRecorder, () => configStore.get().recording)],
+  () => configStore.get().recording.backend,
+);
 
 function requireObs() {
   if (!obs.connected) throw new Error('OBS is not connected.');
@@ -1466,7 +1477,7 @@ async function runYouTubeUpload(step, eventData, ruleSetId) {
   const y = configStore.get().youtube;
   if (!y.enabled) throw new Error('YouTube upload is off -- enable it on the Automations tab first.');
 
-  const filePath = step.filePath || obs.lastRecordingPath;
+  const filePath = step.filePath || (recordings.last && recordings.last.path) || obs.lastRecordingPath;
   if (!filePath) throw new Error('No recording to upload -- record something first, or set a file on this step.');
   if (!fs.existsSync(filePath)) throw new Error(`Recording file not found: ${filePath}`);
   // Only the *default* file is guarded: running "upload the last recording"
@@ -1949,7 +1960,7 @@ function fullStatus() {
     displays: screen.getAllDisplays().map(displaySummary),
     config: configStore.get(),
     obs: { ...obs.status(), hasPassword: readObsPassword() !== '' },
-    recording: { active: recordingBackends.active.id, backends: recordingBackends.list() },
+    recording: { active: recordingBackends.active.id, backends: recordingBackends.list(), builtIn: builtInRecorder.status() },
     tavern: { ...tavern.status(), hasPassword: readSecret(TAVERN_SECRET_PATH) !== '', sync: tavernSync },
     automations: {
       ...automations.status(),
@@ -2263,6 +2274,7 @@ function createViewWindow(view) {
   configureSession(partitionFor(view));
   const page = new WebContentsView({
     webPreferences: {
+      preload: path.join(__dirname, 'recorder', 'tap-preload.js'), // a copy of the page's sound for the built-in recorder; idle otherwise
       partition: partitionFor(view),
       contextIsolation: true,
       nodeIntegration: false,
@@ -3808,6 +3820,10 @@ function registerIpc() {
   ipcMain.handle('obs:listScenes', () => obs.listScenes());
   ipcMain.handle('obs:listSources', () => obs.listSourceNames());
   ipcMain.handle('obs:setScene', (_event, sceneName) => obs.setCurrentScene(sceneName));
+  ipcMain.handle('recording:chooseFolder', async () => {
+    const result = await dialog.showOpenDialog(controlWindow && !controlWindow.isDestroyed() ? controlWindow : undefined, { properties: ['openDirectory', 'createDirectory'], defaultPath: configStore.get().recording.folder || app.getPath('videos') });
+    return result.canceled || !result.filePaths[0] ? '' : result.filePaths[0];
+  });
   ipcMain.handle('obs:startRecording', () => recordingBackends.run('startRecording'));
   ipcMain.handle('obs:pauseRecording', () => recordingBackends.run('pauseRecording'));
   ipcMain.handle('obs:resumeRecording', () => recordingBackends.run('resumeRecording'));

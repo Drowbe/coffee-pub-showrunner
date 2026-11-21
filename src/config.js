@@ -745,6 +745,7 @@ function defaultConfig() {
     session: defaultSession(),
     obsPins: defaultObsPins(),
     teleprompter: defaultTeleprompter(),
+    recording: defaultRecording(),
     // No metadata fields on a fresh install -- created by hand via "New" on
     // the Session tab's Metadata card.
     metadataFields: [],
@@ -862,6 +863,38 @@ function sanitizeTeleprompter(input) {
   };
 }
 
+// Recording: which backend records ('obs' or the built-in recorder), and the built-in recorder's own settings. One per profile.
+const RECORDING_BACKENDS = ['obs', 'builtin'];
+const RECORDING_LAYOUTS = ['one', 'side'];
+const RECORDING_SIZES = [[1280, 720], [1920, 1080]];
+
+function defaultRecording() {
+  return {
+    backend: 'obs',
+    folder: '', // where the built-in recorder writes; empty means the Videos folder
+    layout: 'one', // 'one' (the first window fills the picture) or 'side' (two windows side by side)
+    sources: [], // ids of the windows to record, in order
+    width: 1920,
+    height: 1080,
+    fps: 30,
+  };
+}
+
+function sanitizeRecording(input) {
+  const d = defaultRecording();
+  const src = input && typeof input === 'object' ? input : {};
+  const size = RECORDING_SIZES.find(([w, h]) => w === Number(src.width) && h === Number(src.height)) || [d.width, d.height];
+  return {
+    backend: RECORDING_BACKENDS.includes(src.backend) ? src.backend : d.backend,
+    folder: typeof src.folder === 'string' ? src.folder.trim().slice(0, 1000) : d.folder,
+    layout: RECORDING_LAYOUTS.includes(src.layout) ? src.layout : d.layout,
+    sources: [...new Set((Array.isArray(src.sources) ? src.sources : []).filter((v) => typeof v === 'string' && v))].slice(0, 2),
+    width: size[0],
+    height: size[1],
+    fps: [24, 30, 60].includes(Number(src.fps)) ? Number(src.fps) : d.fps,
+  };
+}
+
 function sanitizeObs(input) {
   const d = defaultObs();
   const src = input && typeof input === 'object' ? input : {};
@@ -905,6 +938,7 @@ function sanitizeConfig(input) {
     session: sanitizeSession(src.session),
     obsPins: sanitizeObsPins(src.obsPins),
     teleprompter: sanitizeTeleprompter(src.teleprompter),
+    recording: sanitizeRecording(src.recording),
     metadataFields: sanitizeMetadataFields(src.metadataFields),
     appWindows: sanitizeAppWindows(src.appWindows),
     panel: sanitizePanel(src.panel),
@@ -955,6 +989,7 @@ function profileFromFlat(flat, id, name) {
     session: flat.session,
     obsPins: flat.obsPins,
     teleprompter: flat.teleprompter,
+    recording: flat.recording,
     automations: { enabled: flat.automations.enabled, ruleSets: flat.automations.ruleSets },
     tavern: pick(flat.tavern, TAVERN_PROFILE_KEYS),
     youtube: pick(flat.youtube, YOUTUBE_PROFILE_KEYS),
@@ -997,6 +1032,7 @@ function flatFor(stored, profile) {
     session: profile.session,
     obsPins: profile.obsPins,
     teleprompter: profile.teleprompter,
+    recording: profile.recording,
   });
 }
 

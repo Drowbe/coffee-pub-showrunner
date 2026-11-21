@@ -82,13 +82,32 @@ class ObsBackend extends RecordingBackend {
   stopStreaming() { return this.bridge.stopStreaming(); }
 }
 
-// The set of backends and which one is in use. Only OBS exists for now, so `active` is always it; the choice will come from the
-// profile once there is a second backend to choose.
-class RecordingBackends {
-  constructor(backends) {
-    this.backends = new Map(backends.map((b) => [b.id, b]));
-    this.activeId = backends[0].id;
+// The built-in recorder (src/recorder.js): records Showrunner's own windows to an MP4. It has no scenes, sources or levels of its own.
+class BuiltInBackend extends RecordingBackend {
+  constructor(recorder, getSettings) {
+    super({ id: 'builtin', label: 'Built-in recorder', capabilities: ['record', 'pause'] });
+    this.recorder = recorder;
+    this.getSettings = getSettings;
   }
+
+  startRecording() { return this.recorder.start(this.getSettings()); }
+
+  stopRecording() { return this.recorder.stop(); }
+
+  pauseRecording() { return Promise.resolve(this.recorder.pause()); }
+
+  resumeRecording() { return Promise.resolve(this.recorder.resume()); }
+}
+
+// The set of backends and which one is in use: the profile's choice (`chosen` returns its id), or the first one.
+class RecordingBackends {
+  constructor(backends, chosen = () => '') {
+    this.backends = new Map(backends.map((b) => [b.id, b]));
+    this.chosen = chosen;
+    this.firstId = backends[0].id;
+  }
+
+  get activeId() { const id = this.chosen(); return this.backends.has(id) ? id : this.firstId; }
 
   get active() { return this.backends.get(this.activeId); }
 
@@ -105,4 +124,4 @@ class RecordingBackends {
   }
 }
 
-module.exports = { CAPABILITIES, ACTION_NEEDS, RecordingBackend, ObsBackend, RecordingBackends };
+module.exports = { CAPABILITIES, ACTION_NEEDS, RecordingBackend, ObsBackend, BuiltInBackend, RecordingBackends };

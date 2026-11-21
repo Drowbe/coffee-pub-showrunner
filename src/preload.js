@@ -57,6 +57,13 @@ contextBridge.exposeInMainWorld('coffeePub', {
   renameProfile: (id, name) => ipcRenderer.invoke('profiles:rename', id, name),
   deleteProfile: (id) => ipcRenderer.invoke('profiles:delete', id),
   addView: () => ipcRenderer.invoke('views:add'),
+  recording: {
+    start: () => ipcRenderer.invoke('obs:startRecording'),
+    stop: () => ipcRenderer.invoke('obs:stopRecording'),
+    pause: () => ipcRenderer.invoke('obs:pauseRecording'),
+    resume: () => ipcRenderer.invoke('obs:resumeRecording'),
+    chooseFolder: () => ipcRenderer.invoke('recording:chooseFolder'),
+  },
   toggleTeleprompter: () => ipcRenderer.invoke('prompter:toggle'),
   addScript: () => ipcRenderer.invoke('prompter:addScript'),
   useScript: (file) => ipcRenderer.invoke('prompter:useScript', file),

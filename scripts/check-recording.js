@@ -33,6 +33,13 @@ for (const name of ['startRecording', 'stopRecording', 'pauseRecording', 'resume
   await assert.rejects(only.run('startStreaming'), /Built-in cannot do this \(Start and stop a live stream\)/);
   await assert.rejects(only.run('pauseRecording'), /cannot do this/);
 
+  // The profile's choice picks the backend; an unknown choice falls back to the first.
+  let choice = 'simple';
+  const both = new RecordingBackends([obs, simple], () => choice);
+  assert.strictEqual(both.active.id, 'simple');
+  choice = 'obs'; assert.strictEqual(both.active.id, 'obs');
+  choice = 'nonsense'; assert.strictEqual(both.active.id, 'obs');
+
   // What the control panel is told.
   assert.deepStrictEqual(set.list()[0], { id: 'obs', label: 'OBS', ready: true, capabilities: ['record', 'pause', 'stream', 'scenes', 'sources', 'levels'] });
   console.log('recording backend checks passed');

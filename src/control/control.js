@@ -727,7 +727,7 @@ function recallTab() {
 }
 
 // Every page that has a tab-<key> panel; windows have cards of their own.
-const PANEL_KEYS = ['metadata', 'profiles', 'status', 'obs', 'preferences', 'teleprompter', 'tavern', 'automations', 'youtube'];
+const PANEL_KEYS = ['recording', 'metadata', 'profiles', 'status', 'obs', 'preferences', 'teleprompter', 'tavern', 'automations', 'youtube'];
 
 function selectTab(name) {
   if (name === 'general' || name === 'configuration' || name === 'about') name = 'status';
@@ -2191,6 +2191,78 @@ function renderPrompterScripts(open) {
   }
 }
 
+
+// ---- Recorder page: which backend records, and the built-in recorder's settings ----
+const recEls = {
+  dot: $('recording-dot'), tag: $('rec-tag'), backend: $('rec-backend'), card: $('rec-builtin-card'),
+  s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'),
+  folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
+};
+
+function fillWindowSelect(select, chosen, optional) {
+  const want = [optional ? ['', '(none)'] : ['', 'Choose a window'], ...config.views.map((v) => [v.id, v.label || v.id])];
+  if (select.options.length !== want.length || want.some(([value, label], i) => select.options[i].value !== value || select.options[i].textContent !== label)) {
+    select.replaceChildren(...want.map(([value, label]) => { const o = document.createElement('option'); o.value = value; o.textContent = label; return o; }));
+  }
+  select.value = chosen || '';
+}
+
+function renderRecording() {
+  if (!config || !config.recording) return;
+  const r = config.recording;
+  const st = (status && status.recording && status.recording.builtIn) || { state: 'idle', seconds: 0, file: '', error: '' };
+  const builtin = r.backend === 'builtin';
+  recEls.backend.value = r.backend;
+  recEls.card.hidden = !builtin;
+  fillWindowSelect(recEls.s1, r.sources[0], false);
+  fillWindowSelect(recEls.s2, r.sources[1], true);
+  recEls.layout.value = r.layout;
+  recEls.size.value = `${r.width}x${r.height}`;
+  recEls.fps.value = String(r.fps);
+  if (document.activeElement !== recEls.folder) recEls.folder.value = r.folder;
+  const active = st.state === 'recording' || st.state === 'paused';
+  recEls.tag.hidden = !(builtin && active);
+  recEls.tag.textContent = st.state === 'paused' ? 'PAUSED' : 'RECORDING';
+  recEls.dot.classList.toggle('on', builtin && active);
+  recEls.start.textContent = active ? 'Stop recording' : 'Start recording';
+  recEls.start.classList.toggle('btn-primary', !active);
+  recEls.start.classList.toggle('btn-danger', active);
+  recEls.start.disabled = st.state === 'starting' || st.state === 'stopping';
+  recEls.pause.hidden = !active;
+  recEls.pause.textContent = st.state === 'paused' ? 'Resume' : 'Pause';
+  const mm = (n) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+  recEls.status.textContent = st.error ? st.error : active ? `${mm(st.seconds)}  ${st.file.split(/[\\/]/).pop()}` : st.file ? `Last recording: ${st.file.split(/[\\/]/).pop()}` : '';
+  for (const el of [recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder, recEls.browse]) el.disabled = active;
+  if (!active) recEls.s2.disabled = r.layout !== 'side';
+}
+
+function readRecording() {
+  const [w, h] = recEls.size.value.split('x').map(Number);
+  config.recording = {
+    ...config.recording,
+    backend: recEls.backend.value,
+    sources: [recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
+    layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), folder: recEls.folder.value,
+  };
+  scheduleSave();
+  renderRecording();
+}
+for (const el of [recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
+recEls.folder.addEventListener('input', readRecording);
+recEls.browse.addEventListener('click', async () => { try { const dir = await api.recording.chooseFolder(); if (dir) { recEls.folder.value = dir; readRecording(); } } catch (err) { reportError(err); } });
+recEls.start.addEventListener('click', async () => {
+  try {
+    const st = status && status.recording && status.recording.builtIn;
+    if (st && (st.state === 'recording' || st.state === 'paused')) await api.recording.stop(); else await api.recording.start();
+  } catch (err) { reportError(err); }
+});
+recEls.pause.addEventListener('click', async () => {
+  try {
+    const st = status && status.recording && status.recording.builtIn;
+    if (st && st.state === 'paused') await api.recording.resume(); else await api.recording.pause();
+  } catch (err) { reportError(err); }
+});
+
 function renderPrompter() {
   if (!config || !config.teleprompter) return;
   const t = config.teleprompter;
@@ -2283,6 +2355,7 @@ api.onStatus((next) => {
   renderAutomationsObs();
   renderYoutubeStatus();
   renderPrompter();
+  renderRecording();
   renderConnectionsBoard();
   updateRulesetRunState();
   if (config) updateAppWindowStatus();
@@ -5155,6 +5228,7 @@ $('picker-save').addEventListener('click', async () => {
   renderAutomationsStatus();
   renderYoutubeStatus();
   renderPrompter();
+  renderRecording();
   renderConnectionsBoard();
   $('about-version').textContent = info.revision;
   $('about-build').textContent = info.build && info.build.branch ? `on ${info.build.branch}` : '-';

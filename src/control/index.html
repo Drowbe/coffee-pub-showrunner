@@ -37,6 +37,7 @@
     <div class="nav-group">
       <div class="nav-heading">Recording</div>
       <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS</button>
+      <button class="tab" data-tab="recording" type="button"><span class="dot" id="recording-dot" title="Recording"></span>Recorder</button>
       <button class="tab" data-tab="metadata" type="button"><span class="dot" id="session-dot" title="Session fields"></span>Session</button>
       <div class="tab-row">
         <button class="tab" data-tab="teleprompter" type="button"><span class="dot" id="prompter-dot" title="Teleprompter window"></span>Teleprompter</button>
@@ -206,6 +207,51 @@
           <dt>Chromium</dt>
           <dd id="about-chromium"></dd>
         </dl>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-recording" hidden>
+      <div class="card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Recorder</h2>
+            <span class="tag" id="rec-tag" hidden>RECORDING</span>
+          </div>
+        </div>
+        <p class="hint">What records for this profile: OBS, or the built-in recorder, which saves Showrunner's own windows to an MP4 with no OBS. The Start, Pause and Stop recording steps in Automations use whichever you choose here.</p>
+        <label class="field">
+          <span>Records with</span>
+          <select id="rec-backend">
+            <option value="obs">OBS</option>
+            <option value="builtin">Built-in recorder</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="card" id="rec-builtin-card">
+        <h2>Built-in recorder</h2>
+        <p class="hint">Records the pictures and sound of the windows below, as they are on your screen, into one MP4. Windows must be open (docked windows record too). Sound is mixed into one track. Mac for now.</p>
+        <div class="row">
+          <label class="field field-inline"><span>Window</span><select id="rec-source-1"></select></label>
+          <label class="field field-inline"><span>Second window</span><select id="rec-source-2"></select></label>
+        </div>
+        <div class="row">
+          <label class="field field-inline"><span>Layout</span>
+            <select id="rec-layout"><option value="one">One window fills the picture</option><option value="side">Two windows side by side</option></select></label>
+          <label class="field field-inline"><span>Size</span>
+            <select id="rec-size"><option value="1920x1080">1920 x 1080</option><option value="1280x720">1280 x 720</option></select></label>
+          <label class="field field-inline"><span>Frames per second</span>
+            <select id="rec-fps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
+        </div>
+        <div class="row">
+          <label class="field field-inline field-grow"><span>Save to</span><input id="rec-folder" type="text" placeholder="Your Movies folder"></label>
+          <button class="btn" id="rec-browse" type="button">Browse...</button>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="rec-start" type="button">Start recording</button>
+          <button class="btn" id="rec-pause" type="button" hidden>Pause</button>
+          <span class="hint" id="rec-status"></span>
+        </div>
       </div>
     </section>
 
