@@ -769,7 +769,11 @@ function renderTabs() {
     dot.className = 'dot';
     dot.dataset.viewDot = view.id;
     tab.appendChild(dot);
-    tab.append(view.label);
+    // The name gives way with an ellipsis before it reaches the two icons.
+    const name = document.createElement('span');
+    name.className = 'tab-label';
+    name.textContent = view.label;
+    tab.appendChild(name);
     // Beside each window: restart it, and show it on the desktop or dock it (the arrow, as on the teleprompter).
     const row = document.createElement('div');
     row.className = 'tab-row two';
