@@ -1,0 +1,1019 @@
+{
+ "electron": "45.4.1",
+ "chromium": "156.0.8078.100",
+ "platform": "darwin",
+ "arch": "arm64",
+ "permissions": {
+  "microphone": "not-determined",
+  "screen": "granted"
+ },
+ "note": "10-second recordings at 1920x1080. cpu.topPercentOfOneCore is the sum for the app's processes from the system top (reliable); cpu.avgPercentOfOneCore is Electron's own figure and reads far too low. Per-second source rates are over each window's life. Runs were made in several batches; see README.",
+ "tests": {
+  "1-synthetic-1080p30": {
+   "config": {
+    "layout": "synthetic",
+    "sources": 0,
+    "audio": false,
+    "heavy": 400,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 2,
+    "maxPercentOfOneCore": 2,
+    "samples": 8,
+    "topPercentOfOneCore": 23
+   },
+   "sourceStats": [],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/1-synthetic-1080p30.mp4",
+    "bytes": 10109427,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     0,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.962167,
+     "framesPlayed": 299,
+     "effectiveFps": 30,
+     "maxFrameGapMs": 66
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.069",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 8028"
+   ]
+  },
+  "s10-subscribe-visible": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": false,
+    "heavy": 400,
+    "webgl": true,
+    "mode": "visible",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 3,
+    "maxPercentOfOneCore": 3,
+    "samples": 8,
+    "topPercentOfOneCore": 44
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 0,
+     "mbPerSecondToRecorder": 0,
+     "sentPerSecond": 0,
+     "avgToBitmapMs": 0
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/10-visible-window-frame-subscription.mp4",
+    "bytes": 30978,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     0,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.964,
+     "framesPlayed": 299,
+     "effectiveFps": 30,
+     "maxFrameGapMs": 65
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.073",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 21"
+   ]
+  },
+  "11-capturepage-visible-window": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": false,
+    "heavy": 400,
+    "webgl": true,
+    "mode": "capture-visible",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 4,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 54
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 27,
+     "mbPerSecondToRecorder": 101,
+     "sentPerSecond": 27,
+     "avgToBitmapMs": 1
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/11-capturepage-visible-window.mp4",
+    "bytes": 8985214,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     553,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.965533,
+     "framesPlayed": 296,
+     "effectiveFps": 29.7,
+     "maxFrameGapMs": 66
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.072",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 7133"
+   ]
+  },
+  "s11-subscribe-parked": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": false,
+    "heavy": 400,
+    "webgl": true,
+    "mode": "parked",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 3,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 44
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 0,
+     "mbPerSecondToRecorder": 0,
+     "sentPerSecond": 0,
+     "avgToBitmapMs": 0
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/11-parked-offscreen-window.mp4",
+    "bytes": 30978,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     0,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.963833,
+     "framesPlayed": 300,
+     "effectiveFps": 30.1,
+     "maxFrameGapMs": 66
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.075",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 21"
+   ]
+  },
+  "s12-audio-tap-visible-no-frames": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": "tap",
+    "heavy": 400,
+    "webgl": false,
+    "mode": "visible",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 4,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 52
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 0,
+     "mbPerSecondToRecorder": 0,
+     "sentPerSecond": 0,
+     "avgToBitmapMs": 0
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/12-visible-window-audio-tap.mp4",
+    "bytes": 50884,
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2",
+    "drawn": 303,
+    "sourceFrames": [
+     0,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.9652,
+     "framesPlayed": 300,
+     "effectiveFps": 30.1,
+     "maxFrameGapMs": 67,
+     "flashes": 0,
+     "beeps": 10,
+     "beepMinusFlashMs": []
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = 12",
+    "kMDItemCodecs          = (",
+    "    \"MPEG-4 AAC\",",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.072",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 21"
+   ]
+  },
+  "12-capturepage-parked-window": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": false,
+    "heavy": 400,
+    "webgl": true,
+    "mode": "capture-parked",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 4,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 52
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 28,
+     "mbPerSecondToRecorder": 101,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 1
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/12-capturepage-parked-window.mp4",
+    "bytes": 8983197,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     554,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.9659,
+     "framesPlayed": 297,
+     "effectiveFps": 29.8,
+     "maxFrameGapMs": 66
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.075",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 7130"
+   ]
+  },
+  "13-capturepage-visible-audio-tap": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": "tap",
+    "heavy": 400,
+    "webgl": false,
+    "mode": "capture-visible",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 4,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 56
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 28,
+     "mbPerSecondToRecorder": 102,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.9
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/13-capturepage-visible-audio-tap.mp4",
+    "bytes": 10103005,
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2",
+    "drawn": 303,
+    "sourceFrames": [
+     557,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.981542,
+     "framesPlayed": 299,
+     "effectiveFps": 30,
+     "maxFrameGapMs": 66,
+     "flashes": 10,
+     "beeps": 10,
+     "beepMinusFlashMs": [
+      149,
+      152,
+      135,
+      146,
+      152,
+      162,
+      176,
+      147,
+      164
+     ]
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = 11",
+    "kMDItemCodecs          = (",
+    "    \"MPEG-4 AAC\",",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.074",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 8004"
+   ]
+  },
+  "14-capturepage-two-visible": {
+   "config": {
+    "layout": "two",
+    "sources": 2,
+    "audio": false,
+    "heavy": 400,
+    "webgl": true,
+    "mode": "capture-visible",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 5,
+    "maxPercentOfOneCore": 5,
+    "samples": 8,
+    "topPercentOfOneCore": 64
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 28,
+     "mbPerSecondToRecorder": 104,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.7
+    },
+    {
+     "paintsPerSecond": 28,
+     "mbPerSecondToRecorder": 104,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.7
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/14-capturepage-two-visible.mp4",
+    "bytes": 8286646,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     565,
+     565
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.9646,
+     "framesPlayed": 299,
+     "effectiveFps": 30,
+     "maxFrameGapMs": 68
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.072",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 6578"
+   ]
+  },
+  "2-one-window-1080p30": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": false,
+    "heavy": 400,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 3,
+    "maxPercentOfOneCore": 3,
+    "samples": 8,
+    "topPercentOfOneCore": 44
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 66,
+     "mbPerSecondToRecorder": 225,
+     "sentPerSecond": 61,
+     "avgToBitmapMs": 0.7
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/2-one-window-1080p30.mp4",
+    "bytes": 10111957,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     557,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.963433,
+     "framesPlayed": 296,
+     "effectiveFps": 29.7,
+     "maxFrameGapMs": 68
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.072",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 8028"
+   ]
+  },
+  "3-two-windows-1080p30": {
+   "config": {
+    "layout": "two",
+    "sources": 2,
+    "audio": false,
+    "heavy": 400,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 4,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 54
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 66,
+     "mbPerSecondToRecorder": 229,
+     "sentPerSecond": 62,
+     "avgToBitmapMs": 0.5
+    },
+    {
+     "paintsPerSecond": 66,
+     "mbPerSecondToRecorder": 229,
+     "sentPerSecond": 62,
+     "avgToBitmapMs": 0.5
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/3-two-windows-1080p30.mp4",
+    "bytes": 10098170,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     566,
+     568
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.963467,
+     "framesPlayed": 298,
+     "effectiveFps": 29.9,
+     "maxFrameGapMs": 65
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.07",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 8019"
+   ]
+  },
+  "4-one-window-with-audio": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": true,
+    "heavy": 400,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 3,
+    "maxPercentOfOneCore": 3,
+    "samples": 8,
+    "topPercentOfOneCore": 44
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 65,
+     "mbPerSecondToRecorder": 225,
+     "sentPerSecond": 61,
+     "avgToBitmapMs": 0.6
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/4-one-window-with-audio.mp4",
+    "bytes": 10123447,
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2",
+    "drawn": 303,
+    "sourceFrames": [
+     561,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.9647,
+     "framesPlayed": 296,
+     "effectiveFps": 29.7,
+     "maxFrameGapMs": 66,
+     "flashes": 10,
+     "beeps": 10,
+     "beepMinusFlashMs": [
+      163,
+      166,
+      149,
+      151,
+      167,
+      141,
+      119,
+      126,
+      140
+     ]
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = 11",
+    "kMDItemCodecs          = (",
+    "    \"MPEG-4 AAC\",",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.07",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 8024"
+   ]
+  },
+  "5-one-window-1080p60": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": false,
+    "heavy": 400,
+    "width": 1920,
+    "height": 1080,
+    "fps": 60,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 3,
+    "maxPercentOfOneCore": 3,
+    "samples": 8,
+    "topPercentOfOneCore": 44
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 66,
+     "mbPerSecondToRecorder": 243,
+     "sentPerSecond": 66,
+     "avgToBitmapMs": 0.5
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/5-one-window-1080p60.mp4",
+    "bytes": 19814307,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 625,
+    "sourceFrames": [
+     601,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.996733,
+     "framesPlayed": 552,
+     "effectiveFps": 55.2,
+     "maxFrameGapMs": 49
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.146",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 15617"
+   ]
+  },
+  "6-two-windows-heavy": {
+   "config": {
+    "layout": "two",
+    "sources": 2,
+    "audio": false,
+    "heavy": 3000,
+    "webgl": false,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 4,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 57
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 30,
+     "mbPerSecondToRecorder": 104,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.4
+    },
+    {
+     "paintsPerSecond": 30,
+     "mbPerSecondToRecorder": 104,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.4
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/6-two-windows-heavy.mp4",
+    "bytes": 10206908,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     568,
+     565
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.964667,
+     "framesPlayed": 297,
+     "effectiveFps": 29.8,
+     "maxFrameGapMs": 66
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.071",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 8104"
+   ]
+  },
+  "7-one-window-webgl": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": false,
+    "heavy": 400,
+    "webgl": true,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 3,
+    "maxPercentOfOneCore": 3,
+    "samples": 8,
+    "topPercentOfOneCore": 42
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 30,
+     "mbPerSecondToRecorder": 102,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.7
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/7-one-window-webgl.mp4",
+    "bytes": 8997415,
+    "mimeType": "video/mp4;codecs=avc1.640028",
+    "drawn": 303,
+    "sourceFrames": [
+     557,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.963533,
+     "framesPlayed": 297,
+     "effectiveFps": 29.8,
+     "maxFrameGapMs": 66
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.071",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 7144"
+   ]
+  },
+  "8-two-windows-webgl-audio": {
+   "config": {
+    "layout": "two",
+    "sources": 2,
+    "audio": true,
+    "heavy": 400,
+    "webgl": true,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 4,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 53
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 30,
+     "mbPerSecondToRecorder": 103,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.4
+    },
+    {
+     "paintsPerSecond": 30,
+     "mbPerSecondToRecorder": 104,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.4
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/8-two-windows-webgl-audio.mp4",
+    "bytes": 8294719,
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2",
+    "drawn": 303,
+    "sourceFrames": [
+     565,
+     569
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.9645,
+     "framesPlayed": 293,
+     "effectiveFps": 29.4,
+     "maxFrameGapMs": 66,
+     "flashes": 10,
+     "beeps": 10,
+     "beepMinusFlashMs": [
+      127,
+      138,
+      146,
+      153,
+      136,
+      146,
+      122,
+      161,
+      109
+     ]
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = 12",
+    "kMDItemCodecs          = (",
+    "    \"MPEG-4 AAC\",",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.072",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 6569"
+   ]
+  },
+  "9-one-window-system-audio": {
+   "config": {
+    "layout": "one",
+    "sources": 1,
+    "audio": "loopback",
+    "heavy": 400,
+    "webgl": false,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "seconds": 10
+   },
+   "encoder": {
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2"
+   },
+   "cpu": {
+    "avgPercentOfOneCore": 3,
+    "maxPercentOfOneCore": 4,
+    "samples": 8,
+    "topPercentOfOneCore": 46
+   },
+   "sourceStats": [
+    {
+     "paintsPerSecond": 30,
+     "mbPerSecondToRecorder": 102,
+     "sentPerSecond": 28,
+     "avgToBitmapMs": 0.7
+    }
+   ],
+   "recorder": {
+    "file": "/Users/tcarroll/Developer/coffee-pub-studio-spike/spikes/recording/out/9-one-window-system-audio.mp4",
+    "bytes": 10135959,
+    "mimeType": "video/mp4;codecs=avc1.640028,mp4a.40.2",
+    "drawn": 303,
+    "sourceFrames": [
+     569,
+     0
+    ],
+    "analysis": {
+     "width": 1920,
+     "height": 1080,
+     "duration": 9.9642,
+     "framesPlayed": 297,
+     "effectiveFps": 29.8,
+     "maxFrameGapMs": 66,
+     "flashes": 10,
+     "beeps": 0,
+     "beepMinusFlashMs": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ]
+    }
+   },
+   "mdls": [
+    "kMDItemAudioBitRate    = (null)",
+    "kMDItemCodecs          = (",
+    "    \"H.264\"",
+    ")",
+    "kMDItemDurationSeconds = 10.073",
+    "kMDItemPixelHeight     = 1080",
+    "kMDItemPixelWidth      = 1920",
+    "kMDItemVideoBitRate    = 8046"
+   ]
+  }
+ }
+}
