@@ -2214,6 +2214,9 @@ function renderRecording() {
   const builtin = r.backend === 'builtin';
   recEls.backend.value = r.backend;
   recEls.card.hidden = !builtin;
+  const obsTab = document.querySelector('.tab[data-tab="obs"]');
+  if (obsTab) obsTab.hidden = builtin;
+  if (builtin && activeTab === 'obs') selectTab('recording');
   fillWindowSelect(recEls.s1, r.sources[0], false);
   fillWindowSelect(recEls.s2, r.sources[1], true);
   recEls.layout.value = r.layout;
