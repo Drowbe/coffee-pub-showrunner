@@ -127,6 +127,17 @@ pictures of the windows, so an overlay window above a source would not be in the
 recorder on top of the picture (a transparent window over the source takes the mouse and sends the strokes to the recorder).
 Open question: Release A or B. It fits the toolbar (a Draw button with the tool choices).
 
+**Markers (added by the user; Release B, decided by Claude).** Showrunner knows the moments worth marking: teleprompter cues and
+holds, rule sets that ran, layout changes, and a "Mark" button on the toolbar. It writes them next to each recording, since MP4
+chapters cannot be added to a file that is written as it records: a YouTube chapter list (`0:00 Intro`, to paste into the video
+description, and the YouTube upload step can fill it in), an EDL or FCPXML file that editors import as timeline markers, and a CSV.
+The first two cover editing and YouTube. The Mark button and the YouTube list are small enough to move into Release A if there is room.
+
+**A simple editor (added by the user; later, and it must stay simple).** Open a recording, trim the start and end, cut out a
+section in the middle, join clips, jump between markers, export. Keyframes are written every two seconds, so trims can be lossless
+and instant to within about two seconds; frame-exact cuts would need a re-encode (WebCodecs, as the recorder does). Not a timeline
+editor: no effects, no layers, no audio mixing beyond what the recorder already did.
+
 **Later:** Windows, streaming without OBS, sound from a packaged build on Mac if it needs more work, FastCast and Streamlabs.
 
 **Build order for A:** session and filename, then microphone and audio settings, then webcam and layouts, then the toolbar, then packaging checks.
