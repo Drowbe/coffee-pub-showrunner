@@ -17,14 +17,16 @@ const MIC_DELAY = 0.04; // the microphone is played as it arrives, so it waits a
 let camVideo = null; let camStream = null;
 let winGain = []; let micGain = null; let micStream = null; let levelTimer = null; let audioCfg = null;
 const analysers = []; // [window 1, window 2, microphone, everything]
+let outCount = 0; let drawMsMax = 0; let winFrames = 0; let camFrames = 0; let failedLoudly = false; let statsTimer = null;
 let previewCanvas = null; let previewPen = null;
-let vcfg = null; let lastVideoOutAt = 0; let switchedEncoder = false; let needKey = false; let watchdog = null;
+let vcfg = null; let lastVideoOutAt = 0; let needKey = false; let watchdog = null;
 let cfg = null; let canvas; let g; let muxer; let venc; let aenc; let actx; let bus; let proc; let timer;
 let anchorUs = null; let t0 = 0; let paused = false; let pausedTotal = 0; let pausedAt = 0; let ticks = 0; let audioSamples = 0; let failure = '';
 
 const swizzle = (u32) => { for (let i = 0; i < u32.length; i += 1) { const v = u32[i]; u32[i] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >> 16) & 0xff); } }; // BGRA to RGBA
 
 function onFrame({ i, w, h, buf }) {
+  winFrames += 1;
   const data = new Uint8ClampedArray(buf.buffer, buf.byteOffset, buf.byteLength);
   swizzle(new Uint32Array(data.buffer, data.byteOffset, data.byteLength / 4));
   let s = sources[i];
@@ -71,6 +73,7 @@ const clockUs = () => Math.round((performance.now() - t0 - pausedTotal) * 1000);
 
 function draw() {
   if (failure || paused) return;
+  const drawStart = performance.now();
   const { width: W, height: H } = canvas;
   Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo });
   if (venc.encodeQueueSize > 8) return; // the encoder is behind: skip a picture rather than fall further back
@@ -78,6 +81,7 @@ function draw() {
   venc.encode(frame, { keyFrame: needKey || ticks % (cfg.fps * 2) === 0 }); needKey = false; // a fresh keyframe every two seconds
   frame.close();
   ticks += 1;
+  drawMsMax = Math.max(drawMsMax, performance.now() - drawStart);
   // A small copy of what is being recorded, for the toolbar's preview (five times a second).
   if (ticks % Math.max(1, Math.round(cfg.fps / 5)) === 0) {
     previewPen.drawImage(canvas, 0, 0, 320, 180);
@@ -110,7 +114,7 @@ const why = (err) => (err.name === 'NotAllowedError' ? 'macOS has not allowed it
 // below replaces it with the software encoder, so a stuck encoder cannot leave a recording that saves nothing.
 function makeVideoEncoder(acceleration) {
   lastVideoOutAt = performance.now();
-  const e = new VideoEncoder({ output: (chunk, meta) => { lastVideoOutAt = performance.now(); muxer.addVideoChunk(chunk, meta); }, error: fail });
+  const e = new VideoEncoder({ output: (chunk, meta) => { lastVideoOutAt = performance.now(); outCount += 1; muxer.addVideoChunk(chunk, meta); }, error: fail });
   e.configure({ ...vcfg, hardwareAcceleration: acceleration });
   return e;
 }
@@ -133,7 +137,7 @@ async function start(config) {
     audio: { codec: 'aac', numberOfChannels: 2, sampleRate: RATE },
     fastStart: 'fragmented', firstTimestampBehavior: 'offset',
   });
-  vcfg = videoConfig; switchedEncoder = false; needKey = false;
+  vcfg = videoConfig; needKey = false; outCount = 0; drawMsMax = 0; winFrames = 0; camFrames = 0; failedLoudly = false;
   venc = makeVideoEncoder('prefer-hardware');
   aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: fail });
   aenc.configure(audioConfig);
@@ -163,6 +167,7 @@ async function start(config) {
       camStream = await openDevice('video', cfg.camera.device, cfg.camera.deviceLabel, { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } });
       camVideo = document.createElement('video'); camVideo.muted = true; camVideo.srcObject = camStream;
       await camVideo.play();
+      if (camVideo.requestVideoFrameCallback) { const tick = () => { camFrames += 1; camVideo.requestVideoFrameCallback(tick); }; camVideo.requestVideoFrameCallback(tick); }
     } catch (err) { throw new Error(`The webcam could not be opened (${why(err)}).`); }
   }
   if (config.audio) applyAudio(config.audio);
@@ -186,21 +191,27 @@ async function start(config) {
   bus.connect(proc); proc.connect(actx.destination);
   t0 = performance.now();
   timer = setInterval(draw, 1000 / cfg.fps);
+  let statSeconds = 0;
+  statsTimer = setInterval(() => {
+    statSeconds += 5;
+    if (statSeconds > 60 || failure) return;
+    ipcRenderer.send('recorder:note', `t=${statSeconds}s frames in/out ${ticks}/${outCount}, encoder queue ${venc ? venc.encodeQueueSize : '-'}, slowest picture ${Math.round(drawMsMax)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}`);
+    drawMsMax = 0;
+  }, 5000);
   watchdog = setInterval(() => {
-    if (failure || paused || switchedEncoder || !venc) return;
-    if (venc.encodeQueueSize >= 3 && performance.now() - lastVideoOutAt > 3000) {
-      switchedEncoder = true;
-      const stuck = venc;
-      venc = makeVideoEncoder('prefer-software');
-      needKey = true;
-      try { stuck.close(); } catch (err) { /* already closed */ }
-      ipcRenderer.send('recorder:note', 'The hardware video encoder stalled (it took frames and gave none back), so the software encoder took over.');
+    if (failure || paused || failedLoudly || !venc) return;
+    // The encoder takes pictures in and gives none back. On a Mac, video encoding goes through the same graphics process as every
+    // window, so a window that keeps the graphics chip fully busy (a heavy Foundry scene) can starve it. Say so and stop, rather than
+    // go on recording a frozen picture; what was saved so far is kept.
+    if (venc.encodeQueueSize >= 3 && performance.now() - lastVideoOutAt > 4000) {
+      failedLoudly = true;
+      fail(new Error('The video encoder stopped producing pictures, so the recording was stopped (the sound and what was saved up to then are kept). The computer\'s graphics chip is probably fully busy with a window; try a lower frame rate or lighter scene in that window.'));
     }
   }, 1000);
 }
 
 async function stop() {
-  clearInterval(timer); clearInterval(levelTimer); clearInterval(watchdog);
+  clearInterval(timer); clearInterval(levelTimer); clearInterval(watchdog); clearInterval(statsTimer);
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
   if (proc) { proc.onaudioprocess = null; proc.disconnect(); }

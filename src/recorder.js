@@ -70,7 +70,10 @@ class BuiltInRecorder extends EventEmitter {
       const i = this.monitorWcs.findIndex((wc) => wc.id === e.sender.id);
       if (i >= 0 && Number.isFinite(peak)) this.idlePeaks[i] = Math.max(this.idlePeaks[i], peak);
     });
-    ipcMain.on('recorder:failed', (_e, message) => { this.error = message; this.emit('status'); });
+    ipcMain.on('recorder:failed', (_e, message) => {
+      this.error = message; this.emit('status');
+      if (this.state === 'recording' || this.state === 'paused') this.stop().catch(() => {}); // a broken recorder is stopped, keeping what it saved
+    });
     ipcMain.on('recorder:audio', (e, msg) => {
       if (this.state !== 'recording' || !this.window || this.window.isDestroyed()) return;
       const win = (this.sourceContents || []).findIndex((wc) => wc.id === e.sender.id); // which chosen window this sound came from
