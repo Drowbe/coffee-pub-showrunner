@@ -144,6 +144,22 @@ editor: no effects, no layers, no audio mixing beyond what the recorder already 
 
 Rules for all UI built here: anything that can be too long truncates with an ellipsis and shows the full text as a tooltip; options the chosen recorder cannot do are not shown.
 
+## Encoding outside the graphics process (ffmpeg), decided after the Foundry test
+
+Measured on the user's Mac with their Foundry scene: the app's graphics process sits at about 90% of a core with Foundry open and 10%
+with it closed. WebCodecs video encoding goes through that same process, so the encoder takes pictures in and gives none back after
+a few seconds (hardware and "software" both: the software request fell back to the same encoder). Lowering Foundry's frame rate or
+capturing less often were rejected (a gamer product cannot ask for either). Decision: the recorder hands its finished pictures and
+sound to an **ffmpeg program running on its own** (the Mac's VideoToolbox encoder, or x264 as a fallback), which writes the file.
+
+- Why it also helps: MKV (crash-safe, chapters, several audio tracks), MP4 or MKV choice with a fast remux to MP4, a separate
+  microphone track, and later RTMP streaming, all from the same program.
+- Licence: ship ffmpeg as a separate program (never linked), with its licence text, a notice in About and a link to its source. The
+  `ffmpeg-static` package is built with `--enable-nonfree`, which FFmpeg says makes a build non-redistributable, so it is for testing
+  only. For shipping, build our own small LGPL ffmpeg on the build server (VideoToolbox + the native AAC encoder on the Mac).
+- Packaging: the binary must be unpacked from the app archive; the universal Mac build needs an arm64 and an x86_64 binary combined.
+  Windows later (Media Foundation, NVENC, x264).
+
 ## Open decisions
 
 - Decided: mixed audio only is fine for a first version; Mac first, Windows after.
