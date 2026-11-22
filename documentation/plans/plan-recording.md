@@ -121,6 +121,12 @@ The Showrunner Recorder ships in two releases. The test for Release A: does it r
 
 **Release B:** named, saved layouts; automation steps that change layout; title and end cards with an image, a sound or a video (a title movie, credits), played into the file.
 
+**To schedule (added by the user):** simple drawing on the source window, to circle or point at things while recording: pen, circle,
+arrow and highlighter, a clear button, and optionally strokes that fade out after a few seconds. The recorder lays out captured
+pictures of the windows, so an overlay window above a source would not be in the recording. The strokes have to be drawn by the
+recorder on top of the picture (a transparent window over the source takes the mouse and sends the strokes to the recorder).
+Open question: Release A or B. It fits the toolbar (a Draw button with the tool choices).
+
 **Later:** Windows, streaming without OBS, sound from a packaged build on Mac if it needs more work, FastCast and Streamlabs.
 
 **Build order for A:** session and filename, then microphone and audio settings, then webcam and layouts, then the toolbar, then packaging checks.
