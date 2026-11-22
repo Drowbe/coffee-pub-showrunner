@@ -107,7 +107,28 @@ risk has moved to **audio**, which is also what makes Showrunner worth having ov
    side by side or picture-in-picture, MP4 to a chosen folder.
 4. Later, not committed: webcam, a mixer, RTMP, Streamlabs Desktop, driving FastCast on Windows through its command line.
 
+## Release scope (agreed with the user)
+
+The Showrunner Recorder ships in two releases. The test for Release A: does it replace OBS for the usual session.
+
+**Release A** (all on PR #68):
+1. Session fields that suit any recording (the campaign wording becomes optional) and the session filename template for the recorder's files, with date and number as the fallback.
+2. Audio settings: windows' sound plus the **microphone**, each with a level and a mute, into one mixed track. Measure the microphone's delay as the windows' was measured. Echo note and an echo-cancel switch.
+3. **Webcam**, recordable alone. Camera and microphone pickers per profile. Basic layouts: one window, two side by side, a window with the webcam in a corner (corner and size chosen), the webcam full screen.
+4. A recording toolbar: Start, Pause, Stop, timer, level meters and sliders.
+5. Disk space check, recovery message for an interrupted recording, Reveal in Finder, YouTube upload tested end to end.
+6. Real-page tests (Foundry, Chameleon, a window reloading mid-recording, sync at 30 minutes) and the packaged-app permission check (camera and microphone usage descriptions and entitlements). Cut an early test build so the permission risk shows first.
+
+**Release B:** named, saved layouts; automation steps that change layout; title and end cards with an image, a sound or a video (a title movie, credits), played into the file.
+
+**Later:** Windows, streaming without OBS, sound from a packaged build on Mac if it needs more work, FastCast and Streamlabs.
+
+**Build order for A:** session and filename, then microphone and audio settings, then webcam and layouts, then the toolbar, then packaging checks.
+
+Rules for all UI built here: anything that can be too long truncates with an ellipsis and shows the full text as a tooltip; options the chosen recorder cannot do are not shown.
+
 ## Open decisions
 
 - Decided: mixed audio only is fine for a first version; Mac first, Windows after.
+- Decided: microphone and webcam are in Release A; webcam alone is allowed; one mixed track; title and end cards are Release B.
 - Where recordings go, and whether the YouTube upload step can take the built-in recorder's file the way it takes OBS's.
