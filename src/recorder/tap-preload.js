@@ -13,7 +13,7 @@ const send = (id, l, r, rate) => { if (on) ipcRenderer.send('recorder:audio', { 
 
 try {
   const { contextBridge } = require('electron');
-  contextBridge.exposeInMainWorld('__srTap', { send, newId: () => nextId++ });
+  contextBridge.exposeInMainWorld('__srTap', { send, newId: () => nextId++, info: (text) => ipcRenderer.send('recorder:tapinfo', String(text).slice(0, 120)) });
   webFrame.executeJavaScript(`(() => {
     const bridge = window.__srTap;
     if (!bridge) return;
@@ -22,6 +22,7 @@ try {
     const attach = (ctx, source) => { // copy 'source' (a node or stream source) of 'ctx' to the recorder through a silent processor
       const tap = ctx.createScriptProcessor(2048, 2, 2);
       const id = bridge.newId();
+      bridge.info('Web Audio sound found (' + ctx.state + ')');
       tap.onaudioprocess = (e) => bridge.send(id, new Float32Array(e.inputBuffer.getChannelData(0)), new Float32Array(e.inputBuffer.getChannelData(1)), ctx.sampleRate);
       orig.call(tap, ctx.destination); // outputs silence, but must be connected for the page to run
       return tap;
@@ -46,12 +47,13 @@ try {
       if (!(el instanceof HTMLMediaElement) || el.__srTapped) return;
       try {
         const stream = el.srcObject instanceof MediaStream ? el.srcObject : (el.captureStream ? el.captureStream() : null);
-        if (!stream || !stream.getAudioTracks().length) return;
+        if (!stream || !stream.getAudioTracks().length) { bridge.info('A video or audio player has no sound Showrunner can copy'); return; }
+        bridge.info(el.srcObject instanceof MediaStream ? 'Live stream (WebRTC) sound found' : 'Audio or video player sound found');
         el.__srTapped = true;
         const ctx = new AudioContext();
         const src = ctx.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
         orig.call(src, attach(ctx));
-      } catch (err) { /* never break the page */ }
+      } catch (err) { bridge.info('Could not copy the sound of a player: ' + err.message); }
     }, true);
   })();`).catch(() => {});
 } catch (err) { /* a page without the bridge simply has no copy */ }

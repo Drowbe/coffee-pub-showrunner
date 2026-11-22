@@ -826,6 +826,7 @@ automations.on('event', (entry) => {
 const builtInRecorder = new BuiltInRecorder({
   getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
   folderFor: (folder) => folder || app.getPath('videos'),
+  windowName: (id) => { const v = configStore.getView(id); return v ? (v.label || v.id) : id; },
   markerFile: path.join(app.getPath('userData'), 'recording-in-progress.json'), // left behind only if the app closes mid-recording
   // The session filename format names the file, the same one OBS uses; blank falls back to "Showrunner <date> <time>".
   nameFor: () => {
@@ -834,6 +835,15 @@ const builtInRecorder = new BuiltInRecorder({
   },
 });
 builtInRecorder.on('recording', noteRecording);
+const tapInfoSeen = new Set();
+builtInRecorder.on('tapinfo', (senderId, text) => {
+  const entry = [...pageViews.entries()].find(([, page]) => !page.webContents.isDestroyed() && page.webContents.id === senderId);
+  const v = entry && configStore.getView(entry[0]);
+  const key = `${senderId}:${text}`;
+  if (tapInfoSeen.has(key)) return;
+  tapInfoSeen.add(key);
+  logActivity('Recorder', `${v ? (v.label || v.id) : 'A window'}: ${text}`, 'info');
+});
 let lastRecorderState = 'idle';
 builtInRecorder.on('status', () => {
   const now = builtInRecorder.state;

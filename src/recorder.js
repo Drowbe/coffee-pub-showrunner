@@ -20,7 +20,7 @@ function defaultFileName(date = new Date()) {
 
 class BuiltInRecorder extends EventEmitter {
   // getSources(ids) returns the webContents to record, in order; folderFor() the folder to write to.
-  constructor({ getSources, folderFor, nameFor, markerFile }) {
+  constructor({ getSources, folderFor, nameFor, markerFile, windowName }) {
     super();
     this.getSources = getSources;
     this.folderFor = folderFor;
@@ -38,6 +38,10 @@ class BuiltInRecorder extends EventEmitter {
     this.warning = '';
     this.interrupted = null; // { file } when the app closed in the middle of a recording last time
     this.markerFile = markerFile || '';
+    this.windowName = windowName || ((id) => id);
+    this.heard = [false, false]; // whether any sound has arrived from each chosen window
+    this.soundNote = '';
+    this.runSeconds = 0;
     this.spaceChecks = 0;
     // The recorder page sends each piece of the MP4 with the position it belongs at; they are written straight to the file.
     ipcMain.on('recorder:write', (e, { data, position }) => {
@@ -47,10 +51,13 @@ class BuiltInRecorder extends EventEmitter {
       fs.write(this.fd, buf, 0, buf.length, position, (err) => { this.pending -= 1; if (err && !this.error) this.error = `Could not write the recording: ${err.message}`; });
     });
     ipcMain.on('recorder:levels', (_e, levels) => { this.levels = levels; this.emit('levels', levels); });
+    // What kind of sound each page plays, as found by its preload: written to the activity log, to see what a page does.
+    ipcMain.on('recorder:tapinfo', (e, text) => this.emit('tapinfo', e.sender.id, String(text)));
     ipcMain.on('recorder:failed', (_e, message) => { this.error = message; this.emit('status'); });
     ipcMain.on('recorder:audio', (e, msg) => {
       if (this.state !== 'recording' || !this.window || this.window.isDestroyed()) return;
       const win = (this.sourceContents || []).findIndex((wc) => wc.id === e.sender.id); // which chosen window this sound came from
+      if (win >= 0) this.heard[win] = true;
       this.window.webContents.send('audio', { key: `${e.sender.id}:${msg.id}`, win: Math.max(0, win), l: msg.l, r: msg.r, rate: msg.rate });
     });
   }
@@ -64,7 +71,7 @@ class BuiltInRecorder extends EventEmitter {
   }
 
   status() {
-    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: this.warning, interrupted: this.interrupted };
+    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: [this.soundNote, this.warning].filter(Boolean).join('  '), interrupted: this.interrupted };
   }
 
   // A note is left while a recording runs and removed when it ends cleanly. If it is still there at the next launch, the app closed in
@@ -105,6 +112,16 @@ class BuiltInRecorder extends EventEmitter {
       } catch (err) { /* no estimate */ }
       this.warning = `Disk space is low: ${gb.toFixed(1)} GB left${left}.`;
     } else this.warning = '';
+  }
+
+  // Eight seconds in (and from then on), name any chosen window that has sent no sound at all, so a recording with a silent window is
+  // noticed while it can still be fixed. It cannot tell "nothing is playing" from "plays in a way that cannot be copied", so it says both.
+  checkSound() {
+    if (this.state !== 'recording') return;
+    this.runSeconds += 1;
+    if (this.runSeconds < 8) return;
+    const silent = (this.settingsSources || []).map((id, i) => ({ id, i })).filter(({ id, i }) => id && !this.heard[i] && !(this.audioSettings && this.audioSettings.windows[i].muted)).map(({ id }) => this.windowName(id));
+    this.soundNote = silent.length ? `No sound from ${silent.join(' or ')} yet. Nothing may be playing there, or it plays in a way Showrunner cannot copy.` : '';
   }
 
   setSourcesAudio(enabled) {
@@ -179,7 +196,8 @@ class BuiltInRecorder extends EventEmitter {
     });
     this.spaceChecks = 0;
     this.checkSpace();
-    this.ticker = setInterval(() => { this.spaceChecks += 1; if (this.spaceChecks % 10 === 0) this.checkSpace(); this.emit('status'); }, 1000);
+    this.heard = [false, false]; this.soundNote = ''; this.runSeconds = 0; this.settingsSources = settings.sources; this.audioSettings = settings.audio;
+    this.ticker = setInterval(() => { this.spaceChecks += 1; this.checkSound(); if (this.spaceChecks % 10 === 0) this.checkSpace(); this.emit('status'); }, 1000);
     this.emit('status');
   }
 
