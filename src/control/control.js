@@ -5384,3 +5384,23 @@ $('picker-save').addEventListener('click', async () => {
   window.addEventListener('resize', close);
   document.addEventListener('scroll', (e) => { if (menu && !menu.contains(e.target)) close(); }, true);
 })();
+
+// Every label in the left rail gives way with an "..." when it is too long, and the full name shows as a tooltip.
+// Done in one place so any tab added later (a window, a profile's page) gets it without its own code.
+function fitTabLabels() {
+  for (const tab of document.querySelectorAll('#tabs .tab')) {
+    let label = tab.querySelector('.tab-label');
+    if (!label) {
+      const text = [...tab.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim());
+      if (!text.length) continue;
+      label = document.createElement('span');
+      label.className = 'tab-label';
+      label.textContent = text.map((n) => n.textContent.trim()).join(' ');
+      text[0].replaceWith(label);
+      for (const n of text.slice(1)) n.remove();
+    }
+    if (tab.title !== label.textContent) tab.title = label.textContent;
+  }
+}
+fitTabLabels();
+new MutationObserver(fitTabLabels).observe($('tabs'), { childList: true, subtree: true, characterData: true });
