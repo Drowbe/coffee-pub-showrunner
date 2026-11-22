@@ -928,6 +928,14 @@ input[type="checkbox"].switch:disabled {
   border-right: 1px solid var(--border);
   background: #0B1626;
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+/* Nothing in the rail squashes to fit: when it is taller than the window, the rail itself scrolls. */
+.sidebar > *,
+.nav-group > * {
+  flex-shrink: 0;
 }
 
 .nav-group {

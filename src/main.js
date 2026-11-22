@@ -10,6 +10,7 @@ const { calibrateInputs } = require('./leveling');
 const { AutoLevelService } = require('./autolevel');
 const { ConfigStore, LIMITS, REGION_LIMITS, DEFAULT_GROUP, AUTOMATIONS_ACTION_SCHEMA, STUDIO_ACTION_SCHEMA, SOURCE_SUFFIX, upgradeSourceName } = require('./config');
 const { ObsBridge, parseWindowChoice } = require('./obs');
+const { nameFromTemplate, defaultName } = require('./filename');
 const { ObsBackend, BuiltInBackend, RecordingBackends } = require('./recording');
 const { BuiltInRecorder } = require('./recorder');
 const { TavernBridge } = require('./tavern');
@@ -825,6 +826,11 @@ automations.on('event', (entry) => {
 const builtInRecorder = new BuiltInRecorder({
   getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
   folderFor: (folder) => folder || app.getPath('videos'),
+  // The session filename format names the file, the same one OBS uses; blank falls back to "Showrunner <date> <time>".
+  nameFor: () => {
+    const format = configStore.get().session.filenameFormat;
+    return format ? nameFromTemplate(formatSessionTemplate(format, undefined, undefined, sanitizeFilenameValue)) : defaultName();
+  },
 });
 builtInRecorder.on('recording', noteRecording);
 builtInRecorder.on('status', () => broadcastStatus());

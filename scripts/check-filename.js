@@ -1,0 +1,17 @@
+'use strict';
+const assert = require('assert');
+const { expandDateMacros, defaultName, safeName, uniquePath, nameFromTemplate } = require('../src/filename');
+const d = new Date(2026, 10, 21, 9, 5, 7);
+assert.strictEqual(expandDateMacros('%CCYY-%MM-%DD %hh.%mm.%ss', d), '2026-11-21 09.05.07');
+assert.strictEqual(expandDateMacros('%YY %unknown', d), '26 %unknown');
+assert.strictEqual(defaultName(d), 'Showrunner 2026-11-21 09-05-07');
+assert.strictEqual(safeName('a/b:c*'), 'a-b-c-');
+assert.strictEqual(safeName('  ..hidden. '), 'hidden');
+assert.strictEqual(safeName('x'.repeat(400)).length, 150);
+assert.strictEqual(nameFromTemplate('Dragons -  - Pilot - %CCYY-%MM-%DD', d), 'Dragons - Pilot - 2026-11-21');
+assert.strictEqual(nameFromTemplate(' - ', d), 'Showrunner 2026-11-21 09-05-07');
+assert.strictEqual(nameFromTemplate('', d), 'Showrunner 2026-11-21 09-05-07');
+const taken = new Set(['/f/A.mp4', '/f/A 2.mp4']);
+assert.strictEqual(uniquePath('/f', 'A', (p) => taken.has(p)), '/f/A 3.mp4');
+assert.strictEqual(uniquePath('/f', 'B', (p) => taken.has(p)), '/f/B.mp4');
+console.log('filename checks passed');

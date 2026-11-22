@@ -6,6 +6,7 @@ const { BrowserWindow, ipcMain } = require('electron');
 const { EventEmitter } = require('events');
 const fs = require('fs');
 const path = require('path');
+const { uniquePath, defaultName } = require('./filename');
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -15,10 +16,11 @@ function defaultFileName(date = new Date()) {
 
 class BuiltInRecorder extends EventEmitter {
   // getSources(ids) returns the webContents to record, in order; folderFor() the folder to write to.
-  constructor({ getSources, folderFor }) {
+  constructor({ getSources, folderFor, nameFor }) {
     super();
     this.getSources = getSources;
     this.folderFor = folderFor;
+    this.nameFor = nameFor || (() => defaultName());
     this.state = 'idle'; // idle | starting | recording | paused | stopping
     this.window = null;
     this.fd = null;
@@ -66,7 +68,7 @@ class BuiltInRecorder extends EventEmitter {
     if (!sources.length) throw new Error('Choose a window to record first (Recording page), and open it.');
     const folder = this.folderFor(settings.folder);
     fs.mkdirSync(folder, { recursive: true });
-    this.file = path.join(folder, defaultFileName());
+    this.file = uniquePath(folder, this.nameFor());
     this.state = 'starting';
     this.emit('status');
     try {
