@@ -183,6 +183,16 @@ async function stop() {
 ipcRenderer.on('start', async (_e, config) => {
   try { await start(config); ipcRenderer.send('recorder:started', { ok: true }); } catch (err) { ipcRenderer.send('recorder:started', { ok: false, error: err.message }); }
 });
+// A snapshot of the recorder's insides, asked for when nothing seems to be getting saved.
+ipcRenderer.on('stats', () => {
+  ipcRenderer.send('recorder:stats', {
+    video: venc ? { state: venc.state, queue: venc.encodeQueueSize } : null,
+    audio: aenc ? { state: aenc.state, queue: aenc.encodeQueueSize } : null,
+    frames: ticks, audioSeconds: Math.round(audioSamples / RATE), failure,
+    audioContext: actx ? actx.state : null, mic: Boolean(micStream), camera: camVideo ? `${camVideo.videoWidth}x${camVideo.videoHeight} ready=${camVideo.readyState}` : null,
+    paused, sourcesSeen: sources.map((s2) => Boolean(s2)),
+  });
+});
 ipcRenderer.on('stop', async () => { try { await stop(); } catch (err) { fail(err); } finally { ipcRenderer.send('recorder:stopped'); } });
 ipcRenderer.on('pause', () => { if (!paused) { paused = true; pausedAt = performance.now(); } });
 ipcRenderer.on('resume', () => {

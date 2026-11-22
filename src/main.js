@@ -835,6 +835,7 @@ const builtInRecorder = new BuiltInRecorder({
   },
 });
 builtInRecorder.on('recording', noteRecording);
+builtInRecorder.on('diag', (text) => logActivity('Recorder', text, 'error'));
 const tapInfoSeen = new Set();
 builtInRecorder.on('tapinfo', (senderId, text) => {
   const entry = [...pageViews.entries()].find(([, page]) => !page.webContents.isDestroyed() && page.webContents.id === senderId);

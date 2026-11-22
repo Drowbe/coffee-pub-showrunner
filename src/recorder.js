@@ -42,6 +42,9 @@ class BuiltInRecorder extends EventEmitter {
     this.heard = [false, false]; // whether any sound has arrived from each chosen window
     this.soundNote = '';
     this.runSeconds = 0;
+    this.bytesWritten = 0;
+    this.lastLevelsAt = 0;
+    this.saveNote = '';
     this.monitorIds = []; // windows whose loudness is being watched for the meters while not recording
     this.monitorWcs = [];
     this.idlePeaks = [0, 0];
@@ -52,9 +55,11 @@ class BuiltInRecorder extends EventEmitter {
       if (this.fd === null || !this.window || e.sender !== this.window.webContents) return;
       const buf = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
       this.pending += 1;
+      this.bytesWritten += buf.length;
       fs.write(this.fd, buf, 0, buf.length, position, (err) => { this.pending -= 1; if (err && !this.error) this.error = `Could not write the recording: ${err.message}`; });
     });
-    ipcMain.on('recorder:levels', (_e, levels) => { this.levels = levels; this.emit('levels', levels); });
+    ipcMain.on('recorder:stats', (_e, stats) => this.emit('diag', `Recorder state: ${JSON.stringify(stats)}`));
+    ipcMain.on('recorder:levels', (_e, levels) => { this.lastLevelsAt = Date.now(); this.levels = levels; this.emit('levels', levels); });
     // What kind of sound each page plays, as found by its preload: written to the activity log, to see what a page does.
     ipcMain.on('recorder:tapinfo', (e, text) => this.emit('tapinfo', e.sender.id, String(text)));
     ipcMain.on('recorder:peak', (e, peak) => {
@@ -79,7 +84,7 @@ class BuiltInRecorder extends EventEmitter {
   }
 
   status() {
-    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: [this.soundNote, this.warning].filter(Boolean).join('  '), interrupted: this.interrupted };
+    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: [this.saveNote, this.soundNote, this.warning].filter(Boolean).join('  '), interrupted: this.interrupted };
   }
 
   // A note is left while a recording runs and removed when it ends cleanly. If it is still there at the next launch, the app closed in
@@ -127,6 +132,17 @@ class BuiltInRecorder extends EventEmitter {
   checkSound() {
     if (this.state !== 'recording') return;
     this.runSeconds += 1;
+    // Is anything reaching the file? And is the recorder still alive? Either failing is said out loud, with the recorder's own state.
+    if (this.runSeconds === 10 && this.bytesWritten < 1000) {
+      this.saveNote = 'Nothing has been saved to the file after 10 seconds. Stop and try again; the activity log has details.';
+      this.emit('diag', `Nothing written after 10 s (${this.bytesWritten} bytes).`);
+      if (this.window && !this.window.isDestroyed()) this.window.webContents.send('stats');
+    }
+    if (this.state === 'recording' && this.lastLevelsAt && Date.now() - this.lastLevelsAt > 5000 && !this.saveNote.includes('responding')) {
+      this.saveNote += ' The recorder has stopped responding.';
+      this.emit('diag', 'The recorder window stopped sending its level readings for 5 s.');
+      if (this.window && !this.window.isDestroyed()) this.window.webContents.send('stats');
+    }
     if (this.runSeconds < 8) return;
     const silent = (this.settingsSources || []).map((id, i) => ({ id, i })).filter(({ id, i }) => id && !this.heard[i] && !(this.audioSettings && this.audioSettings.windows[i].muted)).map(({ id }) => this.windowName(id));
     this.soundNote = silent.length ? `No sound from ${silent.join(' or ')} yet. Nothing may be playing there, or it plays in a way Showrunner cannot copy.` : '';
@@ -226,7 +242,7 @@ class BuiltInRecorder extends EventEmitter {
     });
     this.spaceChecks = 0;
     this.checkSpace();
-    this.heard = [false, false]; this.soundNote = ''; this.runSeconds = 0; this.settingsSources = settings.sources; this.audioSettings = settings.audio;
+    this.heard = [false, false]; this.soundNote = ''; this.saveNote = ''; this.bytesWritten = 0; this.lastLevelsAt = Date.now(); this.runSeconds = 0; this.settingsSources = settings.sources; this.audioSettings = settings.audio;
     this.ticker = setInterval(() => { this.spaceChecks += 1; this.checkSound(); if (this.spaceChecks % 10 === 0) this.checkSpace(); this.emit('status'); }, 1000);
     this.emit('status');
   }
@@ -281,6 +297,7 @@ class BuiltInRecorder extends EventEmitter {
     this.state = 'idle';
     this.startedAt = 0;
     this.warning = '';
+    this.saveNote = '';
   }
 }
 
