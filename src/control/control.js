@@ -2207,9 +2207,13 @@ function fillWindowSelect(select, chosen, optional) {
   select.value = chosen || '';
 }
 
+let lastRecordingBackend = null;
 function renderRecording() {
   if (!config || !config.recording) return;
   const r = config.recording;
+  // The step menus list only what the chosen recorder can do, so they are redrawn when the choice changes.
+  if (lastRecordingBackend && lastRecordingBackend !== r.backend && config.automations) renderAutomationsRuleSets();
+  lastRecordingBackend = r.backend;
   const st = (status && status.recording && status.recording.builtIn) || { state: 'idle', seconds: 0, file: '', error: '' };
   const builtin = r.backend === 'builtin';
   recEls.backend.value = r.backend;
@@ -3127,8 +3131,22 @@ let automationsSources = [];
 let automationsObsWasConnected = false;
 
 // OBS actions plus Studio actions -- both always available.
-function availableActions() {
+function allActions() {
   return [...AUTOMATION_ACTIONS, ...STUDIO_ACTIONS];
+}
+
+// Actions only the OBS Recorder can do: everything that touches OBS scenes, sources, text or audio, OBS syncing, and streaming
+// (the Showrunner Recorder records and pauses, and nothing else yet).
+const OBS_ONLY_ACTIONS = new Set([
+  ...AUTOMATION_ACTIONS.filter((a) => a.group !== 'Controls').map((a) => a.value),
+  'startStreaming', 'stopStreaming', 'syncObs', 'applySessionFilename',
+]);
+
+// What the step menu offers: with the Showrunner Recorder chosen, the OBS-only actions are left out (a step that already uses
+// one keeps it in its own menu, marked, so an old rule set is never silently changed).
+function availableActions(keep) {
+  const builtin = config && config.recording && config.recording.backend === 'builtin';
+  return allActions().filter((a) => !builtin || !OBS_ONLY_ACTIONS.has(a.value) || a.value === keep);
 }
 
 function applyAutomationsConfig(firstLoad) {
@@ -3744,7 +3762,7 @@ function appendDataFieldPicker(settingsEl, { labelText, sfield, currentValue, gr
 function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) {
   const row = document.createElement('div');
   const enabled = step.enabled !== false;
-  row.className = `automation-step ${tintClassFor(step, availableActions())}${enabled ? '' : ' disabled'}`;
+  row.className = `automation-step ${tintClassFor(step, allActions())}${enabled ? '' : ' disabled'}`;
   row.dataset.stepId = step.id;
 
   // The header line (enable/number/AND-or-Wait/action) stays one row, same
@@ -3922,7 +3940,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       mainRow.appendChild(runIfToggle);
     }
 
-    const actions = availableActions();
+    const actions = availableActions(step.action);
     const actionSelect = document.createElement('select');
     actionSelect.dataset.sfield = 'action';
     const groups = new Map();
@@ -3934,7 +3952,8 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       }
       const opt = document.createElement('option');
       opt.value = a.value;
-      opt.textContent = a.label;
+      const stale = OBS_ONLY_ACTIONS.has(a.value) && !availableActions().includes(a);
+      opt.textContent = stale ? `${a.label} (needs OBS Recorder)` : a.label;
       if (a.value === step.action) opt.selected = true;
       groups.get(a.group).appendChild(opt);
     }
