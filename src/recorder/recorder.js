@@ -17,6 +17,7 @@ const MIC_DELAY = 0.04; // the microphone is played as it arrives, so it waits a
 let camVideo = null; let camStream = null;
 let winGain = []; let micGain = null; let micStream = null; let levelTimer = null; let audioCfg = null;
 const analysers = []; // [window 1, window 2, microphone, everything]
+let vcfg = null; let lastVideoOutAt = 0; let switchedEncoder = false; let needKey = false; let watchdog = null;
 let cfg = null; let canvas; let g; let muxer; let venc; let aenc; let actx; let bus; let proc; let timer;
 let anchorUs = null; let t0 = 0; let paused = false; let pausedTotal = 0; let pausedAt = 0; let ticks = 0; let audioSamples = 0; let failure = '';
 
@@ -72,7 +73,7 @@ function draw() {
   Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo });
   if (venc.encodeQueueSize > 8) return; // the encoder is behind: skip a picture rather than fall further back
   const frame = new VideoFrame(canvas, { timestamp: clockUs() });
-  venc.encode(frame, { keyFrame: ticks % (cfg.fps * 2) === 0 }); // a fresh keyframe every two seconds
+  venc.encode(frame, { keyFrame: needKey || ticks % (cfg.fps * 2) === 0 }); needKey = false; // a fresh keyframe every two seconds
   frame.close();
   ticks += 1;
 }
@@ -97,6 +98,15 @@ async function openDevice(kind, id, label, base) {
 }
 const why = (err) => (err.name === 'NotAllowedError' ? 'macOS has not allowed it' : `${err.name}${err.message ? `: ${err.message}` : ''}`);
 
+// The video encoder. The computer's own (hardware) encoder is tried first; if it takes frames in and never gives any back, the watchdog
+// below replaces it with the software encoder, so a stuck encoder cannot leave a recording that saves nothing.
+function makeVideoEncoder(acceleration) {
+  lastVideoOutAt = performance.now();
+  const e = new VideoEncoder({ output: (chunk, meta) => { lastVideoOutAt = performance.now(); muxer.addVideoChunk(chunk, meta); }, error: fail });
+  e.configure({ ...vcfg, hardwareAcceleration: acceleration });
+  return e;
+}
+
 async function start(config) {
   cfg = config;
   sources[0] = sources[1] = null; nextAt.clear(); failure = ''; ticks = 0; audioSamples = 0; pausedTotal = 0; paused = false; anchorUs = null;
@@ -114,8 +124,8 @@ async function start(config) {
     audio: { codec: 'aac', numberOfChannels: 2, sampleRate: RATE },
     fastStart: 'fragmented', firstTimestampBehavior: 'offset',
   });
-  venc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: fail });
-  venc.configure(videoConfig);
+  vcfg = videoConfig; switchedEncoder = false; needKey = false;
+  venc = makeVideoEncoder('prefer-hardware');
   aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: fail });
   aenc.configure(audioConfig);
   // The mixing bus: every source's sound is scheduled onto it, and a processor reads it out in blocks for the encoder.
@@ -167,10 +177,21 @@ async function start(config) {
   bus.connect(proc); proc.connect(actx.destination);
   t0 = performance.now();
   timer = setInterval(draw, 1000 / cfg.fps);
+  watchdog = setInterval(() => {
+    if (failure || paused || switchedEncoder || !venc) return;
+    if (venc.encodeQueueSize >= 3 && performance.now() - lastVideoOutAt > 3000) {
+      switchedEncoder = true;
+      const stuck = venc;
+      venc = makeVideoEncoder('prefer-software');
+      needKey = true;
+      try { stuck.close(); } catch (err) { /* already closed */ }
+      ipcRenderer.send('recorder:note', 'The hardware video encoder stalled (it took frames and gave none back), so the software encoder took over.');
+    }
+  }, 1000);
 }
 
 async function stop() {
-  clearInterval(timer); clearInterval(levelTimer);
+  clearInterval(timer); clearInterval(levelTimer); clearInterval(watchdog);
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
   if (proc) { proc.onaudioprocess = null; proc.disconnect(); }

@@ -58,6 +58,7 @@ class BuiltInRecorder extends EventEmitter {
       this.bytesWritten += buf.length;
       fs.write(this.fd, buf, 0, buf.length, position, (err) => { this.pending -= 1; if (err && !this.error) this.error = `Could not write the recording: ${err.message}`; });
     });
+    ipcMain.on('recorder:note', (_e, text) => this.emit('diag', String(text)));
     ipcMain.on('recorder:stats', (_e, stats) => this.emit('diag', `Recorder state: ${JSON.stringify(stats)}`));
     ipcMain.on('recorder:levels', (_e, levels) => { this.lastLevelsAt = Date.now(); this.levels = levels; this.emit('levels', levels); });
     // What kind of sound each page plays, as found by its preload: written to the activity log, to see what a page does.
