@@ -328,8 +328,10 @@ function logActivity(source, event, level = 'info') {
   broadcastStatus();
 }
 
+// OBS is only connected to (and only retried) when the profile records with OBS. The connection details are shared by every profile,
+// so this is where the profile's choice of recorder switches it off.
 const obs = new ObsBridge({
-  getSettings: () => configStore.get().obs,
+  getSettings: () => { const c = configStore.get(); return c.recording.backend === 'obs' ? c.obs : { ...c.obs, autoConnect: false }; },
   getPassword: readObsPassword,
 });
 obs.lastRecordingPath = recordings.last ? recordings.last.path : '';
@@ -2256,6 +2258,17 @@ async function syncObs() {
   return report;
 }
 
+// Brings the OBS connection in line with the profile's recorder: dropped (and no longer retried) when it records without OBS,
+// and reconnected, if auto-connect is on, when it records with OBS.
+async function syncObsConnection() {
+  const c = configStore.get();
+  if (c.recording.backend !== 'obs') {
+    if (obs.state !== 'disconnected') await obs.stop().catch(() => {});
+  } else if (c.obs.autoConnect && !obs.connected) {
+    obs.connect().catch(() => {});
+  }
+}
+
 function scheduleObsSync() {
   clearTimeout(obsSyncTimer);
   obsSyncTimer = setTimeout(() => syncObs().catch((err) => console.warn(`[obs] sync failed: ${err.message}`)), 800);
@@ -2572,6 +2585,7 @@ async function switchProfile(id) {
     setupTray();
     setupDock();
     buildMenu();
+    syncObsConnection().catch(() => {});
     scheduleObsSync();
     syncTavern().catch(() => {});
     syncAutoLevel().catch(() => {});
@@ -3581,6 +3595,7 @@ function registerIpc() {
     setupTray();
     setupDock();
     buildMenu();
+    syncObsConnection().catch(() => {});
     scheduleObsSync();
     updateFeed();
     broadcastStatus();

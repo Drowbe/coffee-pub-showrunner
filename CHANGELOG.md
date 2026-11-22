@@ -33,6 +33,7 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
   Continue button or Play), for scripts that are notes about several screens. It also fires the event `teleprompter:hold:<name>`.
   The editor has **Insert hold**.
 - **Webcam flip.** Mirror the webcam left to right, in the preview and the recording.
+- **No OBS polling without OBS.** A profile that records with the Showrunner Recorder no longer connects to OBS or retries every ten seconds; switching back to the OBS Recorder reconnects.
 - Recording and streaming actions now go through a recording backend (`src/recording.js`); OBS is the first backend.
 
 ## 0.4.9 -- 2026-11-20
