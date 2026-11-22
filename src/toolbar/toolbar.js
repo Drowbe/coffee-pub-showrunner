@@ -64,7 +64,8 @@ function render(s) {
   $('time').textContent = mmss(s.seconds);
   const label = s.state === 'paused' ? 'PAUSED' : live ? 'RECORDING' : s.error ? '' : s.file ? `Saved ${s.file.split(/[\\/]/).pop()}` : 'Ready';
   const st = $('state'); st.textContent = label; st.title = label; st.className = live ? 'live' : '';
-  $('msg').textContent = s.error || '';
+  $('msg').textContent = s.error || s.warning || '';
+  $('reveal').hidden = live || !s.file;
   const list = sources(s);
   const key = list.map((x) => `${x.kind}${x.i}${x.label}`).join('|');
   if (key !== shape) { shape = key; build(list); }
@@ -90,5 +91,6 @@ $('pause').addEventListener('click', async () => {
   const result = await window.recbar.action(state.state === 'paused' ? 'resume' : 'pause');
   if (result && result.error) $('msg').textContent = result.error;
 });
+$('reveal').addEventListener('click', () => window.recbar.reveal());
 $('close').addEventListener('click', () => window.recbar.close());
 window.recbar.init().then(render);

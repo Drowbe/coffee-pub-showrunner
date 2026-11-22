@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld('recbar', {
   action: (name) => ipcRenderer.invoke('toolbar:action', name),
   setAudio: (audio) => ipcRenderer.send('toolbar:setAudio', audio),
   size: (height) => ipcRenderer.send('toolbar:size', height),
+  reveal: () => ipcRenderer.invoke('toolbar:reveal'),
   close: () => ipcRenderer.send('toolbar:close'),
 });

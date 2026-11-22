@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('coffeePub', {
     setAudio: (audio) => ipcRenderer.invoke('recording:setAudio', audio),
     askMicrophone: () => ipcRenderer.invoke('recording:askMicrophone'),
     askCamera: () => ipcRenderer.invoke('recording:askCamera'),
+    reveal: (file) => ipcRenderer.invoke('recording:reveal', file),
     openPrivacy: (kind) => ipcRenderer.invoke('recording:openPrivacy', kind),
     previewFeed: (on) => ipcRenderer.send('recording:previewFeed', Boolean(on)),
     onPreviewFrame: (callback) => {

@@ -8,6 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const { uniquePath, defaultName } = require('./filename');
 
+const SPACE_MIN = 1e9; // will not start with less than this free
+const SPACE_WARN = 3e9; // warn below this
+const SPACE_STOP = 3e8; // stop (and keep the file) below this
+
 const pad = (n) => String(n).padStart(2, '0');
 
 function defaultFileName(date = new Date()) {
@@ -16,7 +20,7 @@ function defaultFileName(date = new Date()) {
 
 class BuiltInRecorder extends EventEmitter {
   // getSources(ids) returns the webContents to record, in order; folderFor() the folder to write to.
-  constructor({ getSources, folderFor, nameFor }) {
+  constructor({ getSources, folderFor, nameFor, markerFile }) {
     super();
     this.getSources = getSources;
     this.folderFor = folderFor;
@@ -31,6 +35,10 @@ class BuiltInRecorder extends EventEmitter {
     this.pausedTotal = 0;
     this.grabbers = [];
     this.error = '';
+    this.warning = '';
+    this.interrupted = null; // { file } when the app closed in the middle of a recording last time
+    this.markerFile = markerFile || '';
+    this.spaceChecks = 0;
     // The recorder page sends each piece of the MP4 with the position it belongs at; they are written straight to the file.
     ipcMain.on('recorder:write', (e, { data, position }) => {
       if (this.fd === null || !this.window || e.sender !== this.window.webContents) return;
@@ -56,7 +64,47 @@ class BuiltInRecorder extends EventEmitter {
   }
 
   status() {
-    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error };
+    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: this.warning, interrupted: this.interrupted };
+  }
+
+  // A note is left while a recording runs and removed when it ends cleanly. If it is still there at the next launch, the app closed in
+  // the middle of a recording; the file is still playable (it is written as it records) and the person is told where it is.
+  takeInterrupted() {
+    if (!this.markerFile) return null;
+    try {
+      const { file } = JSON.parse(fs.readFileSync(this.markerFile, 'utf8'));
+      fs.unlinkSync(this.markerFile);
+      if (file && fs.existsSync(file) && fs.statSync(file).size > 0) { this.interrupted = { file }; return this.interrupted; }
+    } catch (err) { /* no note: nothing was interrupted */ }
+    return null;
+  }
+
+  writeMarker() { if (this.markerFile) try { fs.writeFileSync(this.markerFile, JSON.stringify({ file: this.file, at: Date.now() })); } catch (err) { /* not fatal */ } }
+  clearMarker() { if (this.markerFile) try { fs.unlinkSync(this.markerFile); } catch (err) { /* already gone */ } }
+
+  freeBytes(folder) {
+    try { const st = fs.statfsSync(folder); return Number(st.bavail) * Number(st.bsize); } catch (err) { return Infinity; }
+  }
+
+  // Checked every few seconds while recording: warns when space is getting short, and stops cleanly before the disk is full.
+  checkSpace() {
+    const free = this.freeBytes(path.dirname(this.file));
+    const gb = free / 1e9;
+    if (free < SPACE_STOP) {
+      this.error = 'Stopped: the disk is nearly full. The recording so far is saved.';
+      this.warning = '';
+      this.stop().catch(() => {});
+      return;
+    }
+    if (free < SPACE_WARN) {
+      let left = '';
+      const secs = this.seconds();
+      try {
+        const rate = fs.statSync(this.file).size / Math.max(1, secs); // bytes a second so far
+        if (secs > 20 && rate > 0) left = `, about ${Math.max(1, Math.round(free / rate / 60))} min of recording`;
+      } catch (err) { /* no estimate */ }
+      this.warning = `Disk space is low: ${gb.toFixed(1)} GB left${left}.`;
+    } else this.warning = '';
   }
 
   setSourcesAudio(enabled) {
@@ -81,11 +129,13 @@ class BuiltInRecorder extends EventEmitter {
 
   async start(settings) {
     if (this.state !== 'idle') throw new Error('The built-in recorder is already recording.');
-    this.error = '';
+    this.error = ''; this.warning = ''; this.interrupted = null;
     const sources = this.getSources(settings.sources);
     if (!sources.length && settings.layout !== 'cam') throw new Error('Choose a window to record first (Showrunner Recorder page), and open it.');
     const folder = this.folderFor(settings.folder);
     fs.mkdirSync(folder, { recursive: true });
+    const free = this.freeBytes(folder);
+    if (free < SPACE_MIN) throw new Error(`There is not enough disk space to record: ${(free / 1e9).toFixed(1)} GB free in ${folder}. Free some space or choose another folder.`);
     this.file = uniquePath(folder, this.nameFor());
     if (settings.audio && settings.audio.mic.enabled) await this.allowMicrophone();
     if (settings.layout === 'corner' || settings.layout === 'cam') await this.allowCamera();
@@ -93,6 +143,7 @@ class BuiltInRecorder extends EventEmitter {
     this.emit('status');
     try {
       this.fd = fs.openSync(this.file, 'w');
+      this.writeMarker();
       this.window = new BrowserWindow({ show: false, width: 320, height: 180, webPreferences: { nodeIntegration: true, contextIsolation: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' } });
       await this.window.loadFile(path.join(__dirname, 'recorder', 'index.html'));
       const started = new Promise((resolve) => ipcMain.once('recorder:started', (_e, v) => resolve(v)));
@@ -126,7 +177,9 @@ class BuiltInRecorder extends EventEmitter {
       }, 1000 / settings.fps);
       this.grabbers.push(timer);
     });
-    this.ticker = setInterval(() => this.emit('status'), 1000);
+    this.spaceChecks = 0;
+    this.checkSpace();
+    this.ticker = setInterval(() => { this.spaceChecks += 1; if (this.spaceChecks % 10 === 0) this.checkSpace(); this.emit('status'); }, 1000);
     this.emit('status');
   }
 
@@ -175,8 +228,10 @@ class BuiltInRecorder extends EventEmitter {
     }
     if (this.window && !this.window.isDestroyed()) this.window.destroy();
     this.window = null;
+    this.clearMarker();
     this.state = 'idle';
     this.startedAt = 0;
+    this.warning = '';
   }
 }
 

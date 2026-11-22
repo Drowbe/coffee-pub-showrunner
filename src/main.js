@@ -826,6 +826,7 @@ automations.on('event', (entry) => {
 const builtInRecorder = new BuiltInRecorder({
   getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
   folderFor: (folder) => folder || app.getPath('videos'),
+  markerFile: path.join(app.getPath('userData'), 'recording-in-progress.json'), // left behind only if the app closes mid-recording
   // The session filename format names the file, the same one OBS uses; blank falls back to "Showrunner <date> <time>".
   nameFor: () => {
     const format = configStore.get().session.filenameFormat;
@@ -3512,6 +3513,7 @@ function registerToolbarIpc() {
   ipcMain.on('toolbar:size', (_event, height) => {
     if (isAlive(toolbarWindow) && Number.isFinite(height) && height > 40 && height < 600) toolbarWindow.setContentSize(400, Math.round(height));
   });
+  ipcMain.handle('toolbar:reveal', () => { const f = builtInRecorder.file; if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
   ipcMain.on('toolbar:close', () => { if (isAlive(toolbarWindow)) toolbarWindow.close(); });
   ipcMain.handle('toolbar:show', () => { openToolbar(); });
 }
@@ -3532,6 +3534,7 @@ function registerIpc() {
   // Lets the person allow the microphone from the Recorder page before the first recording.
   ipcMain.handle('recording:askMicrophone', () => askMediaAccess('microphone'));
   ipcMain.handle('recording:askCamera', () => askMediaAccess('camera'));
+  ipcMain.handle('recording:reveal', (_event, file) => { const f = file || builtInRecorder.file || (builtInRecorder.interrupted && builtInRecorder.interrupted.file); if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
   ipcMain.handle('recording:openPrivacy', (_event, kind) => shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'camera' ? 'Camera' : 'Microphone'}`));
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also
@@ -4628,6 +4631,14 @@ if (!app.requestSingleInstanceLock()) {
     setupTray();
     setupDock();
     createControlWindow();
+    // If the app closed in the middle of a recording last time, say where the file is (it is still playable).
+    const interrupted = builtInRecorder.takeInterrupted();
+    if (interrupted) {
+      const message = `Showrunner closed while it was recording. The recording so far was kept: ${path.basename(interrupted.file)}`;
+      if (Notification.isSupported()) new Notification({ title: APP_NAME, body: message }).show();
+      logActivity('Recorder', message, 'error');
+      setTimeout(() => { if (isAlive(controlWindow)) controlWindow.webContents.send('toast', message); broadcastStatus(); }, 3000);
+    }
     openLaunchViews();
     if (configStore.get().teleprompter.enabled) openPrompter();
     obs.start().catch(() => {});
@@ -4664,7 +4675,15 @@ if (!app.requestSingleInstanceLock()) {
     callback(false);
   });
   app.on('activate', () => createControlWindow());
-  app.on('before-quit', () => {
+  let quitStopping = false;
+  app.on('before-quit', (event) => {
+    // Quitting in the middle of a recording finishes the file first, so it closes properly rather than being cut off.
+    if (builtInRecorder.active && !quitStopping) {
+      event.preventDefault();
+      quitStopping = true;
+      builtInRecorder.stop().catch(() => {}).finally(() => app.quit());
+      return;
+    }
     quitting = true;
     autoLevel.stop().catch(() => {});
     obs.stop().catch(() => {});

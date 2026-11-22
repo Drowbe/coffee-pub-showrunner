@@ -42,6 +42,13 @@ To record your voice, tick **Record the microphone** and pick the microphone. Th
 
 The file is written as you record, so memory stays flat however long the session is, and a crash loses only the last second or two.
 
+## If something goes wrong
+
+- **Low disk space.** The recorder will not start with less than 1 GB free. Below 3 GB it warns you, with roughly how many minutes are left, and below 0.3 GB it stops and keeps what it has.
+- **Quitting while recording** finishes the file first.
+- **A crash or power cut.** The file is written as it records, so it still plays, missing only the last second or two. The next time Showrunner starts it tells you where the file is.
+- **Show in Finder** (on the recorder page and the toolbar) opens the folder with your last recording selected.
+
 ## Limits for now
 
 - macOS only. Windows follows.

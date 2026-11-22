@@ -2199,7 +2199,7 @@ const recEls = {
   s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'),
   camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
   camPreview: $('rec-cam-preview'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
-  toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'),
+  reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'),
   folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
 };
 
@@ -2244,7 +2244,10 @@ function renderRecording() {
   recEls.pause.hidden = !active;
   recEls.pause.textContent = st.state === 'paused' ? 'Resume' : 'Pause';
   const mm = (n) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
-  recEls.status.textContent = st.error ? st.error : active ? `${mm(st.seconds)}  ${st.file.split(/[\\/]/).pop()}` : st.file ? `Last recording: ${st.file.split(/[\\/]/).pop()}` : '';
+  const note = st.warning ? `${st.warning}  ` : '';
+  recEls.status.textContent = st.error ? st.error : st.interrupted && !active ? `Showrunner closed while recording. The recording so far was kept: ${st.interrupted.file.split(/[\\/]/).pop()}` : note + (active ? `${mm(st.seconds)}  ${st.file.split(/[\\/]/).pop()}` : st.file ? `Last recording: ${st.file.split(/[\\/]/).pop()}` : '');
+  const revealable = !active && (st.file || (st.interrupted && st.interrupted.file));
+  recEls.reveal.hidden = !revealable;
   for (const el of [recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder, recEls.browse]) el.disabled = active;
   if (!active) recEls.s2.disabled = r.layout !== 'side';
   recEls.s1.closest('label').hidden = r.layout === 'cam';
@@ -2269,6 +2272,7 @@ function readRecording() {
 }
 for (const el of [recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
 recEls.folder.addEventListener('input', readRecording);
+recEls.reveal.addEventListener('click', () => api.recording.reveal().catch(reportError));
 recEls.toolbarShow.addEventListener('click', () => api.recording.showToolbar().catch(reportError));
 recEls.browse.addEventListener('click', async () => { try { const dir = await api.recording.chooseFolder(); if (dir) { recEls.folder.value = dir; readRecording(); } } catch (err) { reportError(err); } });
 recEls.start.addEventListener('click', async () => {
