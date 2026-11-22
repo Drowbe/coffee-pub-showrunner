@@ -79,6 +79,24 @@ function draw() {
 
 function fail(err) { if (!failure) { failure = err.message || String(err); ipcRenderer.send('recorder:failed', failure); } }
 
+// Opens a microphone or camera: the one chosen by its id; failing that, the one with the same name (ids can change); failing that, the
+// system's own. Only if none can be opened does it fail, and then with the real reason.
+async function openDevice(kind, id, label, base) {
+  const tries = [];
+  if (id) tries.push({ deviceId: { exact: id } });
+  if (label) {
+    const found = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === `${kind}input` && d.label === label);
+    if (found) tries.push({ deviceId: { exact: found.deviceId } });
+  }
+  tries.push({});
+  let last = null;
+  for (const t of tries) {
+    try { return await navigator.mediaDevices.getUserMedia({ [kind]: { ...base, ...t } }); } catch (err) { last = err; }
+  }
+  throw last;
+}
+const why = (err) => (err.name === 'NotAllowedError' ? 'macOS has not allowed it' : `${err.name}${err.message ? `: ${err.message}` : ''}`);
+
 async function start(config) {
   cfg = config;
   sources[0] = sources[1] = null; nextAt.clear(); failure = ''; ticks = 0; audioSamples = 0; pausedTotal = 0; paused = false; anchorUs = null;
@@ -114,11 +132,8 @@ async function start(config) {
   if (config.audio && config.audio.mic.enabled) {
     const m = config.audio.mic;
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: {
-        deviceId: m.device ? { exact: m.device } : undefined,
-        echoCancellation: m.echoCancel, noiseSuppression: false, autoGainControl: false, channelCount: 1,
-      } });
-    } catch (err) { throw new Error(`The microphone could not be opened (${err.name === 'NotAllowedError' ? 'macOS has not allowed it' : err.message}).`); }
+      micStream = await openDevice('audio', m.device, m.deviceLabel, { echoCancellation: m.echoCancel, noiseSuppression: false, autoGainControl: false, channelCount: 1 });
+    } catch (err) { throw new Error(`The microphone could not be opened (${why(err)}).`); }
     const delay = actx.createDelay(1); delay.delayTime.value = MIC_DELAY + (m.delayMs || 0) / 1000;
     micGain = actx.createGain();
     actx.createMediaStreamSource(micStream).connect(delay); delay.connect(micGain); micGain.connect(analysers[2]); analysers[2].connect(bus);
@@ -126,13 +141,10 @@ async function start(config) {
   camVideo = null; camStream = null;
   if (cfg.layout === 'corner' || cfg.layout === 'cam') {
     try {
-      camStream = await navigator.mediaDevices.getUserMedia({ video: {
-        deviceId: cfg.camera.device ? { exact: cfg.camera.device } : undefined,
-        width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 },
-      } });
+      camStream = await openDevice('video', cfg.camera.device, cfg.camera.deviceLabel, { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } });
       camVideo = document.createElement('video'); camVideo.muted = true; camVideo.srcObject = camStream;
       await camVideo.play();
-    } catch (err) { throw new Error(`The webcam could not be opened (${err.name === 'NotAllowedError' ? 'macOS has not allowed it' : err.message}).`); }
+    } catch (err) { throw new Error(`The webcam could not be opened (${why(err)}).`); }
   }
   if (config.audio) applyAudio(config.audio);
   const levelBuf = new Float32Array(1024);

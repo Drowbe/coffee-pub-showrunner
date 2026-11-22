@@ -21,8 +21,10 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
   (no window needed), with a live preview and a camera picker.
   **Recording toolbar:** a small window that floats above everything with Record, Pause, Stop, the time, and a level, mute and
   meter for each sound source. It opens when a recording starts (switch off on the recorder page) and is never in the recording.
-  **Live preview:** the recorder page shows the picture as it will be recorded (windows and webcam in their places), drawn by the
-  same code the recorder uses.
+  **Live preview in the toolbar:** the toolbar shows the picture as it will be recorded (windows and webcam in their places), drawn by
+  the same code the recorder uses, with a button to hide it. The toolbar and the meters work before recording, and the toolbar can
+  open when Showrunner starts. A recording that fails to start no longer leaves an empty file, and a microphone or webcam whose id
+  changed is found again by name.
   **Safety:** the recorder will not start with under 1 GB free, warns below 3 GB (with minutes left), and stops cleanly, keeping the
   file, before the disk is full. Quitting during a recording finishes the file first. If the app is ever killed mid-recording, the
   file still plays and the next launch says where it is. **Show in Finder** on the recorder page and the toolbar.

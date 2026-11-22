@@ -251,7 +251,6 @@
           <label class="field field-inline"><span>Frames per second</span>
             <select id="rec-fps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
         </div>
-        <div class="layout-preview"><canvas id="rec-preview" width="480" height="270" aria-label="Live preview of the recording's picture"></canvas></div>
         <div class="row">
           <label class="field field-inline field-grow"><span>Save to</span><input id="rec-folder" type="text" placeholder="Your Movies folder"></label>
           <button class="btn" id="rec-browse" type="button">Browse...</button>
@@ -263,8 +262,9 @@
           <button class="btn btn-small" id="rec-reveal" type="button" hidden>Show in Finder</button>
         </div>
         <div class="row">
-          <button class="btn btn-small" id="rec-toolbar-show" type="button">Show the toolbar</button>
-          <label class="field field-inline"><input id="rec-toolbar-auto" type="checkbox"><span>Show the toolbar when recording starts</span></label>
+          <button class="btn btn-small" id="rec-toolbar-show" type="button" title="The toolbar has the live picture, the meters and the Record button">Show the toolbar</button>
+          <label class="field field-inline"><input id="rec-toolbar-atstart" type="checkbox"><span>Open the toolbar when Showrunner starts</span></label>
+          <label class="field field-inline"><input id="rec-toolbar-auto" type="checkbox"><span>Open it when recording starts</span></label>
         </div>
       </div>
 
@@ -1174,7 +1174,6 @@
     </div>
   </div>
 
-  <script src="../recorder/layout.js"></script>
   <script src="control.js"></script>
 </body>
 </html>

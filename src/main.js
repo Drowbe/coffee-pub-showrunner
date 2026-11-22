@@ -853,7 +853,10 @@ builtInRecorder.on('status', () => {
   broadcastStatus();
   sendToolbarState();
 });
-builtInRecorder.on('idle', (peaks) => { if (isAlive(controlWindow)) controlWindow.webContents.send('recording:idleLevels', peaks); });
+builtInRecorder.on('idle', (peaks) => {
+  if (isAlive(controlWindow)) controlWindow.webContents.send('recording:idleLevels', peaks);
+  if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:idle', peaks);
+});
 builtInRecorder.on('levels', (levels) => {
   if (isAlive(controlWindow)) controlWindow.webContents.send('recording:levels', levels);
   if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:levels', levels);
@@ -2563,6 +2566,7 @@ async function switchProfile(id) {
     if (saved.tavern.enabled && saved.tavern.autoConnect && !tavern.connected && saved.tavern.url) await tavern.connect().catch(() => {});
     await syncAutomationsServer();
     openLaunchViews();
+    { const rc = configStore.get().recording; if (rc.backend === 'builtin' && rc.toolbar.atStart) openToolbar({ focus: false }); }
     if (configStore.get().teleprompter.enabled) openPrompter();
     setupTray();
     setupDock();
@@ -3423,36 +3427,42 @@ function setupTray() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Layout preview: a small live copy of each chosen window for the picture shown on the recorder page. The page lays them out (and
-// adds the webcam) with the same code the recorder uses. While recording, the pictures come from the recorder's own captures.
+// Live preview and meters. The toolbar shows a small live copy of the picture (each chosen window; the toolbar adds the webcam and
+// lays it out with the same code the recorder uses). The meters watch how loud each window is, for the toolbar and for the recorder
+// page while it is open. While recording, the pictures come from the recorder's own captures.
 // ---------------------------------------------------------------------------
 let previewTimer = null;
 let previewBusy = false;
 let previewLast = [0, 0];
+let feedControl = false; // the recorder page is open
 
 function sendPreviewFrame(index, image) {
-  if (!isAlive(controlWindow)) return;
+  if (!isAlive(toolbarWindow)) return;
   const small = image.resize({ width: 480 });
   const { width, height } = small.getSize();
-  if (width && height) controlWindow.webContents.send('recording:previewFrame', { i: index, w: width, h: height, buf: small.toBitmap() });
+  if (width && height) toolbarWindow.webContents.send('toolbar:frame', { i: index, w: width, h: height, buf: small.toBitmap() });
 }
 
-function setPreviewFeed(on) {
+// Decides what to watch from who is looking: pictures only for a toolbar showing its preview, loudness for the toolbar or the page.
+function updateFeed() {
   clearInterval(previewTimer); previewTimer = null;
-  builtInRecorder.monitor(on ? configStore.get().recording.sources : null);
-  if (!on) return;
+  const cfg = configStore.get().recording;
+  const toolbarOpen = isAlive(toolbarWindow);
+  builtInRecorder.monitor(feedControl || toolbarOpen ? cfg.sources : null);
+  if (!(toolbarOpen && cfg.toolbar.preview)) return;
   previewTimer = setInterval(async () => {
     if (builtInRecorder.active) return;
     if (previewBusy) return;
     previewBusy = true;
     try {
-      builtInRecorder.monitor(configStore.get().recording.sources); // follows a change of window
-      const sources = builtInRecorder.getSources(configStore.get().recording.sources);
+      const sourceIds = configStore.get().recording.sources;
+      builtInRecorder.monitor(sourceIds); // follows a change of window
+      const sources = builtInRecorder.getSources(sourceIds);
       await Promise.all(sources.map(async (wc, i) => { try { sendPreviewFrame(i, await wc.capturePage()); } catch (err) { /* closing or reloading */ } }));
     } finally { previewBusy = false; }
   }, 250);
 }
-ipcMain.on('recording:previewFeed', (_event, on) => setPreviewFeed(Boolean(on)));
+ipcMain.on('recording:previewFeed', (_event, on) => { feedControl = Boolean(on); updateFeed(); });
 builtInRecorder.on('frame', (index, image) => {
   if (!previewTimer || Date.now() - previewLast[index] < 250) return;
   previewLast[index] = Date.now();
@@ -3470,7 +3480,7 @@ function toolbarState() {
   const cfg = configStore.get();
   const r = cfg.recording;
   const label = (id) => { const v = cfg.views.find((x) => x.id === id); return v ? (v.label || v.id) : ''; };
-  return { ...builtInRecorder.status(), layout: r.layout, names: [label(r.sources[0]), label(r.sources[1])], audio: r.audio };
+  return { ...builtInRecorder.status(), layout: r.layout, camera: r.camera, preview: r.toolbar.preview, names: [label(r.sources[0]), label(r.sources[1])], audio: r.audio };
 }
 
 function sendToolbarState() {
@@ -3509,7 +3519,8 @@ function openToolbar({ focus = true } = {}) {
     const [x, y] = win.getPosition();
     saveRecordingPatch({ toolbar: { ...configStore.get().recording.toolbar, x, y } });
   });
-  win.on('closed', () => { if (toolbarWindow === win) toolbarWindow = null; });
+  win.on('closed', () => { if (toolbarWindow === win) toolbarWindow = null; updateFeed(); });
+  updateFeed();
 }
 
 function registerToolbarIpc() {
@@ -3531,6 +3542,7 @@ function registerToolbarIpc() {
   ipcMain.handle('toolbar:reveal', () => { const f = builtInRecorder.file; if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
   ipcMain.on('toolbar:close', () => { if (isAlive(toolbarWindow)) toolbarWindow.close(); });
   ipcMain.handle('toolbar:show', () => { openToolbar(); });
+  ipcMain.on('toolbar:setPreview', (_event, on) => { saveRecordingPatch({ toolbar: { ...configStore.get().recording.toolbar, preview: Boolean(on) } }); updateFeed(); sendToolbarState(); });
 }
 
 let calibrating = false;
@@ -3569,6 +3581,7 @@ function registerIpc() {
     setupDock();
     buildMenu();
     scheduleObsSync();
+    updateFeed();
     broadcastStatus();
     return saved;
   });

@@ -2253,6 +2253,7 @@ function renderRecording() {
   recEls.s1.closest('label').hidden = r.layout === 'cam';
   recEls.s2.closest('label').hidden = r.layout === 'cam';
   if (document.activeElement !== recEls.toolbarAuto) recEls.toolbarAuto.checked = r.toolbar.auto;
+  if (document.activeElement !== recEls.toolbarAtStart) recEls.toolbarAtStart.checked = r.toolbar.atStart;
   renderCamera();
   renderAudio();
 }
@@ -2264,13 +2265,13 @@ function readRecording() {
     backend: recEls.backend.value,
     sources: [recEls.layout.value === 'cam' ? '' : recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
     layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), folder: recEls.folder.value,
-    camera: { device: recEls.camDevice.value, corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked },
-    toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked },
+    camera: { device: recEls.camDevice.value, deviceLabel: recEls.camDevice.selectedOptions[0] ? recEls.camDevice.selectedOptions[0].textContent : '', corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked },
+    toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked, atStart: recEls.toolbarAtStart.checked },
   };
   scheduleSave();
   renderRecording();
 }
-for (const el of [recEls.camFlip, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
+for (const el of [recEls.camFlip, recEls.toolbarAtStart, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
 recEls.folder.addEventListener('input', readRecording);
 recEls.reveal.addEventListener('click', () => api.recording.reveal().catch(reportError));
 recEls.toolbarShow.addEventListener('click', () => api.recording.showToolbar().catch(reportError));
@@ -2288,34 +2289,13 @@ recEls.pause.addEventListener('click', async () => {
   } catch (err) { reportError(err); }
 });
 
-// ---- Showrunner Recorder preview: the picture as it will be recorded, drawn with the recorder's own layout code ----
-const previewCanvas = $('rec-preview');
-const previewPen = previewCanvas.getContext('2d');
-const previewSources = [null, null]; // the latest small picture of each chosen window
+// ---- Showrunner Recorder: while this page is open the app watches how loud each window is, for the meters below ----
 let previewFeedOn = false;
-
-api.recording.onPreviewFrame(({ i, w, h, buf }) => {
-  const data = new Uint8ClampedArray(buf.buffer, buf.byteOffset, buf.byteLength);
-  const px = new Uint32Array(data.buffer, data.byteOffset, data.byteLength / 4);
-  for (let n = 0; n < px.length; n += 1) { const v = px[n]; px[n] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >> 16) & 0xff); } // BGRA to RGBA
-  let c = previewSources[i];
-  if (!c || c.width !== w || c.height !== h) { c = document.createElement('canvas'); c.width = w; c.height = h; previewSources[i] = c; }
-  c.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0);
-});
-
 function setPreviewFeed(on) {
   if (on === previewFeedOn) return;
   previewFeedOn = on;
   api.recording.previewFeed(on);
-  if (!on) previewSources[0] = previewSources[1] = null;
 }
-
-setInterval(() => {
-  if (!previewFeedOn || !config || !config.recording) return;
-  const r = config.recording;
-  const shown = [r.sources[0] ? previewSources[0] : null, r.layout === 'side' && r.sources[1] ? previewSources[1] : null];
-  ShowrunnerLayout.compose(previewPen, previewCanvas.width, previewCanvas.height, { layout: r.layout, camera: r.camera, sources: shown, camVideo: recEls.camPreview });
-}, 70);
 
 // ---- Showrunner Recorder webcam: the picker and a live preview, shown only for the layouts that use it ----
 let camPreviewStream = null; let camPreviewDevice = null; let camPreviewFailed = null; // the device that failed, so a status update does not retry it every second
@@ -2445,7 +2425,7 @@ function readAudio(live) {
   const a = audioOf(config.recording);
   const next = {
     windows: [0, 1].map((i) => ({ level: Number(audioRows[i].level.value) / 100, muted: a.windows[i].muted })),
-    mic: { ...a.mic, level: Number(audioRows[2].level.value) / 100, enabled: micEls.on.checked, device: micEls.device.value, echoCancel: micEls.echo.checked, delayMs: Math.min(500, Math.max(0, Number(micEls.delay.value) || 0)) },
+    mic: { ...a.mic, level: Number(audioRows[2].level.value) / 100, enabled: micEls.on.checked, device: micEls.device.value, deviceLabel: micEls.device.selectedOptions[0] ? micEls.device.selectedOptions[0].textContent : '', echoCancel: micEls.echo.checked, delayMs: Math.min(500, Math.max(0, Number(micEls.delay.value) || 0)) },
   };
   config.recording = { ...config.recording, audio: next };
   api.recording.setAudio(next).catch(() => {});

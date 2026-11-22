@@ -880,8 +880,8 @@ function defaultRecording() {
     height: 1080,
     fps: 30,
     audio: defaultRecordingAudio(),
-    camera: { device: '', corner: 'br', size: 'medium', flip: false }, // the webcam (flip mirrors it left to right), for the 'corner' and 'cam' layouts
-    toolbar: { auto: true, x: null, y: null }, // the recording toolbar: opens when recording starts, and where it was left
+    camera: { device: '', deviceLabel: '', corner: 'br', size: 'medium', flip: false }, // the webcam (flip mirrors it left to right), for the 'corner' and 'cam' layouts
+    toolbar: { auto: true, atStart: false, preview: true, x: null, y: null }, // the recording toolbar: opens when recording starts (auto) or when Showrunner starts (atStart), shows the live picture (preview), and where it was left
   };
 }
 
@@ -889,7 +889,7 @@ function defaultRecording() {
 function defaultRecordingAudio() {
   return {
     windows: [{ level: 1, muted: false }, { level: 1, muted: false }],
-    mic: { enabled: false, device: '', level: 1, muted: false, echoCancel: false, delayMs: 0 },
+    mic: { enabled: false, device: '', deviceLabel: '', level: 1, muted: false, echoCancel: false, delayMs: 0 },
   };
 }
 
@@ -905,6 +905,7 @@ function sanitizeRecordingAudio(input) {
     mic: {
       enabled: Boolean(m.enabled),
       device: typeof m.device === 'string' ? m.device.slice(0, 300) : '',
+      deviceLabel: typeof m.deviceLabel === 'string' ? m.deviceLabel.slice(0, 200) : '',
       level: level(m.level, d.mic.level),
       muted: Boolean(m.muted),
       echoCancel: Boolean(m.echoCancel),
@@ -930,10 +931,13 @@ function sanitizeRecording(input) {
       device: src.camera && typeof src.camera.device === 'string' ? src.camera.device.slice(0, 300) : '',
       corner: src.camera && CAMERA_CORNERS.includes(src.camera.corner) ? src.camera.corner : 'br',
       size: src.camera && CAMERA_SIZES.includes(src.camera.size) ? src.camera.size : 'medium',
+      deviceLabel: src.camera && typeof src.camera.deviceLabel === 'string' ? src.camera.deviceLabel.slice(0, 200) : '',
       flip: Boolean(src.camera && src.camera.flip),
     },
     toolbar: {
       auto: !src.toolbar || src.toolbar.auto !== false,
+      atStart: Boolean(src.toolbar && src.toolbar.atStart),
+      preview: !src.toolbar || src.toolbar.preview !== false,
       x: src.toolbar && Number.isInteger(src.toolbar.x) ? src.toolbar.x : null,
       y: src.toolbar && Number.isInteger(src.toolbar.y) ? src.toolbar.y : null,
     },

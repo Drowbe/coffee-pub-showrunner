@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: mediastream:">
 <title>Recording</title>
 <style>
   :root { color-scheme: dark; --bg: #0E1A2B; --card: #162842; --border: #2A3F5F; --text: #E6EDF7; --dim: #9FB1C9; --accent: #5CC8CF; --danger: #D15E4C; }
@@ -18,6 +18,10 @@
   #state { color: var(--dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   #state.live { color: var(--danger); font-weight: 600; }
   #close { padding: 3px 8px; }
+  .preview { padding: 8px 10px 0; }
+  .preview[hidden] { display: none; }
+  #preview { width: 100%; aspect-ratio: 16 / 9; display: block; background: #000; border-radius: 6px; border: 1px solid var(--border); }
+  #previewToggle.on { border-color: var(--accent); color: var(--accent); }
   .rows { padding: 6px 10px 8px; }
   .row { display: grid; grid-template-columns: 82px 1fr 44px 54px; align-items: center; gap: 8px; padding: 3px 0; }
   .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -40,10 +44,13 @@
     <span id="time">0:00</span>
     <span id="state"></span>
     <button id="reveal" type="button" hidden>Show in Finder</button>
+    <button id="previewToggle" type="button" title="Show or hide the live picture">Preview</button>
     <button id="close" type="button" title="Hide the toolbar" aria-label="Hide the toolbar">&times;</button>
   </div>
+  <div class="preview" id="previewBox"><canvas id="preview" width="480" height="270" aria-label="Live preview of the recording"></canvas></div>
   <div class="rows" id="rows"></div>
   <div id="msg"></div>
+  <script src="../recorder/layout.js"></script>
   <script src="toolbar.js"></script>
 </body>
 </html>

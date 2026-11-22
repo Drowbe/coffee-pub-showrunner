@@ -194,7 +194,10 @@ class BuiltInRecorder extends EventEmitter {
       const result = await started;
       if (!result.ok) throw new Error(result.error || 'The recorder could not start.');
     } catch (err) {
+      const failedFile = this.file;
       await this.cleanup();
+      try { fs.unlinkSync(failedFile); } catch (e) { /* nothing was written */ } // a start that failed leaves no empty file behind
+      this.file = '';
       this.error = err.message;
       this.emit('status');
       throw err;

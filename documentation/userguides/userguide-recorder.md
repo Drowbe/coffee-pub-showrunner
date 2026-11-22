@@ -20,7 +20,9 @@ built-in recorder: nothing in a rule set changes. Steps that need OBS (scenes, s
 
 ## The toolbar
 
-A small toolbar floats above your other windows while you record, with **Record**, **Pause** and **Stop**, the time, and a level slider, mute button and meter for each sound source. It opens by itself when a recording starts (untick **Show the toolbar when recording starts** on the recorder page to stop that), and **Show the toolbar** opens it any time. Drag it where you like; it remembers its place. It is never part of the recording.
+A small toolbar floats above your other windows. It has **Record**, **Pause** and **Stop**, the time, a **live preview** of the picture as it will be recorded, and a level slider, mute button and meter for each sound source. The meters and the preview work **before** you record, so you can check the picture and the sound first.
+
+Open it with **Show the toolbar** on the recorder page. It can also open by itself when Showrunner starts, and when a recording starts (both are ticks on the recorder page). The **Preview** button on the toolbar hides or shows the live picture, and it remembers which you chose. Drag the toolbar where you like; it remembers its place. It is never part of the recording.
 
 ## Webcam
 

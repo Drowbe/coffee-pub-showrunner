@@ -70,18 +70,94 @@ function render(s) {
   const key = list.map((x) => `${x.kind}${x.i}${x.label}`).join('|');
   if (key !== shape) { shape = key; build(list); }
   paintRows();
+  $('previewBox').hidden = !s.preview;
+  $('previewToggle').classList.toggle('on', Boolean(s.preview));
+  syncCam(); syncMic();
   window.recbar.size(Math.ceil(document.body.scrollHeight));
 }
 
-window.recbar.onState(render);
-window.recbar.onLevels((levels) => {
-  for (const el of rowEls) {
-    const peak = (levels && levels[el.src.meter]) || 0;
-    const db = peak > 0 ? 20 * Math.log10(peak) : -90;
-    el.bar.style.width = `${Math.round(Math.min(1, Math.max(0, (db + 60) / 60)) * 100)}%`;
-    el.bar.className = db > -1 ? 'clip' : db > -9 ? 'hot' : '';
-  }
+// ---- the live picture: each window's latest small picture, the webcam, laid out by the recorder's own code ----
+const canvas = $('preview'); const pen = canvas.getContext('2d');
+const winPics = [null, null];
+const camEl = document.createElement('video'); camEl.muted = true; camEl.playsInline = true;
+let camStream = null; let camKey = '';
+
+window.recbar.onFrame(({ i, w, h, buf }) => {
+  const data = new Uint8ClampedArray(buf.buffer, buf.byteOffset, buf.byteLength);
+  const px = new Uint32Array(data.buffer, data.byteOffset, data.byteLength / 4);
+  for (let n = 0; n < px.length; n += 1) { const v = px[n]; px[n] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >> 16) & 0xff); } // BGRA to RGBA
+  let c = winPics[i];
+  if (!c || c.width !== w || c.height !== h) { c = document.createElement('canvas'); c.width = w; c.height = h; winPics[i] = c; }
+  c.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0);
 });
+
+function stopCam() { if (camStream) camStream.getTracks().forEach((t) => t.stop()); camStream = null; camKey = ''; camEl.srcObject = null; }
+async function syncCam() {
+  const uses = state && state.preview && (state.layout === 'corner' || state.layout === 'cam');
+  if (!uses) { stopCam(); return; }
+  const key = `${state.camera.device}|${state.camera.deviceLabel}`;
+  if (key === camKey) return;
+  stopCam(); camKey = key;
+  try {
+    const tries = [];
+    if (state.camera.device) tries.push({ deviceId: { exact: state.camera.device } });
+    tries.push({});
+    for (const t of tries) {
+      try { camStream = await navigator.mediaDevices.getUserMedia({ video: { ...t, width: { ideal: 960 } } }); break; } catch (err) { /* try the next */ }
+    }
+    if (camStream && camKey === key) { camEl.srcObject = camStream; camEl.play().catch(() => {}); }
+  } catch (err) { camStream = null; }
+}
+
+setInterval(() => {
+  if (!state || !state.preview) return;
+  const shown = [state.layout === 'cam' ? null : winPics[0], state.layout === 'side' ? winPics[1] : null];
+  window.ShowrunnerLayout.compose(pen, canvas.width, canvas.height, { layout: state.layout, camera: state.camera, sources: shown, camVideo: camEl });
+}, 70);
+
+// ---- meters that work before recording: the windows' loudness comes from the app, the microphone is listened to here ----
+const paint = (el, peak) => {
+  const db = peak > 0 ? 20 * Math.log10(peak) : -90;
+  el.bar.style.width = `${Math.round(Math.min(1, Math.max(0, (db + 60) / 60)) * 100)}%`;
+  el.bar.className = db > -1 ? 'clip' : db > -9 ? 'hot' : '';
+};
+const isLive = () => state && (state.state === 'recording' || state.state === 'paused' || state.state === 'starting' || state.state === 'stopping');
+window.recbar.onIdle((peaks) => {
+  if (!state || isLive()) return;
+  for (const el of rowEls) if (el.src.kind === 'w') { const v = current(el); paint(el, v.muted ? 0 : (peaks[el.src.i] || 0) * v.level); }
+});
+let micMeter = null;
+function stopMic() { if (!micMeter) return; clearInterval(micMeter.timer); if (micMeter.stream) micMeter.stream.getTracks().forEach((t) => t.stop()); if (micMeter.ctx) micMeter.ctx.close().catch(() => {}); micMeter = null; }
+async function syncMic() {
+  const on = state && state.audio.mic.enabled && !isLive();
+  if (!on) { stopMic(); const el = rowEls.find((r) => r.src.kind === 'm'); if (el) paint(el, 0); return; }
+  const m = state.audio.mic; const key = `${m.device}|${m.deviceLabel}`;
+  if (micMeter && micMeter.key === key) return;
+  stopMic(); micMeter = { key };
+  try {
+    let stream = null;
+    for (const t of m.device ? [{ deviceId: { exact: m.device } }, {}] : [{}]) {
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: { ...t, echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); break; } catch (err) { /* next */ }
+    }
+    if (!stream || !micMeter || micMeter.key !== key) { if (stream) stream.getTracks().forEach((t) => t.stop()); return; }
+    const ctx = new AudioContext(); ctx.resume().catch(() => {});
+    const analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const buf = new Float32Array(1024); let held = 0; let ticks = 0;
+    const timer = setInterval(() => {
+      if (isLive()) return;
+      analyser.getFloatTimeDomainData(buf);
+      for (let i = 0; i < buf.length; i += 1) { const v = Math.abs(buf[i]); if (v > held) held = v; }
+      ticks += 1;
+      if (ticks % 5 === 0) { const el = rowEls.find((r) => r.src.kind === 'm'); if (el) { const mm = state.audio.mic; paint(el, mm.muted ? 0 : held * mm.level); } held = 0; }
+    }, 20);
+    micMeter = { key, stream, ctx, timer };
+  } catch (err) { micMeter = null; }
+}
+
+$('previewToggle').addEventListener('click', () => window.recbar.setPreview(!(state && state.preview)));
+window.recbar.onState(render);
+window.recbar.onLevels((levels) => { for (const el of rowEls) paint(el, (levels && levels[el.src.meter]) || 0); });
 $('rec').addEventListener('click', async () => {
   const live = state && (state.state === 'recording' || state.state === 'paused');
   const result = await window.recbar.action(live ? 'stop' : 'start');
