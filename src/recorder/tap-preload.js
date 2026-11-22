@@ -4,12 +4,19 @@
 // may ever break the page, so every step is guarded.
 const { ipcRenderer, webFrame } = require('electron');
 
-let on = false;
-ipcRenderer.on('recorder:tap', (_e, enabled) => { on = Boolean(enabled); });
+// 0 = off, 1 = only the loudness is reported (for the meters on the recorder page), 2 = the sound itself is sent (recording).
+let mode = 0;
+ipcRenderer.on('recorder:tap', (_e, value) => { mode = value === 'meter' ? 1 : value ? 2 : 0; });
 
 // The page calls this (it is exposed to the page's own world below, through a single global the copy hooks use).
 let nextId = 1;
-const send = (id, l, r, rate) => { if (on) ipcRenderer.send('recorder:audio', { id, l, r, rate }); };
+const send = (id, l, r, rate) => {
+  if (mode === 2) { ipcRenderer.send('recorder:audio', { id, l, r, rate }); return; }
+  if (mode !== 1) return;
+  let peak = 0;
+  for (let i = 0; i < l.length; i += 1) { const a = Math.abs(l[i]); const b = Math.abs(r[i]); if (a > peak) peak = a; if (b > peak) peak = b; }
+  if (peak > 0.0005) ipcRenderer.send('recorder:peak', peak);
+};
 
 try {
   const { contextBridge } = require('electron');

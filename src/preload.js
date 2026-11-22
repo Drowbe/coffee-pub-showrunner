@@ -68,6 +68,11 @@ contextBridge.exposeInMainWorld('coffeePub', {
     askCamera: () => ipcRenderer.invoke('recording:askCamera'),
     reveal: (file) => ipcRenderer.invoke('recording:reveal', file),
     openPrivacy: (kind) => ipcRenderer.invoke('recording:openPrivacy', kind),
+    onIdleLevels: (callback) => {
+      const listener = (_event, peaks) => callback(peaks);
+      ipcRenderer.on('recording:idleLevels', listener);
+      return () => ipcRenderer.removeListener('recording:idleLevels', listener);
+    },
     previewFeed: (on) => ipcRenderer.send('recording:previewFeed', Boolean(on)),
     onPreviewFrame: (callback) => {
       const listener = (_event, frame) => callback(frame);

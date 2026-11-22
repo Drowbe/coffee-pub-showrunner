@@ -736,7 +736,7 @@ function selectTab(name) {
   if (name === 'youtube' && !config.youtube.enabled) name = 'status';
   if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'status';
   activeTab = name;
-  if (config.recording && typeof renderCamera === 'function') renderCamera(); // starts or stops the webcam preview
+  if (config.recording && typeof renderCamera === 'function') { renderCamera(); syncMicMeter(); } // starts or stops the webcam preview and the microphone meter
   if (name !== 'profiles') rememberTab(name);
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.tab === name);
@@ -2424,6 +2424,7 @@ function renderAudio() {
   micEls.device.disabled = !a.mic.enabled;
   micEls.echo.disabled = !a.mic.enabled;
   if (micEls.device.value !== a.mic.device && document.activeElement !== micEls.device) micEls.device.value = a.mic.device;
+  syncMicMeter();
 }
 
 // The list of microphones. Names stay blank until macOS has allowed the microphone once, so a number stands in.
@@ -2473,15 +2474,61 @@ micEls.allow.addEventListener('click', async () => {
 });
 
 // What is going into the recording: a bar for each source. Quiet below -60 dB, amber near the top, red at the top.
-api.recording.onLevels((levels) => {
-  audioRows.forEach((row, i) => {
-    const bar = row.row.querySelector('.meter i');
-    const peak = (levels && levels[i]) || 0;
-    const db = peak > 0 ? 20 * Math.log10(peak) : -90;
-    bar.style.width = `${Math.round(Math.min(1, Math.max(0, (db + 60) / 60)) * 100)}%`;
-    bar.className = db > -1 ? 'clip' : db > -9 ? 'hot' : '';
-  });
+function paintBar(index, peak) {
+  const bar = audioRows[index].row.querySelector('.meter i');
+  const db = peak > 0 ? 20 * Math.log10(peak) : -90;
+  bar.style.width = `${Math.round(Math.min(1, Math.max(0, (db + 60) / 60)) * 100)}%`;
+  bar.className = db > -1 ? 'clip' : db > -9 ? 'hot' : '';
+}
+const recordingNow = () => { const st = status && status.recording && status.recording.builtIn; return Boolean(st && ['recording', 'paused', 'starting', 'stopping'].includes(st.state)); };
+api.recording.onLevels((levels) => audioRows.forEach((row, i) => paintBar(i, (levels && levels[i]) || 0)));
+
+// Before a recording the meters still move, so you can check the sound is arriving: the windows' loudness comes from the app
+// (as the recording would hear it, before the level is applied), and the microphone is listened to here. Shown with the level
+// applied, which is what the recording will have.
+api.recording.onIdleLevels((peaks) => {
+  if (recordingNow() || !config || !config.recording) return;
+  const a = audioOf(config.recording);
+  [0, 1].forEach((i) => paintBar(i, a.windows[i].muted ? 0 : (peaks[i] || 0) * a.windows[i].level));
 });
+
+let micMeter = null; // { stream, ctx, analyser, timer, device }
+function stopMicMeter() {
+  if (!micMeter) return;
+  clearInterval(micMeter.timer);
+  micMeter.stream.getTracks().forEach((t) => t.stop());
+  micMeter.ctx.close().catch(() => {});
+  micMeter = null;
+  paintBar(2, 0);
+}
+async function syncMicMeter() {
+  const a = audioOf(config.recording);
+  const want = a.mic.enabled && activeTab === 'builtin' && !recordingNow();
+  if (!want) { stopMicMeter(); return; }
+  if (micMeter && micMeter.device === a.mic.device) return;
+  stopMicMeter();
+  const device = a.mic.device;
+  micMeter = { device, starting: true };
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: device ? { exact: device } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    if (!micMeter || micMeter.device !== device) { stream.getTracks().forEach((t) => t.stop()); return; }
+    const ctx = new AudioContext();
+    ctx.resume().catch(() => {});
+    const analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const buf = new Float32Array(1024);
+    // Read often and show the loudest of the last tenth of a second, so a short sound still lights the bar.
+    let held = 0; let ticks = 0;
+    const timer = setInterval(() => {
+      if (recordingNow()) return;
+      analyser.getFloatTimeDomainData(buf);
+      for (let i = 0; i < buf.length; i += 1) { const v = Math.abs(buf[i]); if (v > held) held = v; }
+      ticks += 1;
+      if (ticks % 5 === 0) { const m = audioOf(config.recording).mic; paintBar(2, m.muted ? 0 : held * m.level); held = 0; }
+    }, 20);
+    micMeter = { stream, ctx, analyser, timer, device };
+  } catch (err) { micMeter = null; } // not allowed yet: the Allow button deals with it
+}
 refreshMicDevices();
 
 function renderPrompter() {

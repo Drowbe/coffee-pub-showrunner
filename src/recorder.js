@@ -42,6 +42,10 @@ class BuiltInRecorder extends EventEmitter {
     this.heard = [false, false]; // whether any sound has arrived from each chosen window
     this.soundNote = '';
     this.runSeconds = 0;
+    this.monitorIds = []; // windows whose loudness is being watched for the meters while not recording
+    this.monitorWcs = [];
+    this.idlePeaks = [0, 0];
+    this.idleTimer = null;
     this.spaceChecks = 0;
     // The recorder page sends each piece of the MP4 with the position it belongs at; they are written straight to the file.
     ipcMain.on('recorder:write', (e, { data, position }) => {
@@ -53,6 +57,10 @@ class BuiltInRecorder extends EventEmitter {
     ipcMain.on('recorder:levels', (_e, levels) => { this.levels = levels; this.emit('levels', levels); });
     // What kind of sound each page plays, as found by its preload: written to the activity log, to see what a page does.
     ipcMain.on('recorder:tapinfo', (e, text) => this.emit('tapinfo', e.sender.id, String(text)));
+    ipcMain.on('recorder:peak', (e, peak) => {
+      const i = this.monitorWcs.findIndex((wc) => wc.id === e.sender.id);
+      if (i >= 0 && Number.isFinite(peak)) this.idlePeaks[i] = Math.max(this.idlePeaks[i], peak);
+    });
     ipcMain.on('recorder:failed', (_e, message) => { this.error = message; this.emit('status'); });
     ipcMain.on('recorder:audio', (e, msg) => {
       if (this.state !== 'recording' || !this.window || this.window.isDestroyed()) return;
@@ -124,6 +132,24 @@ class BuiltInRecorder extends EventEmitter {
     this.soundNote = silent.length ? `No sound from ${silent.join(' or ')} yet. Nothing may be playing there, or it plays in a way Showrunner cannot copy.` : '';
   }
 
+  // Watches how loud each chosen window is, so the meters on the recorder page move before any recording. Pass the window ids, or
+  // nothing to stop. It does nothing while recording (the recorder reports its own levels then) and picks up again afterwards.
+  monitor(ids) {
+    this.monitorIds = ids || [];
+    if (this.active) return;
+    const next = this.monitorIds.length ? this.getSources(this.monitorIds) : [];
+    for (const wc of this.monitorWcs) if (!next.includes(wc) && !wc.isDestroyed()) wc.send('recorder:tap', false);
+    for (const wc of next) if (!wc.isDestroyed()) wc.send('recorder:tap', 'meter');
+    this.monitorWcs = next;
+    if (next.length && !this.idleTimer) {
+      this.idleTimer = setInterval(() => {
+        if (this.active) return;
+        this.emit('idle', this.idlePeaks.slice());
+        this.idlePeaks = [0, 0];
+      }, 100);
+    } else if (!next.length && this.idleTimer) { clearInterval(this.idleTimer); this.idleTimer = null; this.emit('idle', [0, 0]); }
+  }
+
   setSourcesAudio(enabled) {
     for (const wc of this.sourceContents || []) if (!wc.isDestroyed()) wc.send('recorder:tap', enabled);
   }
@@ -176,6 +202,7 @@ class BuiltInRecorder extends EventEmitter {
     this.sourceContents = sources;
     this.startedAt = Date.now(); this.pausedTotal = 0; this.pausedAt = 0;
     this.state = 'recording';
+    this.monitorWcs = [];
     this.setSourcesAudio(true);
     // One picture at a time per window: ask again as soon as the last one lands, no faster than the frame rate.
     sources.forEach((wc, index) => {
@@ -232,6 +259,7 @@ class BuiltInRecorder extends EventEmitter {
       await this.cleanup();
     }
     this.levels = []; this.emit('levels', []);
+    if (this.monitorIds.length) this.monitor(this.monitorIds); // the meters carry on after the recording
     this.emit('recording', file); // the same event OBS raises, so "upload the recording" finds this file
     this.emit('status');
     return file;

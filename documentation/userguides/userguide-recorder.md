@@ -32,7 +32,7 @@ Webcams show your picture a little late. If your voice seems ahead of your lips 
 
 ## Audio
 
-The **Audio** card on the Showrunner Recorder page has a row for each window and one for the microphone. Move the slider to set a level (100% is as it is) and press **Mute** to silence a source. Both work while recording, and the bars show what is going into the recording.
+The **Audio** card on the Showrunner Recorder page has a row for each window and one for the microphone. The bars move **before you record** too, so you can check the sound is arriving: speak into the microphone, or play something in the window, and its bar should move. If a window's bar stays still while it is playing sound, Showrunner cannot copy that sound. Move the slider to set a level (100% is as it is) and press **Mute** to silence a source. Both work while recording, and the bars show what is going into the recording.
 
 To record your voice, tick **Record the microphone** and pick the microphone. The first time, macOS asks whether Showrunner may use it; if you said no, allow it in System Settings, Privacy & Security, Microphone. Wear headphones, or your speakers will be heard on the microphone too. **Echo cancel** helps if you cannot. Everything is mixed into one sound track.
 

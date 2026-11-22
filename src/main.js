@@ -853,6 +853,7 @@ builtInRecorder.on('status', () => {
   broadcastStatus();
   sendToolbarState();
 });
+builtInRecorder.on('idle', (peaks) => { if (isAlive(controlWindow)) controlWindow.webContents.send('recording:idleLevels', peaks); });
 builtInRecorder.on('levels', (levels) => {
   if (isAlive(controlWindow)) controlWindow.webContents.send('recording:levels', levels);
   if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:levels', levels);
@@ -3212,6 +3213,7 @@ function createControlWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      autoplayPolicy: 'no-user-gesture-required', // the microphone meter on the recorder page starts without a click
       spellcheck: false,
     },
   });
@@ -3437,11 +3439,14 @@ function sendPreviewFrame(index, image) {
 
 function setPreviewFeed(on) {
   clearInterval(previewTimer); previewTimer = null;
+  builtInRecorder.monitor(on ? configStore.get().recording.sources : null);
   if (!on) return;
   previewTimer = setInterval(async () => {
-    if (previewBusy || builtInRecorder.active) return;
+    if (builtInRecorder.active) return;
+    if (previewBusy) return;
     previewBusy = true;
     try {
+      builtInRecorder.monitor(configStore.get().recording.sources); // follows a change of window
       const sources = builtInRecorder.getSources(configStore.get().recording.sources);
       await Promise.all(sources.map(async (wc, i) => { try { sendPreviewFrame(i, await wc.capturePage()); } catch (err) { /* closing or reloading */ } }));
     } finally { previewBusy = false; }
