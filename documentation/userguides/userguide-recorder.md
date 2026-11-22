@@ -18,6 +18,10 @@ and Stop recording steps use for this profile.
 The same Start, Pause, Resume and Stop recording steps in Automations (and the cues in your teleprompter script) work with the
 built-in recorder: nothing in a rule set changes. Steps that need OBS (scenes, sources, text, volumes, Auto level) still need OBS.
 
+## The toolbar
+
+A small toolbar floats above your other windows while you record, with **Record**, **Pause** and **Stop**, the time, and a level slider, mute button and meter for each sound source. It opens by itself when a recording starts (untick **Show the toolbar when recording starts** on the recorder page to stop that), and **Show the toolbar** opens it any time. Drag it where you like; it remembers its place. It is never part of the recording.
+
 ## Webcam
 
 Choose a **Layout** with the webcam: **One window, webcam in a corner** puts the webcam over a corner of the window (pick the corner and a size), and **Webcam fills the picture** records the webcam alone, with no window. The **Webcam** card shows a live preview and lets you pick the camera. macOS asks once whether Showrunner may use the webcam.

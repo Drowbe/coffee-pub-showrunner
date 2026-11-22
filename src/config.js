@@ -881,6 +881,7 @@ function defaultRecording() {
     fps: 30,
     audio: defaultRecordingAudio(),
     camera: { device: '', corner: 'br', size: 'medium' }, // the webcam, for the 'corner' and 'cam' layouts
+    toolbar: { auto: true, x: null, y: null }, // the recording toolbar: opens when recording starts, and where it was left
   };
 }
 
@@ -929,6 +930,11 @@ function sanitizeRecording(input) {
       device: src.camera && typeof src.camera.device === 'string' ? src.camera.device.slice(0, 300) : '',
       corner: src.camera && CAMERA_CORNERS.includes(src.camera.corner) ? src.camera.corner : 'br',
       size: src.camera && CAMERA_SIZES.includes(src.camera.size) ? src.camera.size : 'medium',
+    },
+    toolbar: {
+      auto: !src.toolbar || src.toolbar.auto !== false,
+      x: src.toolbar && Number.isInteger(src.toolbar.x) ? src.toolbar.x : null,
+      y: src.toolbar && Number.isInteger(src.toolbar.y) ? src.toolbar.y : null,
     },
   };
 }

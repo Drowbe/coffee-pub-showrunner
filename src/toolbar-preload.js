@@ -1,0 +1,13 @@
+'use strict';
+const { contextBridge, ipcRenderer } = require('electron');
+
+// The recording toolbar's whole connection to the app: the recorder's state and levels in, button presses and level changes out.
+contextBridge.exposeInMainWorld('recbar', {
+  init: () => ipcRenderer.invoke('toolbar:init'),
+  onState: (callback) => ipcRenderer.on('toolbar:state', (_event, state) => callback(state)),
+  onLevels: (callback) => ipcRenderer.on('toolbar:levels', (_event, levels) => callback(levels)),
+  action: (name) => ipcRenderer.invoke('toolbar:action', name),
+  setAudio: (audio) => ipcRenderer.send('toolbar:setAudio', audio),
+  size: (height) => ipcRenderer.send('toolbar:size', height),
+  close: () => ipcRenderer.send('toolbar:close'),
+});

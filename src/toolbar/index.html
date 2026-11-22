@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'">
+<title>Recording</title>
+<style>
+  :root { color-scheme: dark; --bg: #0E1A2B; --card: #162842; --border: #2A3F5F; --text: #E6EDF7; --dim: #9FB1C9; --accent: #5CC8CF; --danger: #D15E4C; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; user-select: none; overflow: hidden; }
+  .top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; -webkit-app-region: drag; border-bottom: 1px solid var(--border); }
+  button { -webkit-app-region: no-drag; font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #rec.go { background: var(--accent); color: #07202A; border-color: transparent; font-weight: 600; }
+  #rec.stop { background: var(--danger); border-color: transparent; font-weight: 600; }
+  #time { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 52px; }
+  #state { color: var(--dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  #state.live { color: var(--danger); font-weight: 600; }
+  #close { padding: 3px 8px; }
+  .rows { padding: 6px 10px 8px; }
+  .row { display: grid; grid-template-columns: 82px 1fr 44px 54px; align-items: center; gap: 8px; padding: 3px 0; }
+  .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .row input[type=range] { -webkit-app-region: no-drag; width: 100%; margin: 0; accent-color: var(--accent); }
+  .pct { text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .mute { padding: 2px 6px; font-size: 12px; }
+  .mute.on { background: var(--danger); border-color: transparent; }
+  .meter { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: -2px; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 90ms linear; }
+  .meter i.hot { background: #E6A23C; } .meter i.clip { background: #E5484D; }
+  .row.off { opacity: 0.45; }
+  #msg { padding: 0 10px 8px; color: #F0A090; font-size: 12px; min-height: 0; }
+  #msg:empty { display: none; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <button id="rec" class="go" type="button">Record</button>
+    <button id="pause" type="button" hidden>Pause</button>
+    <span id="time">0:00</span>
+    <span id="state"></span>
+    <button id="close" type="button" title="Hide the toolbar" aria-label="Hide the toolbar">&times;</button>
+  </div>
+  <div class="rows" id="rows"></div>
+  <div id="msg"></div>
+  <script src="toolbar.js"></script>
+</body>
+</html>

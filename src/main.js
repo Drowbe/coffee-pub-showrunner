@@ -833,8 +833,19 @@ const builtInRecorder = new BuiltInRecorder({
   },
 });
 builtInRecorder.on('recording', noteRecording);
-builtInRecorder.on('status', () => broadcastStatus());
-builtInRecorder.on('levels', (levels) => { if (isAlive(controlWindow)) controlWindow.webContents.send('recording:levels', levels); });
+let lastRecorderState = 'idle';
+builtInRecorder.on('status', () => {
+  const now = builtInRecorder.state;
+  // The toolbar opens by itself when a recording starts (unless switched off on the recorder page), without taking focus.
+  if (now === 'recording' && lastRecorderState !== 'recording' && lastRecorderState !== 'paused' && configStore.get().recording.toolbar.auto) openToolbar({ focus: false });
+  lastRecorderState = now;
+  broadcastStatus();
+  sendToolbarState();
+});
+builtInRecorder.on('levels', (levels) => {
+  if (isAlive(controlWindow)) controlWindow.webContents.send('recording:levels', levels);
+  if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:levels', levels);
+});
 const recordingBackends = new RecordingBackends(
   [new ObsBackend(obs), new BuiltInBackend(builtInRecorder, () => configStore.get().recording)],
   () => configStore.get().recording.backend,
@@ -3398,6 +3409,79 @@ function setupTray() {
 // IPC
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Recording toolbar: a small window that floats above everything with record, pause, stop, the time, and a level and mute for each
+// sound source. It is its own window, so it is never part of a recording (the recorder reads only the windows it was told to).
+// ---------------------------------------------------------------------------
+let toolbarWindow = null;
+let toolbarAudioTimer = null;
+
+function toolbarState() {
+  const cfg = configStore.get();
+  const r = cfg.recording;
+  const label = (id) => { const v = cfg.views.find((x) => x.id === id); return v ? (v.label || v.id) : ''; };
+  return { ...builtInRecorder.status(), layout: r.layout, names: [label(r.sources[0]), label(r.sources[1])], audio: r.audio };
+}
+
+function sendToolbarState() {
+  if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:state', toolbarState());
+}
+
+// Saves a change to the recording settings the way the control panel does, without touching anything else.
+function saveRecordingPatch(patch) {
+  const cur = configStore.get();
+  configStore.save({ ...cur, recording: { ...cur.recording, ...patch } });
+  broadcastStatus();
+}
+
+function openToolbar({ focus = true } = {}) {
+  if (isAlive(toolbarWindow)) { if (focus) toolbarWindow.show(); else toolbarWindow.showInactive(); return; }
+  const t = configStore.get().recording.toolbar;
+  const options = {
+    title: `${APP_NAME} - Recording`,
+    width: 400, height: 150, useContentSize: true,
+    frame: false, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    alwaysOnTop: true, skipTaskbar: true, hasShadow: true, backgroundColor: '#0E1A2B', show: false,
+    webPreferences: { preload: path.join(__dirname, 'toolbar-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
+  };
+  if (t.x !== null && t.y !== null && screen.getAllDisplays().some((d) => t.x >= d.bounds.x && t.x < d.bounds.x + d.bounds.width && t.y >= d.bounds.y && t.y < d.bounds.y + d.bounds.height)) {
+    options.x = t.x; options.y = t.y;
+  }
+  const win = new BrowserWindow(options);
+  toolbarWindow = win;
+  win.setAlwaysOnTop(true, 'floating');
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  win.loadFile(path.join(__dirname, 'toolbar', 'index.html'));
+  win.once('ready-to-show', () => { if (focus) win.show(); else win.showInactive(); });
+  win.on('page-title-updated', (event) => event.preventDefault());
+  win.on('moved', () => {
+    if (!isAlive(win)) return;
+    const [x, y] = win.getPosition();
+    saveRecordingPatch({ toolbar: { ...configStore.get().recording.toolbar, x, y } });
+  });
+  win.on('closed', () => { if (toolbarWindow === win) toolbarWindow = null; });
+}
+
+function registerToolbarIpc() {
+  ipcMain.handle('toolbar:init', () => toolbarState());
+  ipcMain.handle('toolbar:action', async (_event, name) => {
+    const action = { start: 'startRecording', stop: 'stopRecording', pause: 'pauseRecording', resume: 'resumeRecording' }[name];
+    if (!action) return { error: 'Unknown action.' };
+    try { await recordingBackends.run(action); return {}; } catch (err) { return { error: err.message }; }
+  });
+  // Levels apply at once; saving to disk waits until the slider rests.
+  ipcMain.on('toolbar:setAudio', (_event, audio) => {
+    builtInRecorder.setAudio(audio);
+    clearTimeout(toolbarAudioTimer);
+    toolbarAudioTimer = setTimeout(() => saveRecordingPatch({ audio }), 400);
+  });
+  ipcMain.on('toolbar:size', (_event, height) => {
+    if (isAlive(toolbarWindow) && Number.isFinite(height) && height > 40 && height < 600) toolbarWindow.setContentSize(400, Math.round(height));
+  });
+  ipcMain.on('toolbar:close', () => { if (isAlive(toolbarWindow)) toolbarWindow.close(); });
+  ipcMain.handle('toolbar:show', () => { openToolbar(); });
+}
+
 let calibrating = false;
 
 async function askMediaAccess(kind) {
@@ -3414,6 +3498,7 @@ function registerIpc() {
   // Lets the person allow the microphone from the Recorder page before the first recording.
   ipcMain.handle('recording:askMicrophone', () => askMediaAccess('microphone'));
   ipcMain.handle('recording:askCamera', () => askMediaAccess('camera'));
+  ipcMain.handle('recording:openPrivacy', (_event, kind) => shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'camera' ? 'Camera' : 'Microphone'}`));
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also
     // renames the source in OBS; a stale copy from the panel must not undo that.
@@ -4504,6 +4589,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     configureSession();
     registerIpc();
+    registerToolbarIpc();
     buildMenu();
     setupTray();
     setupDock();

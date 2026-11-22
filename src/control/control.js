@@ -2199,6 +2199,7 @@ const recEls = {
   s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'),
   camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
   camPreview: $('rec-cam-preview'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
+  toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'),
   folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
 };
 
@@ -2248,6 +2249,7 @@ function renderRecording() {
   if (!active) recEls.s2.disabled = r.layout !== 'side';
   recEls.s1.closest('label').hidden = r.layout === 'cam';
   recEls.s2.closest('label').hidden = r.layout === 'cam';
+  if (document.activeElement !== recEls.toolbarAuto) recEls.toolbarAuto.checked = r.toolbar.auto;
   renderCamera();
   renderAudio();
 }
@@ -2260,12 +2262,14 @@ function readRecording() {
     sources: [recEls.layout.value === 'cam' ? '' : recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
     layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), folder: recEls.folder.value,
     camera: { device: recEls.camDevice.value, corner: recEls.camCorner.value, size: recEls.camSize.value },
+    toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked },
   };
   scheduleSave();
   renderRecording();
 }
-for (const el of [recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
+for (const el of [recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
 recEls.folder.addEventListener('input', readRecording);
+recEls.toolbarShow.addEventListener('click', () => api.recording.showToolbar().catch(reportError));
 recEls.browse.addEventListener('click', async () => { try { const dir = await api.recording.chooseFolder(); if (dir) { recEls.folder.value = dir; readRecording(); } } catch (err) { reportError(err); } });
 recEls.start.addEventListener('click', async () => {
   try {
@@ -2292,7 +2296,15 @@ async function startCamPreview(device) {
   if ((camPreviewStream && camPreviewDevice === device) || camPreviewFailed === device) return;
   stopCamPreview();
   try {
+    // Ask macOS first: without its yes the webcam just shows black, with no message.
     camPreviewDevice = device;
+    const access = await api.recording.askCamera();
+    if (access !== 'granted') {
+      camPreviewDevice = null; camPreviewFailed = device;
+      recEls.camHint.textContent = 'macOS has not allowed Showrunner to use the webcam, so the picture is black. Press "Allow the webcam"; if no question appears, open System Settings, Privacy & Security, Camera, and switch Showrunner (or Electron, in a test build) on.';
+      recEls.camAllow.hidden = false;
+      return;
+    }
     camPreviewStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: device ? { exact: device } : undefined, width: { ideal: 640 } } });
     recEls.camPreview.srcObject = camPreviewStream;
     recEls.camHint.textContent = '';
@@ -2335,7 +2347,7 @@ function renderCamera() {
 recEls.camAllow.addEventListener('click', async () => {
   try {
     const result = await api.recording.askCamera();
-    if (result === 'granted') { recEls.camHint.textContent = ''; camPreviewFailed = null; stopCamPreview(); renderCamera(); } else recEls.camHint.textContent = 'macOS has not allowed the webcam. Allow it in System Settings, Privacy & Security, Camera, then try again.';
+    if (result === 'granted') { recEls.camHint.textContent = ''; camPreviewFailed = null; stopCamPreview(); renderCamera(); } else { recEls.camHint.textContent = 'macOS did not allow the webcam. System Settings has opened: switch Showrunner (or Electron, in a test build) on under Camera, then come back and press the button again.'; api.recording.openPrivacy('camera').catch(() => {}); }
   } catch (err) { reportError(err); }
 });
 
