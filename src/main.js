@@ -829,6 +829,7 @@ const builtInRecorder = new BuiltInRecorder({
   getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
   folderFor: (folder) => folder || app.getPath('videos'),
   windowName: (id) => { const v = configStore.getView(id); return v ? (v.label || v.id) : id; },
+  dataDir: app.getPath('userData'),
   markerFile: path.join(app.getPath('userData'), 'recording-in-progress.json'), // left behind only if the app closes mid-recording
   // The session filename format names the file, the same one OBS uses; blank falls back to "Showrunner <date> <time>".
   nameFor: () => {

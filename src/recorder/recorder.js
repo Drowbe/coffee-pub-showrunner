@@ -1,15 +1,16 @@
 'use strict';
-// The recorder's page (a hidden window): draws the source windows into one picture, mixes their audio, encodes both with the
-// computer's own H.264 and AAC encoders (WebCodecs) and writes a fragmented MP4 through mp4-muxer (vendor/). Every piece of the
-// file goes to the main process as it is made, which writes it to disk: memory stays flat however long it runs, and a crash
-// loses only the last second or two. (MediaRecorder was tried first: its MP4 output is held until the end. See plan-recording.md.)
+// The recorder's page (a hidden window): draws the source windows into one picture and mixes their sound, then hands both, as raw
+// pictures and raw sound, to ffmpeg running as its own program (src/ffmpeg.js), which encodes and writes the file as it goes. Encoding
+// outside the app keeps it clear of the graphics process, which a busy Foundry scene can starve (see plan-recording.md).
 const { ipcRenderer } = require('electron');
-const { Muxer, StreamTarget } = require('./vendor/mp4-muxer.js');
+const { spawn } = require('child_process');
+const { buildArgs } = require('../ffmpeg.js');
 const Layout = require('./layout.js');
 
 const RATE = 48000;
 const AUDIO_CUSHION = 0.04; // seconds of cushion so unevenly arriving audio chunks still play evenly
-const VIDEO_DELAY_MS = 70; // the picture is held back this long so it lines up with the audio (measured; see plan-recording.md)
+const AUDIO_OFFSET_MS = 0; // delays the sound against the picture in the file (tuned by measurement; see plan-recording.md)
+const VIDEO_DELAY_MS = 255; // the picture is held back this long so it lines up with the audio (measured; see plan-recording.md)
 
 const sources = [null, null]; // the latest frame of each source, held in a canvas
 const nextAt = new Map(); // per audio source: when its next chunk should play
@@ -17,11 +18,12 @@ const MIC_DELAY = 0.04; // the microphone is played as it arrives, so it waits a
 let camVideo = null; let camStream = null;
 let winGain = []; let micGain = null; let micStream = null; let levelTimer = null; let audioCfg = null;
 const analysers = []; // [window 1, window 2, microphone, everything]
-let outCount = 0; let drawMsMax = 0; let winFrames = 0; let camFrames = 0; let failedLoudly = false; let statsTimer = null;
+let drawMsMax = 0; let winFrames = 0; let camFrames = 0; let statsTimer = null;
 let previewCanvas = null; let previewPen = null;
-let vcfg = null; let lastVideoOutAt = 0; let needKey = false; let watchdog = null;
-let cfg = null; let canvas; let g; let muxer; let venc; let aenc; let actx; let bus; let proc; let timer;
-let anchorUs = null; let t0 = 0; let paused = false; let pausedTotal = 0; let pausedAt = 0; let ticks = 0; let audioSamples = 0; let failure = '';
+let cfg = null; let canvas; let g; let actx; let bus; let proc; let timer;
+let enc = null; // { child, video, audio, stderr, codec, stopping }
+let framesSent = 0; let framesDropped = 0; let lastFrame = null; let audioWritten = 0; let recording = false;
+let t0 = 0; let paused = false; let pausedTotal = 0; let pausedAt = 0; let ticks = 0; let failure = '';
 
 const swizzle = (u32) => { for (let i = 0; i < u32.length; i += 1) { const v = u32[i]; u32[i] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >> 16) & 0xff); } }; // BGRA to RGBA
 
@@ -32,9 +34,9 @@ function onFrame({ i, w, h, buf }) {
   let s = sources[i];
   if (!s || s.width !== w || s.height !== h) { s = document.createElement('canvas'); s.width = w; s.height = h; sources[i] = s; }
   s.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0);
-  ipcRenderer.send('recorder:frameAck', i); // tells the app this picture is used, so it can send the next
 }
-ipcRenderer.on('frame', (_e, msg) => setTimeout(() => onFrame(msg), VIDEO_DELAY_MS));
+// The picture is acknowledged at once (so the app can send the next one) and shown after the delay that lines it up with the sound.
+ipcRenderer.on('frame', (_e, msg) => { ipcRenderer.send('recorder:frameAck', msg.i); setTimeout(() => onFrame(msg), VIDEO_DELAY_MS); });
 
 ipcRenderer.on('audio', (_e, { key, win, l, r, rate }) => {
   if (!actx || actx.state === 'closed' || paused) return;
@@ -69,24 +71,32 @@ function peakOf(analyser, buf) {
   return peak;
 }
 
-const clockUs = () => Math.round((performance.now() - t0 - pausedTotal) * 1000);
+const clockMs = () => (paused ? pausedAt : performance.now()) - t0 - pausedTotal;
 
+// One tick of the picture: draw it, then write it to ffmpeg as many times as the clock says it is due (a late tick repeats the last
+// picture, so the video keeps the right length even when this window is slow). A pause writes nothing, so the pause is cut out.
 function draw() {
-  if (failure || paused) return;
+  if (failure || paused || !recording || !enc) return;
   const drawStart = performance.now();
   const { width: W, height: H } = canvas;
   Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo });
-  if (venc.encodeQueueSize > 8) return; // the encoder is behind: skip a picture rather than fall further back
-  const frame = new VideoFrame(canvas, { timestamp: clockUs() });
-  venc.encode(frame, { keyFrame: needKey || ticks % (cfg.fps * 2) === 0 }); needKey = false; // a fresh keyframe every two seconds
-  frame.close();
+  const px = g.getImageData(0, 0, W, H);
+  lastFrame = Buffer.from(px.data.buffer, px.data.byteOffset, px.data.byteLength);
+  const due = Math.floor((clockMs() / 1000) * cfg.fps) + 1;
+  while (framesSent < due) {
+    // ffmpeg takes about a second to start taking pictures, so a few dozen may queue at first. Only if it is badly behind (about two
+    // seconds of pictures waiting) are pictures dropped, which shortens the video against the sound, so it is reported.
+    if (enc.video.writableLength > lastFrame.length * cfg.fps * 2) { framesDropped += due - framesSent; framesSent = due; break; }
+    enc.video.write(lastFrame);
+    framesSent += 1;
+  }
   ticks += 1;
   drawMsMax = Math.max(drawMsMax, performance.now() - drawStart);
   // A small copy of what is being recorded, for the toolbar's preview (five times a second).
   if (ticks % Math.max(1, Math.round(cfg.fps / 5)) === 0) {
     previewPen.drawImage(canvas, 0, 0, 320, 180);
-    const px = previewPen.getImageData(0, 0, 320, 180);
-    ipcRenderer.send('recorder:composite', { w: 320, h: 180, buf: new Uint8Array(px.data.buffer) });
+    const small = previewPen.getImageData(0, 0, 320, 180);
+    ipcRenderer.send('recorder:composite', { w: 320, h: 180, buf: new Uint8Array(small.data.buffer) });
   }
 }
 
@@ -110,37 +120,34 @@ async function openDevice(kind, id, label, base) {
 }
 const why = (err) => (err.name === 'NotAllowedError' ? 'macOS has not allowed it' : `${err.name}${err.message ? `: ${err.message}` : ''}`);
 
-// The video encoder. The computer's own (hardware) encoder is tried first; if it takes frames in and never gives any back, the watchdog
-// below replaces it with the software encoder, so a stuck encoder cannot leave a recording that saves nothing.
-function makeVideoEncoder(acceleration) {
-  lastVideoOutAt = performance.now();
-  const e = new VideoEncoder({ output: (chunk, meta) => { lastVideoOutAt = performance.now(); outCount += 1; muxer.addVideoChunk(chunk, meta); }, error: fail });
-  e.configure({ ...vcfg, hardwareAcceleration: acceleration });
-  return e;
+// Starts ffmpeg with the Mac's own encoder, or software if that cannot start. Resolves once it has stayed up for a moment.
+function launchEncoder(codec) {
+  const args = buildArgs({ width: cfg.width, height: cfg.height, fps: cfg.fps, format: cfg.format, codec, out: cfg.file, offsetMs: AUDIO_OFFSET_MS });
+  const child = spawn(cfg.ffmpeg, args, { stdio: ['pipe', 'ignore', 'pipe', 'pipe'] });
+  const e = { child, video: child.stdin, audio: child.stdio[3], stderr: '', codec, stopping: false, exited: null };
+  child.stderr.on('data', (d) => { e.stderr = (e.stderr + d.toString()).slice(-1500); });
+  for (const pipe of [e.video, e.audio]) pipe.on('error', () => { /* ffmpeg went away: its exit is reported below */ });
+  e.closed = new Promise((resolve) => child.on('close', (code) => { e.exited = code; resolve(code); }));
+  child.on('error', (err) => { e.exited = -1; e.stderr += err.message; });
+  return new Promise((resolve, reject) => {
+    const timerId = setTimeout(() => resolve(e), 1200);
+    e.closed.then((code) => { clearTimeout(timerId); if (!e.stopping) reject(new Error(e.stderr.trim().split('\n').pop() || `ffmpeg stopped (${code})`)); });
+  });
 }
 
 async function start(config) {
   cfg = config;
-  sources[0] = sources[1] = null; nextAt.clear(); failure = ''; ticks = 0; audioSamples = 0; pausedTotal = 0; paused = false; anchorUs = null;
-  canvas = document.createElement('canvas'); canvas.width = cfg.width; canvas.height = cfg.height; g = canvas.getContext('2d', { alpha: false, willReadFrequently: true }); // drawn on the CPU: a busy graphics chip cannot stall the picture going to the encoder
+  sources[0] = sources[1] = null; nextAt.clear(); failure = ''; ticks = 0; pausedTotal = 0; paused = false; recording = false;
+  framesSent = 0; framesDropped = 0; audioWritten = 0; lastFrame = null; drawMsMax = 0; winFrames = 0; camFrames = 0;
+  canvas = document.createElement('canvas'); canvas.width = cfg.width; canvas.height = cfg.height; g = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
   previewCanvas = document.createElement('canvas'); previewCanvas.width = 320; previewCanvas.height = 180; previewPen = previewCanvas.getContext('2d', { willReadFrequently: true });
-  const videoConfig = {
-    codec: cfg.fps > 30 ? 'avc1.64002a' : 'avc1.640028', width: cfg.width, height: cfg.height, framerate: cfg.fps,
-    bitrate: cfg.width >= 1920 ? (cfg.fps > 30 ? 12_000_000 : 8_000_000) : 5_000_000, latencyMode: 'realtime', hardwareAcceleration: 'prefer-hardware',
-  };
-  const audioConfig = { codec: 'mp4a.40.2', sampleRate: RATE, numberOfChannels: 2, bitrate: 128_000 };
-  if (!(await VideoEncoder.isConfigSupported(videoConfig)).supported) throw new Error('This computer cannot encode H.264 video.');
-  if (!(await AudioEncoder.isConfigSupported(audioConfig)).supported) throw new Error('This computer cannot encode AAC audio.');
-  muxer = new Muxer({
-    target: new StreamTarget({ onData: (data, position) => ipcRenderer.send('recorder:write', { data, position }) }),
-    video: { codec: 'avc', width: cfg.width, height: cfg.height, frameRate: cfg.fps },
-    audio: { codec: 'aac', numberOfChannels: 2, sampleRate: RATE },
-    fastStart: 'fragmented', firstTimestampBehavior: 'offset',
+  try { enc = await launchEncoder(process.platform === 'darwin' ? 'videotoolbox' : 'x264'); } catch (first) {
+    try { enc = await launchEncoder('x264'); } catch (second) { throw new Error(`The video encoder (ffmpeg) could not start: ${second.message}`); }
+  }
+  enc.closed.then((code) => {
+    if (!enc || enc.stopping || failure) return;
+    fail(new Error(`The video encoder (ffmpeg) stopped on its own${enc.stderr.trim() ? `: ${enc.stderr.trim().split('\n').pop()}` : ''}. The recording was stopped; what was saved is kept.`));
   });
-  vcfg = videoConfig; needKey = false; outCount = 0; drawMsMax = 0; winFrames = 0; camFrames = 0; failedLoudly = false;
-  venc = makeVideoEncoder('prefer-hardware');
-  aenc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: fail });
-  aenc.configure(audioConfig);
   // The mixing bus: every source's sound is scheduled onto it, and a processor reads it out in blocks for the encoder.
   actx = new AudioContext({ sampleRate: RATE });
   bus = actx.createGain();
@@ -173,53 +180,59 @@ async function start(config) {
   if (config.audio) applyAudio(config.audio);
   const levelBuf = new Float32Array(1024);
   levelTimer = setInterval(() => ipcRenderer.send('recorder:levels', analysers.map((a, i) => (paused || (i === 2 && !micGain) ? 0 : peakOf(a, levelBuf)))), 100);
-  proc = actx.createScriptProcessor(2048, 2, 2);
+  proc = actx.createScriptProcessor(1024, 2, 2);
   proc.onaudioprocess = (e) => {
-    if (paused || failure) return;
+    if (paused || failure || !recording || !enc) return;
     const n = e.inputBuffer.length;
-    // The sound's timestamps count samples, which keeps them smooth, but the audio clock and the wall clock part ways slowly (about half
-    // a second an hour here). Each block nudges the count 1% of the way towards the wall clock, which holds them together all session.
-    const nowUs = clockUs();
-    if (anchorUs === null) anchorUs = nowUs - (audioSamples / RATE) * 1e6;
-    else audioSamples += Math.round(((nowUs - anchorUs) - (audioSamples / RATE) * 1e6) * 0.01 * (RATE / 1e6));
-    const planar = new Float32Array(n * 2);
-    planar.set(e.inputBuffer.getChannelData(0), 0); planar.set(e.inputBuffer.getChannelData(1), n);
-    for (let i = 0; i < planar.length; i += 1) { const v = planar[i]; if (v > 1) planar[i] = 1; else if (v < -1) planar[i] = -1; } // mixed sources can add up past full scale: stop at the top rather than wrap
-    aenc.encode(new AudioData({ format: 'f32-planar', sampleRate: RATE, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round((audioSamples / RATE) * 1e6), data: planar }));
-    audioSamples += n;
+    // The sound is written as it is made (interleaved, 32-bit). Its own clock and the wall clock part ways slowly, so now and then it
+    // is brought back in step: silence is added if it has fallen behind, a block is skipped if it has run ahead.
+    const expected = Math.round((clockMs() / 1000) * RATE);
+    const behind = expected - audioWritten;
+    if (behind > RATE * 0.05) { enc.audio.write(Buffer.alloc(behind * 8)); audioWritten += behind; }
+    else if (behind < -RATE * 0.05) return;
+    const left = e.inputBuffer.getChannelData(0); const right = e.inputBuffer.getChannelData(1);
+    const out = new Float32Array(n * 2);
+    for (let i = 0; i < n; i += 1) {
+      const l = left[i]; const r = right[i];
+      out[i * 2] = l > 1 ? 1 : l < -1 ? -1 : l; // mixed sources can add up past full scale: stop at the top rather than wrap
+      out[i * 2 + 1] = r > 1 ? 1 : r < -1 ? -1 : r;
+    }
+    enc.audio.write(Buffer.from(out.buffer));
+    audioWritten += n;
   };
   bus.connect(proc); proc.connect(actx.destination);
   t0 = performance.now();
+  recording = true;
   timer = setInterval(draw, 1000 / cfg.fps);
   let statSeconds = 0;
   statsTimer = setInterval(() => {
     statSeconds += 5;
     if (statSeconds > 60 || failure) return;
-    ipcRenderer.send('recorder:note', `t=${statSeconds}s frames in/out ${ticks}/${outCount}, encoder queue ${venc ? venc.encodeQueueSize : '-'}, slowest picture ${Math.round(drawMsMax)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}`);
+    ipcRenderer.send('recorder:note', `t=${statSeconds}s pictures sent ${framesSent} (dropped ${framesDropped}), slowest picture ${Math.round(drawMsMax)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}, encoder ${enc ? enc.codec : '-'}`);
     drawMsMax = 0;
   }, 5000);
-  watchdog = setInterval(() => {
-    if (failure || paused || failedLoudly || !venc) return;
-    // The encoder takes pictures in and gives none back. On a Mac, video encoding goes through the same graphics process as every
-    // window, so a window that keeps the graphics chip fully busy (a heavy Foundry scene) can starve it. Say so and stop, rather than
-    // go on recording a frozen picture; what was saved so far is kept.
-    if (venc.encodeQueueSize >= 3 && performance.now() - lastVideoOutAt > 4000) {
-      failedLoudly = true;
-      fail(new Error('The video encoder stopped producing pictures, so the recording was stopped (the sound and what was saved up to then are kept). The computer\'s graphics chip is probably fully busy with a window; try a lower frame rate or lighter scene in that window.'));
-    }
-  }, 1000);
 }
 
 async function stop() {
-  clearInterval(timer); clearInterval(levelTimer); clearInterval(watchdog); clearInterval(statsTimer);
+  // The picture runs to the very end: the last picture is repeated up to the moment of stopping.
+  if (recording && enc && lastFrame) {
+    const due = Math.floor((clockMs() / 1000) * cfg.fps);
+    while (framesSent < due) { enc.video.write(lastFrame); framesSent += 1; }
+  }
+  recording = false;
+  clearInterval(timer); clearInterval(levelTimer); clearInterval(statsTimer);
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
   if (proc) { proc.onaudioprocess = null; proc.disconnect(); }
-  // Waits for the encoders to finish, but not forever: a stuck one must not stop the rest of the file being saved.
-  const within = (promise, ms) => Promise.race([promise, new Promise((resolve) => setTimeout(resolve, ms))]);
-  await within(venc.flush().catch(() => {}), 6000); await within(aenc.flush().catch(() => {}), 6000);
-  venc.close(); aenc.close();
-  muxer.finalize();
+  if (enc) {
+    // Closing both pipes tells ffmpeg the recording is over; it finishes the file and exits. Not waited for forever.
+    enc.stopping = true;
+    try { enc.video.end(); enc.audio.end(); } catch (err) { /* already closed */ }
+    const code = await Promise.race([enc.closed, new Promise((resolve) => setTimeout(() => resolve('timeout'), 20000))]);
+    if (code === 'timeout') { try { enc.child.kill('SIGKILL'); } catch (err) { /* gone */ } fail(new Error('The video encoder did not finish in time; the file may be incomplete.')); }
+    else if (code !== 0 && !failure) fail(new Error(`The video encoder (ffmpeg) finished with an error${enc.stderr.trim() ? `: ${enc.stderr.trim().split('\n').pop()}` : ''}.`));
+    enc = null;
+  }
   if (actx) { await actx.close(); actx = null; }
 }
 
@@ -229,9 +242,8 @@ ipcRenderer.on('start', async (_e, config) => {
 // A snapshot of the recorder's insides, asked for when nothing seems to be getting saved.
 ipcRenderer.on('stats', () => {
   ipcRenderer.send('recorder:stats', {
-    video: venc ? { state: venc.state, queue: venc.encodeQueueSize } : null,
-    audio: aenc ? { state: aenc.state, queue: aenc.encodeQueueSize } : null,
-    frames: ticks, audioSeconds: Math.round(audioSamples / RATE), failure,
+    encoder: enc ? { codec: enc.codec, exited: enc.exited, pipeBacklogMB: Math.round(enc.video.writableLength / 1e6), stderr: enc.stderr.slice(-300) } : null,
+    pictures: framesSent, dropped: framesDropped, audioSeconds: Math.round(audioWritten / RATE), failure,
     audioContext: actx ? actx.state : null, mic: Boolean(micStream), camera: camVideo ? `${camVideo.videoWidth}x${camVideo.videoHeight} ready=${camVideo.readyState}` : null,
     paused, sourcesSeen: sources.map((s2) => Boolean(s2)),
   });
@@ -241,6 +253,4 @@ ipcRenderer.on('pause', () => { if (!paused) { paused = true; pausedAt = perform
 ipcRenderer.on('resume', () => {
   if (!paused) return;
   pausedTotal += performance.now() - pausedAt; paused = false;
-  audioSamples = Math.round(((performance.now() - t0 - pausedTotal) / 1000) * RATE); // the sound's clock follows the picture's after a pause
-  anchorUs = null;
 });

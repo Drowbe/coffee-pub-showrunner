@@ -53,6 +53,10 @@ The file is written as you record, so memory stays flat however long the session
 - **A crash or power cut.** The file is written as it records, so it still plays, missing only the last second or two. The next time Showrunner starts it tells you where the file is.
 - **Show in Finder** (on the recorder page and the toolbar) opens the folder with your last recording selected.
 
+## File type
+
+Choose **MP4** or **MKV** under **File type**. Both are written as the recording goes, so both still play after a crash. MKV is the usual choice for streamers; many editors (Premiere, for one) need MP4.
+
 ## Limits for now
 
 - macOS only. Windows follows.

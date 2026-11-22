@@ -7,6 +7,7 @@ const { EventEmitter } = require('events');
 const fs = require('fs');
 const path = require('path');
 const { uniquePath, defaultName } = require('./filename');
+const { findFfmpeg } = require('./ffmpeg');
 
 const SPACE_MIN = 1e9; // will not start with less than this free
 const SPACE_WARN = 3e9; // warn below this
@@ -20,16 +21,14 @@ function defaultFileName(date = new Date()) {
 
 class BuiltInRecorder extends EventEmitter {
   // getSources(ids) returns the webContents to record, in order; folderFor() the folder to write to.
-  constructor({ getSources, folderFor, nameFor, markerFile, windowName }) {
+  constructor({ getSources, folderFor, nameFor, markerFile, windowName, dataDir }) {
     super();
     this.getSources = getSources;
     this.folderFor = folderFor;
     this.nameFor = nameFor || (() => defaultName());
     this.state = 'idle'; // idle | starting | recording | paused | stopping
     this.window = null;
-    this.fd = null;
-    this.pending = 0;
-    this.file = '';
+        this.file = '';
     this.startedAt = 0;
     this.pausedAt = 0;
     this.pausedTotal = 0;
@@ -38,6 +37,7 @@ class BuiltInRecorder extends EventEmitter {
     this.warning = '';
     this.interrupted = null; // { file } when the app closed in the middle of a recording last time
     this.markerFile = markerFile || '';
+    this.dataDir = dataDir || '';
     this.windowName = windowName || ((id) => id);
     this.heard = [false, false]; // whether any sound has arrived from each chosen window
     this.soundNote = '';
@@ -51,14 +51,6 @@ class BuiltInRecorder extends EventEmitter {
     this.idlePeaks = [0, 0];
     this.idleTimer = null;
     this.spaceChecks = 0;
-    // The recorder page sends each piece of the MP4 with the position it belongs at; they are written straight to the file.
-    ipcMain.on('recorder:write', (e, { data, position }) => {
-      if (this.fd === null || !this.window || e.sender !== this.window.webContents) return;
-      const buf = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-      this.pending += 1;
-      this.bytesWritten += buf.length;
-      fs.write(this.fd, buf, 0, buf.length, position, (err) => { this.pending -= 1; if (err && !this.error) this.error = `Could not write the recording: ${err.message}`; });
-    });
     ipcMain.on('recorder:frameAck', (_e, i) => { if (this.inFlight[i] > 0) this.inFlight[i] -= 1; });
     ipcMain.on('recorder:composite', (_e, picture) => this.emit('composite', picture));
     ipcMain.on('recorder:note', (_e, text) => this.emit('diag', String(text)));
@@ -140,6 +132,7 @@ class BuiltInRecorder extends EventEmitter {
     if (this.state !== 'recording') return;
     this.runSeconds += 1;
     // Is anything reaching the file? And is the recorder still alive? Either failing is said out loud, with the recorder's own state.
+    if (this.runSeconds === 10) { try { this.bytesWritten = fs.statSync(this.file).size; } catch (err) { this.bytesWritten = 0; } }
     if (this.runSeconds === 10 && this.bytesWritten < 1000) {
       this.saveNote = 'Nothing has been saved to the file after 10 seconds. Stop and try again; the activity log has details.';
       this.emit('diag', `Nothing written after 10 s (${this.bytesWritten} bytes).`);
@@ -202,18 +195,20 @@ class BuiltInRecorder extends EventEmitter {
     fs.mkdirSync(folder, { recursive: true });
     const free = this.freeBytes(folder);
     if (free < SPACE_MIN) throw new Error(`There is not enough disk space to record: ${(free / 1e9).toFixed(1)} GB free in ${folder}. Free some space or choose another folder.`);
-    this.file = uniquePath(folder, this.nameFor());
+    const ffmpeg = findFfmpeg(this.dataDir);
+    if (!ffmpeg) throw new Error('The video encoder (ffmpeg) is missing, so the Showrunner Recorder cannot record. Reinstall Showrunner, or put an ffmpeg program in the "ffmpeg" folder inside its data folder.');
+    const format = settings.format === 'mkv' ? 'mkv' : 'mp4';
+    this.file = uniquePath(folder, this.nameFor(), undefined, format);
     if (settings.audio && settings.audio.mic.enabled) await this.allowMicrophone();
     if (settings.layout === 'corner' || settings.layout === 'cam') await this.allowCamera();
     this.state = 'starting';
     this.emit('status');
     try {
-      this.fd = fs.openSync(this.file, 'w');
       this.writeMarker();
       this.window = new BrowserWindow({ show: false, width: 320, height: 180, webPreferences: { nodeIntegration: true, contextIsolation: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' } });
       await this.window.loadFile(path.join(__dirname, 'recorder', 'index.html'));
       const started = new Promise((resolve) => ipcMain.once('recorder:started', (_e, v) => resolve(v)));
-      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera });
+      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format });
       const result = await started;
       if (!result.ok) throw new Error(result.error || 'The recorder could not start.');
     } catch (err) {
@@ -295,10 +290,6 @@ class BuiltInRecorder extends EventEmitter {
   async cleanup() {
     this.grabbers.forEach(clearInterval); this.grabbers = [];
     clearInterval(this.ticker);
-    if (this.fd !== null) {
-      for (let waited = 0; this.pending > 0 && waited < 100; waited += 1) await new Promise((resolve) => setTimeout(resolve, 50)); // let the last writes land
-      fs.closeSync(this.fd); this.fd = null;
-    }
     if (this.window && !this.window.isDestroyed()) this.window.destroy();
     this.window = null;
     this.clearMarker();

@@ -30,10 +30,10 @@ function safeName(text) {
     .slice(0, 150);
 }
 
-// folder + name + ".mp4", numbered ("... 2.mp4") when a file of that name is already there, so nothing is overwritten.
-function uniquePath(folder, name, exists = fs.existsSync) {
-  let candidate = path.join(folder, `${name}.mp4`);
-  for (let n = 2; exists(candidate) && n < 1000; n += 1) candidate = path.join(folder, `${name} ${n}.mp4`);
+// folder + name + ".mp4" (or the chosen extension), numbered ("... 2.mp4") when a file of that name is already there, so nothing is overwritten.
+function uniquePath(folder, name, exists = fs.existsSync, ext = 'mp4') {
+  let candidate = path.join(folder, `${name}.${ext}`);
+  for (let n = 2; exists(candidate) && n < 1000; n += 1) candidate = path.join(folder, `${name} ${n}.${ext}`);
   return candidate;
 }
 

@@ -879,6 +879,7 @@ function defaultRecording() {
     width: 1920,
     height: 1080,
     fps: 30,
+    format: 'mp4', // the file type: 'mp4' or 'mkv' (both are written as they go, so both survive a crash)
     audio: defaultRecordingAudio(),
     camera: { device: '', deviceLabel: '', corner: 'br', size: 'medium', flip: false }, // the webcam (flip mirrors it left to right), for the 'corner' and 'cam' layouts
     toolbar: { auto: true, atStart: false, preview: true, x: null, y: null }, // the recording toolbar: opens when recording starts (auto) or when Showrunner starts (atStart), shows the live picture (preview), and where it was left
@@ -926,6 +927,7 @@ function sanitizeRecording(input) {
     width: size[0],
     height: size[1],
     fps: [24, 30, 60].includes(Number(src.fps)) ? Number(src.fps) : d.fps,
+    format: src.format === 'mkv' ? 'mkv' : 'mp4',
     audio: sanitizeRecordingAudio(src.audio),
     camera: {
       device: src.camera && typeof src.camera.device === 'string' ? src.camera.device.slice(0, 300) : '',
