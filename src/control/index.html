@@ -251,6 +251,7 @@
           <label class="field field-inline"><span>Frames per second</span>
             <select id="rec-fps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
         </div>
+        <div class="layout-preview"><canvas id="rec-preview" width="480" height="270" aria-label="Live preview of the recording's picture"></canvas></div>
         <div class="row">
           <label class="field field-inline field-grow"><span>Save to</span><input id="rec-folder" type="text" placeholder="Your Movies folder"></label>
           <button class="btn" id="rec-browse" type="button">Browse...</button>
@@ -1171,6 +1172,7 @@
     </div>
   </div>
 
+  <script src="../recorder/layout.js"></script>
   <script src="control.js"></script>
 </body>
 </html>

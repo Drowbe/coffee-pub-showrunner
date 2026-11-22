@@ -2400,3 +2400,6 @@ select option { background: var(--bg-card); color: var(--text); }
 
 .cam-preview { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
 .cam-preview video { width: 240px; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; object-fit: cover; }
+
+.layout-preview { margin: 8px 0 12px; }
+.layout-preview canvas { width: 480px; max-width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--border); border-radius: 6px; display: block; }

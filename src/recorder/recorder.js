@@ -5,6 +5,7 @@
 // loses only the last second or two. (MediaRecorder was tried first: its MP4 output is held until the end. See plan-recording.md.)
 const { ipcRenderer } = require('electron');
 const { Muxer, StreamTarget } = require('./vendor/mp4-muxer.js');
+const Layout = require('./layout.js');
 
 const RATE = 48000;
 const AUDIO_CUSHION = 0.04; // seconds of cushion so unevenly arriving audio chunks still play evenly
@@ -63,47 +64,12 @@ function peakOf(analyser, buf) {
   return peak;
 }
 
-const CAM_WIDTH = { small: 0.18, medium: 0.26, large: 0.36 }; // the webcam's width in a corner layout, as a share of the picture
-
-// The webcam, filling a box (cropping the edges if the shapes differ), with rounded corners when it is a small box.
-function drawCamera(x, y, w, h, round) {
-  if (!camVideo || !camVideo.videoWidth) return;
-  const k = Math.max(w / camVideo.videoWidth, h / camVideo.videoHeight);
-  const sw = w / k; const sh = h / k;
-  g.save();
-  if (round) { g.beginPath(); g.roundRect(x, y, w, h, round); g.clip(); }
-  g.drawImage(camVideo, (camVideo.videoWidth - sw) / 2, (camVideo.videoHeight - sh) / 2, sw, sh, x, y, w, h);
-  g.restore();
-}
-
-function rects(W, H) {
-  if (cfg.layout === 'cam') return [];
-  if (cfg.layout === 'side') return [{ x: 0, y: 0, w: W / 2, h: H }, { x: W / 2, y: 0, w: W / 2, h: H }];
-  return [{ x: 0, y: 0, w: W, h: H }];
-}
-
 const clockUs = () => Math.round((performance.now() - t0 - pausedTotal) * 1000);
 
 function draw() {
   if (failure || paused) return;
   const { width: W, height: H } = canvas;
-  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-  rects(W, H).forEach((r, i) => {
-    const s = sources[i];
-    if (!s) return;
-    const k = Math.min(r.w / s.width, r.h / s.height); // fit inside the slot, keeping the shape
-    const w = s.width * k; const h = s.height * k;
-    g.drawImage(s, r.x + (r.w - w) / 2, r.y + (r.h - h) / 2, w, h);
-  });
-  if (cfg.layout === 'cam') drawCamera(0, 0, W, H, 0);
-  else if (cfg.layout === 'corner' && camVideo && camVideo.videoWidth) {
-    const w = Math.round(W * (CAM_WIDTH[cfg.camera.size] || CAM_WIDTH.medium));
-    const h = Math.round(w * camVideo.videoHeight / camVideo.videoWidth);
-    const margin = Math.round(W * 0.02);
-    const x = cfg.camera.corner.endsWith('l') ? margin : W - w - margin;
-    const y = cfg.camera.corner.startsWith('t') ? margin : H - h - margin;
-    drawCamera(x, y, w, h, Math.round(W * 0.008));
-  }
+  Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo });
   if (venc.encodeQueueSize > 8) return; // the encoder is behind: skip a picture rather than fall further back
   const frame = new VideoFrame(canvas, { timestamp: clockUs() });
   venc.encode(frame, { keyFrame: ticks % (cfg.fps * 2) === 0 }); // a fresh keyframe every two seconds

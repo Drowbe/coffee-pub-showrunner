@@ -3410,6 +3410,40 @@ function setupTray() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// Layout preview: a small live copy of each chosen window for the picture shown on the recorder page. The page lays them out (and
+// adds the webcam) with the same code the recorder uses. While recording, the pictures come from the recorder's own captures.
+// ---------------------------------------------------------------------------
+let previewTimer = null;
+let previewBusy = false;
+let previewLast = [0, 0];
+
+function sendPreviewFrame(index, image) {
+  if (!isAlive(controlWindow)) return;
+  const small = image.resize({ width: 480 });
+  const { width, height } = small.getSize();
+  if (width && height) controlWindow.webContents.send('recording:previewFrame', { i: index, w: width, h: height, buf: small.toBitmap() });
+}
+
+function setPreviewFeed(on) {
+  clearInterval(previewTimer); previewTimer = null;
+  if (!on) return;
+  previewTimer = setInterval(async () => {
+    if (previewBusy || builtInRecorder.active) return;
+    previewBusy = true;
+    try {
+      const sources = builtInRecorder.getSources(configStore.get().recording.sources);
+      await Promise.all(sources.map(async (wc, i) => { try { sendPreviewFrame(i, await wc.capturePage()); } catch (err) { /* closing or reloading */ } }));
+    } finally { previewBusy = false; }
+  }, 250);
+}
+ipcMain.on('recording:previewFeed', (_event, on) => setPreviewFeed(Boolean(on)));
+builtInRecorder.on('frame', (index, image) => {
+  if (!previewTimer || Date.now() - previewLast[index] < 250) return;
+  previewLast[index] = Date.now();
+  sendPreviewFrame(index, image);
+});
+
+// ---------------------------------------------------------------------------
 // Recording toolbar: a small window that floats above everything with record, pause, stop, the time, and a level and mute for each
 // sound source. It is its own window, so it is never part of a recording (the recorder reads only the windows it was told to).
 // ---------------------------------------------------------------------------

@@ -117,6 +117,7 @@ class BuiltInRecorder extends EventEmitter {
         busy = true;
         try {
           const image = await wc.capturePage();
+          this.emit('frame', index, image); // the preview on the recorder page borrows these
           const size = image.getSize();
           if (size.width && size.height && this.state === 'recording' && this.window && !this.window.isDestroyed()) {
             this.window.webContents.send('frame', { i: index, w: size.width, h: size.height, buf: image.toBitmap() });

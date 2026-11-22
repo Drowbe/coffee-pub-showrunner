@@ -21,6 +21,8 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
   (no window needed), with a live preview and a camera picker.
   **Recording toolbar:** a small window that floats above everything with Record, Pause, Stop, the time, and a level, mute and
   meter for each sound source. It opens when a recording starts (switch off on the recorder page) and is never in the recording.
+  **Live preview:** the recorder page shows the picture as it will be recorded (windows and webcam in their places), drawn by the
+  same code the recorder uses.
   The left rail scrolls when it is long, and long names show "..." with the full name on hover.
 - Recording and streaming actions now go through a recording backend (`src/recording.js`); OBS is the first backend.
 

@@ -2284,6 +2284,35 @@ recEls.pause.addEventListener('click', async () => {
   } catch (err) { reportError(err); }
 });
 
+// ---- Showrunner Recorder preview: the picture as it will be recorded, drawn with the recorder's own layout code ----
+const previewCanvas = $('rec-preview');
+const previewPen = previewCanvas.getContext('2d');
+const previewSources = [null, null]; // the latest small picture of each chosen window
+let previewFeedOn = false;
+
+api.recording.onPreviewFrame(({ i, w, h, buf }) => {
+  const data = new Uint8ClampedArray(buf.buffer, buf.byteOffset, buf.byteLength);
+  const px = new Uint32Array(data.buffer, data.byteOffset, data.byteLength / 4);
+  for (let n = 0; n < px.length; n += 1) { const v = px[n]; px[n] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >> 16) & 0xff); } // BGRA to RGBA
+  let c = previewSources[i];
+  if (!c || c.width !== w || c.height !== h) { c = document.createElement('canvas'); c.width = w; c.height = h; previewSources[i] = c; }
+  c.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0);
+});
+
+function setPreviewFeed(on) {
+  if (on === previewFeedOn) return;
+  previewFeedOn = on;
+  api.recording.previewFeed(on);
+  if (!on) previewSources[0] = previewSources[1] = null;
+}
+
+setInterval(() => {
+  if (!previewFeedOn || !config || !config.recording) return;
+  const r = config.recording;
+  const shown = [r.sources[0] ? previewSources[0] : null, r.layout === 'side' && r.sources[1] ? previewSources[1] : null];
+  ShowrunnerLayout.compose(previewPen, previewCanvas.width, previewCanvas.height, { layout: r.layout, camera: r.camera, sources: shown, camVideo: recEls.camPreview });
+}, 70);
+
 // ---- Showrunner Recorder webcam: the picker and a live preview, shown only for the layouts that use it ----
 let camPreviewStream = null; let camPreviewDevice = null; let camPreviewFailed = null; // the device that failed, so a status update does not retry it every second
 
@@ -2340,7 +2369,8 @@ function renderCamera() {
   recEls.camSize.value = r.camera.size;
   const active = status && status.recording && status.recording.builtIn && ['recording', 'paused'].includes(status.recording.builtIn.state);
   for (const el of [recEls.camDevice, recEls.camCorner, recEls.camSize]) el.disabled = Boolean(active);
-  // The preview runs only while the Showrunner Recorder page is open and the layout needs a webcam.
+  setPreviewFeed(activeTab === 'builtin'); // the picture preview runs only while this page is open
+  // The webcam preview runs only while the Showrunner Recorder page is open and the layout needs a webcam.
   if (camPreviewFailed !== null && camPreviewFailed !== r.camera.device) camPreviewFailed = null;
   if (uses && activeTab === 'builtin') startCamPreview(r.camera.device); else stopCamPreview();
 }
