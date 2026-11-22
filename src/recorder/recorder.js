@@ -17,6 +17,7 @@ const MIC_DELAY = 0.04; // the microphone is played as it arrives, so it waits a
 let camVideo = null; let camStream = null;
 let winGain = []; let micGain = null; let micStream = null; let levelTimer = null; let audioCfg = null;
 const analysers = []; // [window 1, window 2, microphone, everything]
+let previewCanvas = null; let previewPen = null;
 let vcfg = null; let lastVideoOutAt = 0; let switchedEncoder = false; let needKey = false; let watchdog = null;
 let cfg = null; let canvas; let g; let muxer; let venc; let aenc; let actx; let bus; let proc; let timer;
 let anchorUs = null; let t0 = 0; let paused = false; let pausedTotal = 0; let pausedAt = 0; let ticks = 0; let audioSamples = 0; let failure = '';
@@ -29,6 +30,7 @@ function onFrame({ i, w, h, buf }) {
   let s = sources[i];
   if (!s || s.width !== w || s.height !== h) { s = document.createElement('canvas'); s.width = w; s.height = h; sources[i] = s; }
   s.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0);
+  ipcRenderer.send('recorder:frameAck', i); // tells the app this picture is used, so it can send the next
 }
 ipcRenderer.on('frame', (_e, msg) => setTimeout(() => onFrame(msg), VIDEO_DELAY_MS));
 
@@ -76,6 +78,12 @@ function draw() {
   venc.encode(frame, { keyFrame: needKey || ticks % (cfg.fps * 2) === 0 }); needKey = false; // a fresh keyframe every two seconds
   frame.close();
   ticks += 1;
+  // A small copy of what is being recorded, for the toolbar's preview (five times a second).
+  if (ticks % Math.max(1, Math.round(cfg.fps / 5)) === 0) {
+    previewPen.drawImage(canvas, 0, 0, 320, 180);
+    const px = previewPen.getImageData(0, 0, 320, 180);
+    ipcRenderer.send('recorder:composite', { w: 320, h: 180, buf: new Uint8Array(px.data.buffer) });
+  }
 }
 
 function fail(err) { if (!failure) { failure = err.message || String(err); ipcRenderer.send('recorder:failed', failure); } }
@@ -110,7 +118,8 @@ function makeVideoEncoder(acceleration) {
 async function start(config) {
   cfg = config;
   sources[0] = sources[1] = null; nextAt.clear(); failure = ''; ticks = 0; audioSamples = 0; pausedTotal = 0; paused = false; anchorUs = null;
-  canvas = document.createElement('canvas'); canvas.width = cfg.width; canvas.height = cfg.height; g = canvas.getContext('2d', { alpha: false });
+  canvas = document.createElement('canvas'); canvas.width = cfg.width; canvas.height = cfg.height; g = canvas.getContext('2d', { alpha: false, willReadFrequently: true }); // drawn on the CPU: a busy graphics chip cannot stall the picture going to the encoder
+  previewCanvas = document.createElement('canvas'); previewCanvas.width = 320; previewCanvas.height = 180; previewPen = previewCanvas.getContext('2d', { willReadFrequently: true });
   const videoConfig = {
     codec: cfg.fps > 30 ? 'avc1.64002a' : 'avc1.640028', width: cfg.width, height: cfg.height, framerate: cfg.fps,
     bitrate: cfg.width >= 1920 ? (cfg.fps > 30 ? 12_000_000 : 8_000_000) : 5_000_000, latencyMode: 'realtime', hardwareAcceleration: 'prefer-hardware',
@@ -195,7 +204,9 @@ async function stop() {
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
   if (proc) { proc.onaudioprocess = null; proc.disconnect(); }
-  await venc.flush(); await aenc.flush();
+  // Waits for the encoders to finish, but not forever: a stuck one must not stop the rest of the file being saved.
+  const within = (promise, ms) => Promise.race([promise, new Promise((resolve) => setTimeout(resolve, ms))]);
+  await within(venc.flush().catch(() => {}), 6000); await within(aenc.flush().catch(() => {}), 6000);
   venc.close(); aenc.close();
   muxer.finalize();
   if (actx) { await actx.close(); actx = null; }

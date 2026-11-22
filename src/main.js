@@ -3478,11 +3478,7 @@ function updateFeed() {
   }, 250);
 }
 ipcMain.on('recording:previewFeed', (_event, on) => { feedControl = Boolean(on); updateFeed(); });
-builtInRecorder.on('frame', (index, image) => {
-  if (!previewTimer || Date.now() - previewLast[index] < 250) return;
-  previewLast[index] = Date.now();
-  sendPreviewFrame(index, image);
-});
+builtInRecorder.on('composite', (picture) => { if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:composite', picture); });
 
 // ---------------------------------------------------------------------------
 // Recording toolbar: a small window that floats above everything with record, pause, stop, the time, and a level and mute for each

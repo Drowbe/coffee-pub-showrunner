@@ -42,6 +42,7 @@ class BuiltInRecorder extends EventEmitter {
     this.heard = [false, false]; // whether any sound has arrived from each chosen window
     this.soundNote = '';
     this.runSeconds = 0;
+    this.inFlight = [0, 0]; // pictures sent to the recorder page and not yet used
     this.bytesWritten = 0;
     this.lastLevelsAt = 0;
     this.saveNote = '';
@@ -58,6 +59,8 @@ class BuiltInRecorder extends EventEmitter {
       this.bytesWritten += buf.length;
       fs.write(this.fd, buf, 0, buf.length, position, (err) => { this.pending -= 1; if (err && !this.error) this.error = `Could not write the recording: ${err.message}`; });
     });
+    ipcMain.on('recorder:frameAck', (_e, i) => { if (this.inFlight[i] > 0) this.inFlight[i] -= 1; });
+    ipcMain.on('recorder:composite', (_e, picture) => this.emit('composite', picture));
     ipcMain.on('recorder:note', (_e, text) => this.emit('diag', String(text)));
     ipcMain.on('recorder:stats', (_e, stats) => this.emit('diag', `Recorder state: ${JSON.stringify(stats)}`));
     ipcMain.on('recorder:levels', (_e, levels) => { this.lastLevelsAt = Date.now(); this.levels = levels; this.emit('levels', levels); });
@@ -228,13 +231,13 @@ class BuiltInRecorder extends EventEmitter {
     sources.forEach((wc, index) => {
       let busy = false;
       const timer = setInterval(async () => {
-        if (busy || this.state !== 'recording' || wc.isDestroyed() || !this.window || this.window.isDestroyed()) return;
+        if (busy || this.inFlight[index] >= 2 || this.state !== 'recording' || wc.isDestroyed() || !this.window || this.window.isDestroyed()) return;
         busy = true;
         try {
           const image = await wc.capturePage();
-          this.emit('frame', index, image); // the preview on the recorder page borrows these
           const size = image.getSize();
           if (size.width && size.height && this.state === 'recording' && this.window && !this.window.isDestroyed()) {
+            this.inFlight[index] += 1;
             this.window.webContents.send('frame', { i: index, w: size.width, h: size.height, buf: image.toBitmap() });
           }
         } catch (err) { /* the window is closing or reloading: the next picture will do */ } finally { busy = false; }
@@ -243,6 +246,7 @@ class BuiltInRecorder extends EventEmitter {
     });
     this.spaceChecks = 0;
     this.checkSpace();
+    this.inFlight = [0, 0];
     this.heard = [false, false]; this.soundNote = ''; this.saveNote = ''; this.bytesWritten = 0; this.lastLevelsAt = Date.now(); this.runSeconds = 0; this.settingsSources = settings.sources; this.audioSettings = settings.audio;
     this.ticker = setInterval(() => { this.spaceChecks += 1; this.checkSound(); if (this.spaceChecks % 10 === 0) this.checkSpace(); this.emit('status'); }, 1000);
     this.emit('status');

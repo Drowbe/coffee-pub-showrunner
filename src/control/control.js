@@ -2198,7 +2198,7 @@ const recEls = {
   dot: $('recording-dot'), tag: $('rec-tag'), backend: $('rec-backend'), card: $('rec-builtin-card'),
   s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'),
   camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camFlip: $('rec-cam-flip'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
-  camPreview: $('rec-cam-preview'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
+  camPreview: $('rec-cam-preview'), camPreviewBtn: $('rec-cam-preview-btn'), camPreviewBox: $('rec-cam-preview-box'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
   reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'), toolbarAtStart: $('rec-toolbar-atstart'),
   folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
 };
@@ -2298,6 +2298,7 @@ function setPreviewFeed(on) {
 }
 
 // ---- Showrunner Recorder webcam: the picker and a live preview, shown only for the layouts that use it ----
+let camPreviewWanted = false; // the webcam preview here runs only when asked for
 let camPreviewStream = null; let camPreviewDevice = null; let camPreviewFailed = null; // the device that failed, so a status update does not retry it every second
 
 function stopCamPreview() {
@@ -2358,8 +2359,12 @@ function renderCamera() {
   setPreviewFeed(activeTab === 'builtin'); // the picture preview runs only while this page is open
   // The webcam preview runs only while the Showrunner Recorder page is open and the layout needs a webcam.
   if (camPreviewFailed !== null && camPreviewFailed !== r.camera.device) camPreviewFailed = null;
-  if (uses && activeTab === 'builtin') startCamPreview(r.camera.device); else stopCamPreview();
+  const showing = uses && activeTab === 'builtin' && camPreviewWanted && !recordingNow();
+  recEls.camPreviewBox.hidden = !showing;
+  recEls.camPreviewBtn.textContent = camPreviewWanted ? 'Hide webcam preview' : 'Show webcam preview';
+  if (showing) startCamPreview(r.camera.device); else stopCamPreview();
 }
+recEls.camPreviewBtn.addEventListener('click', () => { camPreviewWanted = !camPreviewWanted; renderCamera(); });
 recEls.camAllow.addEventListener('click', async () => {
   try {
     const result = await api.recording.askCamera();

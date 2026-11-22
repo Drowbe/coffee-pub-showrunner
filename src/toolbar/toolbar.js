@@ -91,9 +91,17 @@ window.recbar.onFrame(({ i, w, h, buf }) => {
   c.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0);
 });
 
+// While recording, the picture is the recorder's own (what is really being recorded), and the toolbar lets go of the webcam.
+const liveShot = document.createElement('canvas'); liveShot.width = 320; liveShot.height = 180;
+let liveAt = 0;
+window.recbar.onComposite(({ w, h, buf }) => {
+  liveShot.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(buf.buffer, buf.byteOffset, buf.byteLength), w, h), 0, 0);
+  liveAt = Date.now();
+});
+
 function stopCam() { if (camStream) camStream.getTracks().forEach((t) => t.stop()); camStream = null; camKey = ''; camEl.srcObject = null; }
 async function syncCam() {
-  const uses = state && state.preview && (state.layout === 'corner' || state.layout === 'cam');
+  const uses = state && state.preview && !isLive() && (state.layout === 'corner' || state.layout === 'cam');
   if (!uses) { stopCam(); return; }
   const key = `${state.camera.device}|${state.camera.deviceLabel}`;
   if (key === camKey) return;
@@ -111,6 +119,7 @@ async function syncCam() {
 
 setInterval(() => {
   if (!state || !state.preview) return;
+  if (isLive() && Date.now() - liveAt < 2000) { pen.drawImage(liveShot, 0, 0, canvas.width, canvas.height); return; }
   const shown = [state.layout === 'cam' ? null : winPics[0], state.layout === 'side' ? winPics[1] : null];
   window.ShowrunnerLayout.compose(pen, canvas.width, canvas.height, { layout: state.layout, camera: state.camera, sources: shown, camVideo: camEl });
 }, 70);

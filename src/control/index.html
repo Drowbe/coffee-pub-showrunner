@@ -278,7 +278,8 @@
             <select id="rec-cam-size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
         </div>
         <div class="row"><label class="field field-inline" title="Mirror the webcam left to right, as a mirror shows you. Useful when you point at things, or when the picture should match what you see."><input id="rec-cam-flip" type="checkbox"><span>Flip the webcam (mirror)</span></label></div>
-        <div class="cam-preview"><video id="rec-cam-preview" autoplay muted playsinline></video><span class="hint" id="rec-cam-hint"></span></div>
+        <div class="row"><button class="btn btn-small" id="rec-cam-preview-btn" type="button">Show webcam preview</button><span class="hint">The toolbar shows the live picture; this is only for choosing and framing the camera.</span></div>
+        <div class="cam-preview" id="rec-cam-preview-box" hidden><video id="rec-cam-preview" autoplay muted playsinline></video><span class="hint" id="rec-cam-hint"></span></div>
         <div class="row"><button class="btn btn-small" id="rec-cam-allow" type="button" hidden>Allow the webcam</button></div>
       </div>
 
