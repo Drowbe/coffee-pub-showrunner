@@ -865,7 +865,9 @@ function sanitizeTeleprompter(input) {
 
 // Recording: which backend records ('obs' or the built-in recorder), and the built-in recorder's own settings. One per profile.
 const RECORDING_BACKENDS = ['obs', 'builtin'];
-const RECORDING_LAYOUTS = ['one', 'side'];
+const RECORDING_LAYOUTS = ['one', 'side', 'corner', 'cam']; // one window | two side by side | a window with the webcam in a corner | the webcam alone
+const CAMERA_CORNERS = ['tl', 'tr', 'bl', 'br'];
+const CAMERA_SIZES = ['small', 'medium', 'large'];
 const RECORDING_SIZES = [[1280, 720], [1920, 1080]];
 
 function defaultRecording() {
@@ -878,6 +880,7 @@ function defaultRecording() {
     height: 1080,
     fps: 30,
     audio: defaultRecordingAudio(),
+    camera: { device: '', corner: 'br', size: 'medium' }, // the webcam, for the 'corner' and 'cam' layouts
   };
 }
 
@@ -885,7 +888,7 @@ function defaultRecording() {
 function defaultRecordingAudio() {
   return {
     windows: [{ level: 1, muted: false }, { level: 1, muted: false }],
-    mic: { enabled: false, device: '', level: 1, muted: false, echoCancel: false },
+    mic: { enabled: false, device: '', level: 1, muted: false, echoCancel: false, delayMs: 0 },
   };
 }
 
@@ -904,6 +907,7 @@ function sanitizeRecordingAudio(input) {
       level: level(m.level, d.mic.level),
       muted: Boolean(m.muted),
       echoCancel: Boolean(m.echoCancel),
+      delayMs: Math.min(500, Math.max(0, Math.round(Number(m.delayMs) || 0))), // to line the voice up with a slow webcam
     },
   };
 }
@@ -921,6 +925,11 @@ function sanitizeRecording(input) {
     height: size[1],
     fps: [24, 30, 60].includes(Number(src.fps)) ? Number(src.fps) : d.fps,
     audio: sanitizeRecordingAudio(src.audio),
+    camera: {
+      device: src.camera && typeof src.camera.device === 'string' ? src.camera.device.slice(0, 300) : '',
+      corner: src.camera && CAMERA_CORNERS.includes(src.camera.corner) ? src.camera.corner : 'br',
+      size: src.camera && CAMERA_SIZES.includes(src.camera.size) ? src.camera.size : 'medium',
+    },
   };
 }
 

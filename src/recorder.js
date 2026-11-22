@@ -64,12 +64,14 @@ class BuiltInRecorder extends EventEmitter {
   }
 
   // macOS asks the person once, then remembers. Returns quietly when it is allowed; throws a plain message when it is not.
-  async allowMicrophone() {
+  async allowMicrophone() { return this.allowAccess('microphone', 'the microphone', 'Microphone'); }
+  async allowCamera() { return this.allowAccess('camera', 'the webcam', 'Camera'); }
+  async allowAccess(kind, what, pane) {
     if (process.platform !== 'darwin') return;
-    const status = systemPreferences.getMediaAccessStatus('microphone');
+    const status = systemPreferences.getMediaAccessStatus(kind);
     if (status === 'granted') return;
-    if (status === 'not-determined' && (await systemPreferences.askForMediaAccess('microphone'))) return;
-    throw new Error('macOS has not allowed Showrunner to use the microphone. Allow it in System Settings, Privacy & Security, Microphone.');
+    if (status === 'not-determined' && (await systemPreferences.askForMediaAccess(kind))) return;
+    throw new Error(`macOS has not allowed Showrunner to use ${what}. Allow it in System Settings, Privacy & Security, ${pane}.`);
   }
 
   // Levels and mutes that change while recording.
@@ -81,11 +83,12 @@ class BuiltInRecorder extends EventEmitter {
     if (this.state !== 'idle') throw new Error('The built-in recorder is already recording.');
     this.error = '';
     const sources = this.getSources(settings.sources);
-    if (!sources.length) throw new Error('Choose a window to record first (Recording page), and open it.');
+    if (!sources.length && settings.layout !== 'cam') throw new Error('Choose a window to record first (Showrunner Recorder page), and open it.');
     const folder = this.folderFor(settings.folder);
     fs.mkdirSync(folder, { recursive: true });
     this.file = uniquePath(folder, this.nameFor());
     if (settings.audio && settings.audio.mic.enabled) await this.allowMicrophone();
+    if (settings.layout === 'corner' || settings.layout === 'cam') await this.allowCamera();
     this.state = 'starting';
     this.emit('status');
     try {
@@ -93,7 +96,7 @@ class BuiltInRecorder extends EventEmitter {
       this.window = new BrowserWindow({ show: false, width: 320, height: 180, webPreferences: { nodeIntegration: true, contextIsolation: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' } });
       await this.window.loadFile(path.join(__dirname, 'recorder', 'index.html'));
       const started = new Promise((resolve) => ipcMain.once('recorder:started', (_e, v) => resolve(v)));
-      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio });
+      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera });
       const result = await started;
       if (!result.ok) throw new Error(result.error || 'The recorder could not start.');
     } catch (err) {

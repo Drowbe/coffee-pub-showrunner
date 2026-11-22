@@ -2397,3 +2397,6 @@ select option { background: var(--bg-card); color: var(--text); }
 .meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 90ms linear; }
 .meter i.hot { background: #E6A23C; }
 .meter i.clip { background: #E5484D; }
+
+.cam-preview { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+.cam-preview video { width: 240px; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; object-fit: cover; }

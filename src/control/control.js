@@ -736,6 +736,7 @@ function selectTab(name) {
   if (name === 'youtube' && !config.youtube.enabled) name = 'status';
   if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'status';
   activeTab = name;
+  if (config.recording && typeof renderCamera === 'function') renderCamera(); // starts or stops the webcam preview
   if (name !== 'profiles') rememberTab(name);
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.tab === name);
@@ -2196,6 +2197,8 @@ function renderPrompterScripts(open) {
 const recEls = {
   dot: $('recording-dot'), tag: $('rec-tag'), backend: $('rec-backend'), card: $('rec-builtin-card'),
   s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'),
+  camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
+  camPreview: $('rec-cam-preview'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
   folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
 };
 
@@ -2243,6 +2246,9 @@ function renderRecording() {
   recEls.status.textContent = st.error ? st.error : active ? `${mm(st.seconds)}  ${st.file.split(/[\\/]/).pop()}` : st.file ? `Last recording: ${st.file.split(/[\\/]/).pop()}` : '';
   for (const el of [recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder, recEls.browse]) el.disabled = active;
   if (!active) recEls.s2.disabled = r.layout !== 'side';
+  recEls.s1.closest('label').hidden = r.layout === 'cam';
+  recEls.s2.closest('label').hidden = r.layout === 'cam';
+  renderCamera();
   renderAudio();
 }
 
@@ -2251,13 +2257,14 @@ function readRecording() {
   config.recording = {
     ...config.recording,
     backend: recEls.backend.value,
-    sources: [recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
+    sources: [recEls.layout.value === 'cam' ? '' : recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
     layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), folder: recEls.folder.value,
+    camera: { device: recEls.camDevice.value, corner: recEls.camCorner.value, size: recEls.camSize.value },
   };
   scheduleSave();
   renderRecording();
 }
-for (const el of [recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
+for (const el of [recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
 recEls.folder.addEventListener('input', readRecording);
 recEls.browse.addEventListener('click', async () => { try { const dir = await api.recording.chooseFolder(); if (dir) { recEls.folder.value = dir; readRecording(); } } catch (err) { reportError(err); } });
 recEls.start.addEventListener('click', async () => {
@@ -2273,13 +2280,72 @@ recEls.pause.addEventListener('click', async () => {
   } catch (err) { reportError(err); }
 });
 
+// ---- Showrunner Recorder webcam: the picker and a live preview, shown only for the layouts that use it ----
+let camPreviewStream = null; let camPreviewDevice = null; let camPreviewFailed = null; // the device that failed, so a status update does not retry it every second
+
+function stopCamPreview() {
+  if (camPreviewStream) camPreviewStream.getTracks().forEach((t) => t.stop());
+  camPreviewStream = null; camPreviewDevice = null; recEls.camPreview.srcObject = null;
+}
+
+async function startCamPreview(device) {
+  if ((camPreviewStream && camPreviewDevice === device) || camPreviewFailed === device) return;
+  stopCamPreview();
+  try {
+    camPreviewDevice = device;
+    camPreviewStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: device ? { exact: device } : undefined, width: { ideal: 640 } } });
+    recEls.camPreview.srcObject = camPreviewStream;
+    recEls.camHint.textContent = '';
+    await refreshCameras();
+  } catch (err) {
+    camPreviewStream = null; camPreviewDevice = null; camPreviewFailed = device;
+    recEls.camHint.textContent = err.name === 'NotAllowedError' ? 'macOS has not allowed the webcam yet. Press "Allow the webcam", or allow it in System Settings, Privacy & Security, Camera.' : `The webcam could not be opened (${err.message}).`;
+    recEls.camAllow.hidden = false;
+  }
+}
+
+async function refreshCameras() {
+  try {
+    const list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+    const chosen = config.recording.camera.device;
+    const options = [['', 'System default'], ...list.map((d, i) => [d.deviceId, d.label || `Camera ${i + 1}`])];
+    if (chosen && !options.some(([id]) => id === chosen)) options.push([chosen, '(not connected)']);
+    recEls.camDevice.replaceChildren(...options.map(([id, label]) => { const o = document.createElement('option'); o.value = id; o.textContent = label; o.title = label; return o; }));
+    recEls.camDevice.value = chosen;
+    recEls.camAllow.hidden = list.every((d) => d.label);
+  } catch (err) { /* System default stays */ }
+}
+navigator.mediaDevices.addEventListener('devicechange', refreshCameras);
+
+function renderCamera() {
+  const r = config.recording;
+  const uses = r.layout === 'corner' || r.layout === 'cam';
+  recEls.camCard.hidden = !uses;
+  recEls.camCornerField.hidden = r.layout !== 'corner';
+  recEls.camSizeField.hidden = r.layout !== 'corner';
+  if (document.activeElement !== recEls.camDevice) recEls.camDevice.value = r.camera.device;
+  recEls.camCorner.value = r.camera.corner;
+  recEls.camSize.value = r.camera.size;
+  const active = status && status.recording && status.recording.builtIn && ['recording', 'paused'].includes(status.recording.builtIn.state);
+  for (const el of [recEls.camDevice, recEls.camCorner, recEls.camSize]) el.disabled = Boolean(active);
+  // The preview runs only while the Showrunner Recorder page is open and the layout needs a webcam.
+  if (camPreviewFailed !== null && camPreviewFailed !== r.camera.device) camPreviewFailed = null;
+  if (uses && activeTab === 'builtin') startCamPreview(r.camera.device); else stopCamPreview();
+}
+recEls.camAllow.addEventListener('click', async () => {
+  try {
+    const result = await api.recording.askCamera();
+    if (result === 'granted') { recEls.camHint.textContent = ''; camPreviewFailed = null; stopCamPreview(); renderCamera(); } else recEls.camHint.textContent = 'macOS has not allowed the webcam. Allow it in System Settings, Privacy & Security, Camera, then try again.';
+  } catch (err) { reportError(err); }
+});
+
 // ---- Showrunner Recorder audio: a level and mute for each window and the microphone, with live meters ----
 const audioRows = [
   { name: $('rec-aw-0-name'), level: $('rec-aw-0-level'), pct: $('rec-aw-0-pct'), mute: $('rec-aw-0-mute'), row: $('rec-aw-0') },
   { name: $('rec-aw-1-name'), level: $('rec-aw-1-level'), pct: $('rec-aw-1-pct'), mute: $('rec-aw-1-mute'), row: $('rec-aw-1') },
   { name: null, level: $('rec-am-level'), pct: $('rec-am-pct'), mute: $('rec-am-mute'), row: $('rec-am') },
 ];
-const micEls = { on: $('rec-mic-on'), device: $('rec-mic-device'), echo: $('rec-mic-echo'), hint: $('rec-mic-hint'), allow: $('rec-mic-allow') };
+const micEls = { delay: $('rec-mic-delay'), delayRow: $('rec-mic-delay-row'), on: $('rec-mic-on'), device: $('rec-mic-device'), echo: $('rec-mic-echo'), hint: $('rec-mic-hint'), allow: $('rec-mic-allow') };
 
 function audioOf(r) { return r.audio || { windows: [{ level: 1, muted: false }, { level: 1, muted: false }], mic: { enabled: false, device: '', level: 1, muted: false, echoCancel: false } }; }
 
@@ -2299,10 +2365,13 @@ function renderAudio() {
       row.name.textContent = label; row.name.title = label;
     }
   });
+  audioRows[0].row.hidden = r.layout === 'cam';
   audioRows[1].row.hidden = r.layout !== 'side';
   audioRows[0].row.classList.toggle('off', !r.sources[0]);
   audioRows[2].row.classList.toggle('off', !a.mic.enabled);
   micEls.on.checked = a.mic.enabled;
+  micEls.delayRow.hidden = !(r.layout === 'corner' || r.layout === 'cam');
+  if (document.activeElement !== micEls.delay) micEls.delay.value = String(a.mic.delayMs || 0);
   micEls.echo.checked = a.mic.echoCancel;
   micEls.device.disabled = !a.mic.enabled;
   micEls.echo.disabled = !a.mic.enabled;
@@ -2327,7 +2396,7 @@ function readAudio(live) {
   const a = audioOf(config.recording);
   const next = {
     windows: [0, 1].map((i) => ({ level: Number(audioRows[i].level.value) / 100, muted: a.windows[i].muted })),
-    mic: { ...a.mic, level: Number(audioRows[2].level.value) / 100, enabled: micEls.on.checked, device: micEls.device.value, echoCancel: micEls.echo.checked },
+    mic: { ...a.mic, level: Number(audioRows[2].level.value) / 100, enabled: micEls.on.checked, device: micEls.device.value, echoCancel: micEls.echo.checked, delayMs: Math.min(500, Math.max(0, Number(micEls.delay.value) || 0)) },
   };
   config.recording = { ...config.recording, audio: next };
   api.recording.setAudio(next).catch(() => {});
@@ -2346,7 +2415,7 @@ audioRows.forEach((row, i) => {
     renderAudio();
   });
 });
-for (const el of [micEls.on, micEls.device, micEls.echo]) el.addEventListener('change', () => readAudio());
+for (const el of [micEls.on, micEls.device, micEls.echo, micEls.delay]) el.addEventListener('change', () => readAudio());
 micEls.allow.addEventListener('click', async () => {
   try {
     const result = await api.recording.askMicrophone();

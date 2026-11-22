@@ -245,7 +245,7 @@
         </div>
         <div class="row">
           <label class="field field-inline"><span>Layout</span>
-            <select id="rec-layout"><option value="one">One window fills the picture</option><option value="side">Two windows side by side</option></select></label>
+            <select id="rec-layout"><option value="one">One window fills the picture</option><option value="side">Two windows side by side</option><option value="corner">One window, webcam in a corner</option><option value="cam">Webcam fills the picture</option></select></label>
           <label class="field field-inline"><span>Size</span>
             <select id="rec-size"><option value="1920x1080">1920 x 1080</option><option value="1280x720">1280 x 720</option></select></label>
           <label class="field field-inline"><span>Frames per second</span>
@@ -262,6 +262,19 @@
         </div>
       </div>
 
+      <div class="card" id="rec-camera-card" hidden>
+        <h2>Webcam</h2>
+        <div class="row">
+          <label class="field field-inline field-grow"><span>Camera</span><select id="rec-cam-device"></select></label>
+          <label class="field field-inline" id="rec-cam-corner-field"><span>Corner</span>
+            <select id="rec-cam-corner"><option value="br">Bottom right</option><option value="bl">Bottom left</option><option value="tr">Top right</option><option value="tl">Top left</option></select></label>
+          <label class="field field-inline" id="rec-cam-size-field"><span>Size</span>
+            <select id="rec-cam-size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+        </div>
+        <div class="cam-preview"><video id="rec-cam-preview" autoplay muted playsinline></video><span class="hint" id="rec-cam-hint"></span></div>
+        <div class="row"><button class="btn btn-small" id="rec-cam-allow" type="button" hidden>Allow the webcam</button></div>
+      </div>
+
       <div class="card" id="rec-audio-card">
         <h2>Audio</h2>
         <p class="hint">Everything is mixed into one sound track. Set a level for each source (100% is as it is) and mute any of them, even while recording. The bars show what is going into the recording.</p>
@@ -274,6 +287,9 @@
           <label class="field field-inline" title="Removes the sound of your speakers from the microphone. Headphones work better."><input id="rec-mic-echo" type="checkbox"><span>Echo cancel</span></label>
         </div>
         <p class="hint" id="rec-mic-hint">Wear headphones when you record the microphone, or your speakers will be heard on it too (an echo).</p>
+        <div class="row" id="rec-mic-delay-row" hidden>
+          <label class="field field-inline" title="Webcams show your picture a little late. Delay the microphone by this much so your voice matches your lips."><span>Match voice to webcam (ms)</span><input id="rec-mic-delay" type="number" min="0" max="500" step="10" style="width:80px"></label>
+        </div>
         <div class="row"><button class="btn btn-small" id="rec-mic-allow" type="button" hidden>Allow the microphone</button></div>
       </div>
     </section>

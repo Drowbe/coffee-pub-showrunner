@@ -18,6 +18,12 @@ and Stop recording steps use for this profile.
 The same Start, Pause, Resume and Stop recording steps in Automations (and the cues in your teleprompter script) work with the
 built-in recorder: nothing in a rule set changes. Steps that need OBS (scenes, sources, text, volumes, Auto level) still need OBS.
 
+## Webcam
+
+Choose a **Layout** with the webcam: **One window, webcam in a corner** puts the webcam over a corner of the window (pick the corner and a size), and **Webcam fills the picture** records the webcam alone, with no window. The **Webcam** card shows a live preview and lets you pick the camera. macOS asks once whether Showrunner may use the webcam.
+
+Webcams show your picture a little late. If your voice seems ahead of your lips in a test recording, raise **Match voice to webcam (ms)** on the Audio card (start around 100) to delay the microphone by that much.
+
 ## Audio
 
 The **Audio** card on the Showrunner Recorder page has a row for each window and one for the microphone. Move the slider to set a level (100% is as it is) and press **Mute** to silence a source. Both work while recording, and the bars show what is going into the recording.

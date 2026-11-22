@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('coffeePub', {
     chooseFolder: () => ipcRenderer.invoke('recording:chooseFolder'),
     setAudio: (audio) => ipcRenderer.invoke('recording:setAudio', audio),
     askMicrophone: () => ipcRenderer.invoke('recording:askMicrophone'),
+    askCamera: () => ipcRenderer.invoke('recording:askCamera'),
     onLevels: (callback) => {
       const listener = (_event, levels) => callback(levels);
       ipcRenderer.on('recording:levels', listener);

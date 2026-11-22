@@ -3400,17 +3400,20 @@ function setupTray() {
 
 let calibrating = false;
 
+async function askMediaAccess(kind) {
+  if (process.platform !== 'darwin') return 'granted';
+  const status = systemPreferences.getMediaAccessStatus(kind);
+  if (status === 'not-determined') return (await systemPreferences.askForMediaAccess(kind)) ? 'granted' : 'denied';
+  return status;
+}
+
 function registerIpc() {
   ipcMain.handle('config:get', () => configStore.get());
   // The recorder's levels and mutes, applied at once while recording (the saved settings follow with the next save).
   ipcMain.handle('recording:setAudio', (_event, audio) => { builtInRecorder.setAudio(audio); });
   // Lets the person allow the microphone from the Recorder page before the first recording.
-  ipcMain.handle('recording:askMicrophone', async () => {
-    if (process.platform !== 'darwin') return 'granted';
-    const status = systemPreferences.getMediaAccessStatus('microphone');
-    if (status === 'not-determined') return (await systemPreferences.askForMediaAccess('microphone')) ? 'granted' : 'denied';
-    return status;
-  });
+  ipcMain.handle('recording:askMicrophone', () => askMediaAccess('microphone'));
+  ipcMain.handle('recording:askCamera', () => askMediaAccess('camera'));
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also
     // renames the source in OBS; a stale copy from the panel must not undo that.

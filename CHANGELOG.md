@@ -17,6 +17,8 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
   `documentation/userguides/userguide-recorder.md`.
 - **Showrunner Recorder audio.** Record the microphone with the windows' sound. Each window and the microphone has its own level
   and mute, which you can change while recording, with live meters. Recordings are named from the Session filename format.
+  **Webcam:** two new layouts, a window with the webcam in a corner (any corner, three sizes) and the webcam filling the picture
+  (no window needed), with a live preview and a camera picker.
   The left rail scrolls when it is long, and long names show "..." with the full name on hover.
 - Recording and streaming actions now go through a recording backend (`src/recording.js`); OBS is the first backend.
 

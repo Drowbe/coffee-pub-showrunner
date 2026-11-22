@@ -13,6 +13,7 @@ const VIDEO_DELAY_MS = 70; // the picture is held back this long so it lines up 
 const sources = [null, null]; // the latest frame of each source, held in a canvas
 const nextAt = new Map(); // per audio source: when its next chunk should play
 const MIC_DELAY = 0.04; // the microphone is played as it arrives, so it waits as long as the windows' sound does (AUDIO_CUSHION)
+let camVideo = null; let camStream = null;
 let winGain = []; let micGain = null; let micStream = null; let levelTimer = null; let audioCfg = null;
 const analysers = []; // [window 1, window 2, microphone, everything]
 let cfg = null; let canvas; let g; let muxer; let venc; let aenc; let actx; let bus; let proc; let timer;
@@ -62,7 +63,21 @@ function peakOf(analyser, buf) {
   return peak;
 }
 
+const CAM_WIDTH = { small: 0.18, medium: 0.26, large: 0.36 }; // the webcam's width in a corner layout, as a share of the picture
+
+// The webcam, filling a box (cropping the edges if the shapes differ), with rounded corners when it is a small box.
+function drawCamera(x, y, w, h, round) {
+  if (!camVideo || !camVideo.videoWidth) return;
+  const k = Math.max(w / camVideo.videoWidth, h / camVideo.videoHeight);
+  const sw = w / k; const sh = h / k;
+  g.save();
+  if (round) { g.beginPath(); g.roundRect(x, y, w, h, round); g.clip(); }
+  g.drawImage(camVideo, (camVideo.videoWidth - sw) / 2, (camVideo.videoHeight - sh) / 2, sw, sh, x, y, w, h);
+  g.restore();
+}
+
 function rects(W, H) {
+  if (cfg.layout === 'cam') return [];
   if (cfg.layout === 'side') return [{ x: 0, y: 0, w: W / 2, h: H }, { x: W / 2, y: 0, w: W / 2, h: H }];
   return [{ x: 0, y: 0, w: W, h: H }];
 }
@@ -80,6 +95,15 @@ function draw() {
     const w = s.width * k; const h = s.height * k;
     g.drawImage(s, r.x + (r.w - w) / 2, r.y + (r.h - h) / 2, w, h);
   });
+  if (cfg.layout === 'cam') drawCamera(0, 0, W, H, 0);
+  else if (cfg.layout === 'corner' && camVideo && camVideo.videoWidth) {
+    const w = Math.round(W * (CAM_WIDTH[cfg.camera.size] || CAM_WIDTH.medium));
+    const h = Math.round(w * camVideo.videoHeight / camVideo.videoWidth);
+    const margin = Math.round(W * 0.02);
+    const x = cfg.camera.corner.endsWith('l') ? margin : W - w - margin;
+    const y = cfg.camera.corner.startsWith('t') ? margin : H - h - margin;
+    drawCamera(x, y, w, h, Math.round(W * 0.008));
+  }
   if (venc.encodeQueueSize > 8) return; // the encoder is behind: skip a picture rather than fall further back
   const frame = new VideoFrame(canvas, { timestamp: clockUs() });
   venc.encode(frame, { keyFrame: ticks % (cfg.fps * 2) === 0 }); // a fresh keyframe every two seconds
@@ -129,9 +153,20 @@ async function start(config) {
         echoCancellation: m.echoCancel, noiseSuppression: false, autoGainControl: false, channelCount: 1,
       } });
     } catch (err) { throw new Error(`The microphone could not be opened (${err.name === 'NotAllowedError' ? 'macOS has not allowed it' : err.message}).`); }
-    const delay = actx.createDelay(1); delay.delayTime.value = MIC_DELAY;
+    const delay = actx.createDelay(1); delay.delayTime.value = MIC_DELAY + (m.delayMs || 0) / 1000;
     micGain = actx.createGain();
     actx.createMediaStreamSource(micStream).connect(delay); delay.connect(micGain); micGain.connect(analysers[2]); analysers[2].connect(bus);
+  }
+  camVideo = null; camStream = null;
+  if (cfg.layout === 'corner' || cfg.layout === 'cam') {
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({ video: {
+        deviceId: cfg.camera.device ? { exact: cfg.camera.device } : undefined,
+        width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 },
+      } });
+      camVideo = document.createElement('video'); camVideo.muted = true; camVideo.srcObject = camStream;
+      await camVideo.play();
+    } catch (err) { throw new Error(`The webcam could not be opened (${err.name === 'NotAllowedError' ? 'macOS has not allowed it' : err.message}).`); }
   }
   if (config.audio) applyAudio(config.audio);
   const levelBuf = new Float32Array(1024);
@@ -159,6 +194,7 @@ async function start(config) {
 async function stop() {
   clearInterval(timer); clearInterval(levelTimer);
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
+  if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
   if (proc) { proc.onaudioprocess = null; proc.disconnect(); }
   await venc.flush(); await aenc.flush();
   venc.close(); aenc.close();
