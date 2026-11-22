@@ -208,7 +208,7 @@ class BuiltInRecorder extends EventEmitter {
       this.window = new BrowserWindow({ show: false, width: 320, height: 180, webPreferences: { nodeIntegration: true, contextIsolation: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' } });
       await this.window.loadFile(path.join(__dirname, 'recorder', 'index.html'));
       const started = new Promise((resolve) => ipcMain.once('recorder:started', (_e, v) => resolve(v)));
-      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format });
+      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format, encoder: settings.encoder });
       const result = await started;
       if (!result.ok) throw new Error(result.error || 'The recorder could not start.');
     } catch (err) {

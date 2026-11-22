@@ -252,6 +252,8 @@
             <select id="rec-fps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
           <label class="field field-inline" title="Both are written as they go, so both survive a crash. MKV is the more common choice for streamers; many editors need MP4."><span>File type</span>
             <select id="rec-format"><option value="mp4">MP4</option><option value="mkv">MKV</option></select></label>
+          <label class="field field-inline" title="Automatic uses the Mac's own encoder, which is light on the processor, and switches to software if it stalls. Software always works but uses more of the processor."><span>Video encoder</span>
+            <select id="rec-encoder"><option value="auto">Automatic</option><option value="hardware">Hardware</option><option value="software">Software</option></select></label>
         </div>
         <div class="row">
           <label class="field field-inline field-grow"><span>Save to</span><input id="rec-folder" type="text" placeholder="Your Movies folder"></label>

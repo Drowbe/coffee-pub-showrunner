@@ -4,6 +4,7 @@
 // outside the app keeps it clear of the graphics process, which a busy Foundry scene can starve (see plan-recording.md).
 const { ipcRenderer } = require('electron');
 const { spawn } = require('child_process');
+const fs = require('fs');
 const { buildArgs } = require('../ffmpeg.js');
 const Layout = require('./layout.js');
 
@@ -135,13 +136,35 @@ function launchEncoder(codec) {
   });
 }
 
+const frameBytes = () => cfg.width * cfg.height * 4;
+let switching = false; let healthTimer = null;
+
+// Replaces a stalled hardware encoder with x264 and starts the file again. The first few seconds are lost; the person is told.
+async function switchToSoftware() {
+  switching = true;
+  ipcRenderer.send('recorder:note', 'The hardware video encoder is not writing anything (the graphics chip is probably fully busy), so the recording restarted with the software encoder. The first few seconds are not in the file.');
+  recording = false;
+  const old = enc; old.stopping = true;
+  try { old.child.kill('SIGKILL'); } catch (err) { /* gone */ }
+  await old.closed;
+  try { fs.unlinkSync(cfg.file); } catch (err) { /* nothing written */ }
+  try {
+    enc = await launchEncoder('x264');
+    enc.closed.then(() => { if (!enc || enc.stopping || failure) return; fail(new Error(`The video encoder (ffmpeg) stopped on its own${enc.stderr.trim() ? `: ${enc.stderr.trim().split('\n').pop()}` : ''}.`)); });
+  } catch (err) { fail(new Error(`The software video encoder could not start: ${err.message}`)); switching = false; return; }
+  framesSent = 0; framesDropped = 0; audioWritten = 0; lastFrame = null; pausedTotal = 0; t0 = performance.now(); paused = false;
+  recording = true; switching = false;
+}
+
 async function start(config) {
   cfg = config;
   sources[0] = sources[1] = null; nextAt.clear(); failure = ''; ticks = 0; pausedTotal = 0; paused = false; recording = false;
   framesSent = 0; framesDropped = 0; audioWritten = 0; lastFrame = null; drawMsMax = 0; winFrames = 0; camFrames = 0;
   canvas = document.createElement('canvas'); canvas.width = cfg.width; canvas.height = cfg.height; g = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
   previewCanvas = document.createElement('canvas'); previewCanvas.width = 320; previewCanvas.height = 180; previewPen = previewCanvas.getContext('2d', { willReadFrequently: true });
-  try { enc = await launchEncoder(process.platform === 'darwin' ? 'videotoolbox' : 'x264'); } catch (first) {
+  // The Mac's own encoder is the default; 'software' always uses x264. In 'auto', a hardware encoder that stalls is replaced (below).
+  const wantHardware = process.platform === 'darwin' && cfg.encoder !== 'software';
+  try { enc = await launchEncoder(wantHardware ? 'videotoolbox' : 'x264'); } catch (first) {
     try { enc = await launchEncoder('x264'); } catch (second) { throw new Error(`The video encoder (ffmpeg) could not start: ${second.message}`); }
   }
   enc.closed.then((code) => {
@@ -204,6 +227,16 @@ async function start(config) {
   t0 = performance.now();
   recording = true;
   timer = setInterval(draw, 1000 / cfg.fps);
+  // A hardware encoder that is starved (a busy graphics chip) takes pictures in and writes nothing. In 'auto', the first seconds are
+  // watched, and if nothing is being written (or the pictures are piling up) the recording restarts with the software encoder.
+  let healthSeconds = 0;
+  healthTimer = setInterval(() => {
+    healthSeconds += 1;
+    if (healthSeconds > 10 || failure || !enc || enc.codec !== 'videotoolbox' || cfg.encoder !== 'auto' || switching || paused) return;
+    if (healthSeconds < 4) return;
+    let size = 0; try { size = fs.statSync(cfg.file).size; } catch (err) { size = 0; }
+    if (size < 4096 || enc.video.writableLength > frameBytes() * 10) switchToSoftware();
+  }, 1000);
   let statSeconds = 0;
   statsTimer = setInterval(() => {
     statSeconds += 5;
@@ -220,7 +253,7 @@ async function stop() {
     while (framesSent < due) { enc.video.write(lastFrame); framesSent += 1; }
   }
   recording = false;
-  clearInterval(timer); clearInterval(levelTimer); clearInterval(statsTimer);
+  clearInterval(timer); clearInterval(levelTimer); clearInterval(statsTimer); clearInterval(healthTimer);
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
   if (proc) { proc.onaudioprocess = null; proc.disconnect(); }

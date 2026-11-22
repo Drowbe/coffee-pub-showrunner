@@ -879,6 +879,7 @@ function defaultRecording() {
     width: 1920,
     height: 1080,
     fps: 30,
+    encoder: 'auto', // 'auto' (the Mac's own encoder, switching to software if it stalls), 'hardware' or 'software'
     format: 'mp4', // the file type: 'mp4' or 'mkv' (both are written as they go, so both survive a crash)
     audio: defaultRecordingAudio(),
     camera: { device: '', deviceLabel: '', corner: 'br', size: 'medium', flip: false }, // the webcam (flip mirrors it left to right), for the 'corner' and 'cam' layouts
@@ -928,6 +929,7 @@ function sanitizeRecording(input) {
     height: size[1],
     fps: [24, 30, 60].includes(Number(src.fps)) ? Number(src.fps) : d.fps,
     format: src.format === 'mkv' ? 'mkv' : 'mp4',
+    encoder: ['auto', 'hardware', 'software'].includes(src.encoder) ? src.encoder : 'auto',
     audio: sanitizeRecordingAudio(src.audio),
     camera: {
       device: src.camera && typeof src.camera.device === 'string' ? src.camera.device.slice(0, 300) : '',

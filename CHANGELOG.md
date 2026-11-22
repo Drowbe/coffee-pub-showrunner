@@ -35,7 +35,7 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 - **Webcam flip.** Mirror the webcam left to right, in the preview and the recording.
 - **The Showrunner Recorder now encodes through ffmpeg.** The recorder hands its pictures and sound to an ffmpeg program running on
   its own (the Mac's hardware encoder, or x264), instead of encoding inside the app, because a busy Foundry scene can starve the app's
-  graphics process and freeze the video. New **File type** choice: MP4 or MKV. Pausing cuts the paused time out of the file. ffmpeg is
+  graphics process and freeze the video. New **File type** choice: MP4 or MKV. Pausing cuts the paused time out of the file. A **Video encoder** choice (Automatic, Hardware, Software): Automatic uses the Mac's own encoder and switches to the software encoder, restarting the file, if the hardware one stalls in the first seconds. ffmpeg is
   not bundled yet (see `documentation/plans/plan-recording.md`).
 - **No OBS polling without OBS.** A profile that records with the Showrunner Recorder no longer connects to OBS or retries every ten seconds; switching back to the OBS Recorder reconnects.
 - Recording and streaming actions now go through a recording backend (`src/recording.js`); OBS is the first backend.

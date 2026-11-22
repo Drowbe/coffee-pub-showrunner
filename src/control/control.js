@@ -2196,7 +2196,7 @@ function renderPrompterScripts(open) {
 // ---- Recorder page: which backend records, and the built-in recorder's settings ----
 const recEls = {
   dot: $('recording-dot'), tag: $('rec-tag'), backend: $('rec-backend'), card: $('rec-builtin-card'),
-  s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'), format: $('rec-format'),
+  s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'), format: $('rec-format'), encoder: $('rec-encoder'),
   camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camFlip: $('rec-cam-flip'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
   camPreview: $('rec-cam-preview'), camPreviewBtn: $('rec-cam-preview-btn'), camPreviewBox: $('rec-cam-preview-box'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
   reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'), toolbarAtStart: $('rec-toolbar-atstart'),
@@ -2233,6 +2233,7 @@ function renderRecording() {
   recEls.size.value = `${r.width}x${r.height}`;
   recEls.fps.value = String(r.fps);
   recEls.format.value = r.format;
+  recEls.encoder.value = r.encoder;
   if (document.activeElement !== recEls.folder) recEls.folder.value = r.folder;
   const active = st.state === 'recording' || st.state === 'paused';
   recEls.tag.hidden = !(builtin && active);
@@ -2265,14 +2266,14 @@ function readRecording() {
     ...config.recording,
     backend: recEls.backend.value,
     sources: [recEls.layout.value === 'cam' ? '' : recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
-    layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), format: recEls.format.value, folder: recEls.folder.value,
+    layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), format: recEls.format.value, encoder: recEls.encoder.value, folder: recEls.folder.value,
     camera: { device: recEls.camDevice.value, deviceLabel: recEls.camDevice.selectedOptions[0] ? recEls.camDevice.selectedOptions[0].textContent : '', corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked },
     toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked, atStart: recEls.toolbarAtStart.checked },
   };
   scheduleSave();
   renderRecording();
 }
-for (const el of [recEls.camFlip, recEls.toolbarAtStart, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.format, recEls.folder]) { el.addEventListener('change', readRecording); }
+for (const el of [recEls.camFlip, recEls.toolbarAtStart, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.format, recEls.encoder, recEls.folder]) { el.addEventListener('change', readRecording); }
 recEls.folder.addEventListener('input', readRecording);
 recEls.reveal.addEventListener('click', () => api.recording.reveal().catch(reportError));
 recEls.toolbarShow.addEventListener('click', () => api.recording.showToolbar().catch(reportError));
