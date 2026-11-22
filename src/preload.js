@@ -63,6 +63,13 @@ contextBridge.exposeInMainWorld('coffeePub', {
     pause: () => ipcRenderer.invoke('obs:pauseRecording'),
     resume: () => ipcRenderer.invoke('obs:resumeRecording'),
     chooseFolder: () => ipcRenderer.invoke('recording:chooseFolder'),
+    setAudio: (audio) => ipcRenderer.invoke('recording:setAudio', audio),
+    askMicrophone: () => ipcRenderer.invoke('recording:askMicrophone'),
+    onLevels: (callback) => {
+      const listener = (_event, levels) => callback(levels);
+      ipcRenderer.on('recording:levels', listener);
+      return () => ipcRenderer.removeListener('recording:levels', listener);
+    },
   },
   toggleTeleprompter: () => ipcRenderer.invoke('prompter:toggle'),
   addScript: () => ipcRenderer.invoke('prompter:addScript'),

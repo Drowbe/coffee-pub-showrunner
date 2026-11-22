@@ -261,6 +261,21 @@
           <span class="hint" id="rec-status"></span>
         </div>
       </div>
+
+      <div class="card" id="rec-audio-card">
+        <h2>Audio</h2>
+        <p class="hint">Everything is mixed into one sound track. Set a level for each source (100% is as it is) and mute any of them, even while recording. The bars show what is going into the recording.</p>
+        <div class="audio-row" id="rec-aw-0"><span class="audio-name" id="rec-aw-0-name"></span><input type="range" min="0" max="150" step="1" id="rec-aw-0-level" aria-label="Window level"><span class="audio-pct" id="rec-aw-0-pct"></span><button class="btn btn-small audio-mute" id="rec-aw-0-mute" type="button">Mute</button><div class="meter"><i></i></div></div>
+        <div class="audio-row" id="rec-aw-1"><span class="audio-name" id="rec-aw-1-name"></span><input type="range" min="0" max="150" step="1" id="rec-aw-1-level" aria-label="Second window level"><span class="audio-pct" id="rec-aw-1-pct"></span><button class="btn btn-small audio-mute" id="rec-aw-1-mute" type="button">Mute</button><div class="meter"><i></i></div></div>
+        <div class="audio-row" id="rec-am"><span class="audio-name">Microphone</span><input type="range" min="0" max="150" step="1" id="rec-am-level" aria-label="Microphone level"><span class="audio-pct" id="rec-am-pct"></span><button class="btn btn-small audio-mute" id="rec-am-mute" type="button">Mute</button><div class="meter"><i></i></div></div>
+        <div class="row">
+          <label class="field field-inline"><input id="rec-mic-on" type="checkbox"><span>Record the microphone</span></label>
+          <label class="field field-inline field-grow"><span>Microphone</span><select id="rec-mic-device"></select></label>
+          <label class="field field-inline" title="Removes the sound of your speakers from the microphone. Headphones work better."><input id="rec-mic-echo" type="checkbox"><span>Echo cancel</span></label>
+        </div>
+        <p class="hint" id="rec-mic-hint">Wear headphones when you record the microphone, or your speakers will be heard on it too (an echo).</p>
+        <div class="row"><button class="btn btn-small" id="rec-mic-allow" type="button" hidden>Allow the microphone</button></div>
+      </div>
     </section>
 
     <section class="tab-panel" id="tab-obs" hidden>

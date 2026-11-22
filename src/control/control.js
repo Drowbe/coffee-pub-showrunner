@@ -2243,6 +2243,7 @@ function renderRecording() {
   recEls.status.textContent = st.error ? st.error : active ? `${mm(st.seconds)}  ${st.file.split(/[\\/]/).pop()}` : st.file ? `Last recording: ${st.file.split(/[\\/]/).pop()}` : '';
   for (const el of [recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder, recEls.browse]) el.disabled = active;
   if (!active) recEls.s2.disabled = r.layout !== 'side';
+  renderAudio();
 }
 
 function readRecording() {
@@ -2271,6 +2272,100 @@ recEls.pause.addEventListener('click', async () => {
     if (st && st.state === 'paused') await api.recording.resume(); else await api.recording.pause();
   } catch (err) { reportError(err); }
 });
+
+// ---- Showrunner Recorder audio: a level and mute for each window and the microphone, with live meters ----
+const audioRows = [
+  { name: $('rec-aw-0-name'), level: $('rec-aw-0-level'), pct: $('rec-aw-0-pct'), mute: $('rec-aw-0-mute'), row: $('rec-aw-0') },
+  { name: $('rec-aw-1-name'), level: $('rec-aw-1-level'), pct: $('rec-aw-1-pct'), mute: $('rec-aw-1-mute'), row: $('rec-aw-1') },
+  { name: null, level: $('rec-am-level'), pct: $('rec-am-pct'), mute: $('rec-am-mute'), row: $('rec-am') },
+];
+const micEls = { on: $('rec-mic-on'), device: $('rec-mic-device'), echo: $('rec-mic-echo'), hint: $('rec-mic-hint'), allow: $('rec-mic-allow') };
+
+function audioOf(r) { return r.audio || { windows: [{ level: 1, muted: false }, { level: 1, muted: false }], mic: { enabled: false, device: '', level: 1, muted: false, echoCancel: false } }; }
+
+function renderAudio() {
+  const r = config.recording;
+  const a = audioOf(r);
+  const items = [a.windows[0], a.windows[1], a.mic];
+  audioRows.forEach((row, i) => {
+    const item = items[i];
+    if (document.activeElement !== row.level) row.level.value = String(Math.round(item.level * 100));
+    row.pct.textContent = `${Math.round(item.level * 100)}%`;
+    row.mute.classList.toggle('on', item.muted);
+    row.mute.textContent = item.muted ? 'Muted' : 'Mute';
+    if (row.name) {
+      const view = config.views.find((v) => v.id === r.sources[i]);
+      const label = view ? (view.label || view.id) : '(no window)';
+      row.name.textContent = label; row.name.title = label;
+    }
+  });
+  audioRows[1].row.hidden = r.layout !== 'side';
+  audioRows[0].row.classList.toggle('off', !r.sources[0]);
+  audioRows[2].row.classList.toggle('off', !a.mic.enabled);
+  micEls.on.checked = a.mic.enabled;
+  micEls.echo.checked = a.mic.echoCancel;
+  micEls.device.disabled = !a.mic.enabled;
+  micEls.echo.disabled = !a.mic.enabled;
+  if (micEls.device.value !== a.mic.device && document.activeElement !== micEls.device) micEls.device.value = a.mic.device;
+}
+
+// The list of microphones. Names stay blank until macOS has allowed the microphone once, so a number stands in.
+async function refreshMicDevices() {
+  try {
+    const list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
+    const chosen = audioOf(config.recording).mic.device;
+    const options = [['', 'System default'], ...list.map((d, i) => [d.deviceId, d.label || `Microphone ${i + 1}`])];
+    if (chosen && !options.some(([id]) => id === chosen)) options.push([chosen, '(not connected)']);
+    micEls.device.replaceChildren(...options.map(([id, label]) => { const o = document.createElement('option'); o.value = id; o.textContent = label; o.title = label; return o; }));
+    micEls.device.value = chosen;
+    micEls.allow.hidden = list.every((d) => d.label);
+  } catch (err) { /* no list: System default stays */ }
+}
+navigator.mediaDevices.addEventListener('devicechange', refreshMicDevices);
+
+function readAudio(live) {
+  const a = audioOf(config.recording);
+  const next = {
+    windows: [0, 1].map((i) => ({ level: Number(audioRows[i].level.value) / 100, muted: a.windows[i].muted })),
+    mic: { ...a.mic, level: Number(audioRows[2].level.value) / 100, enabled: micEls.on.checked, device: micEls.device.value, echoCancel: micEls.echo.checked },
+  };
+  config.recording = { ...config.recording, audio: next };
+  api.recording.setAudio(next).catch(() => {});
+  scheduleSave();
+  renderAudio();
+}
+audioRows.forEach((row, i) => {
+  row.level.addEventListener('input', readAudio);
+  row.mute.addEventListener('click', () => {
+    const a = audioOf(config.recording);
+    const next = { windows: a.windows.map((w) => ({ ...w })), mic: { ...a.mic } };
+    if (i < 2) next.windows[i].muted = !next.windows[i].muted; else next.mic.muted = !next.mic.muted;
+    config.recording = { ...config.recording, audio: next };
+    api.recording.setAudio(next).catch(() => {});
+    scheduleSave();
+    renderAudio();
+  });
+});
+for (const el of [micEls.on, micEls.device, micEls.echo]) el.addEventListener('change', () => readAudio());
+micEls.allow.addEventListener('click', async () => {
+  try {
+    const result = await api.recording.askMicrophone();
+    micEls.hint.textContent = result === 'granted' ? 'The microphone is allowed.' : 'macOS has not allowed the microphone. Allow it in System Settings, Privacy & Security, Microphone, then try again.';
+    await refreshMicDevices();
+  } catch (err) { reportError(err); }
+});
+
+// What is going into the recording: a bar for each source. Quiet below -60 dB, amber near the top, red at the top.
+api.recording.onLevels((levels) => {
+  audioRows.forEach((row, i) => {
+    const bar = row.row.querySelector('.meter i');
+    const peak = (levels && levels[i]) || 0;
+    const db = peak > 0 ? 20 * Math.log10(peak) : -90;
+    bar.style.width = `${Math.round(Math.min(1, Math.max(0, (db + 60) / 60)) * 100)}%`;
+    bar.className = db > -1 ? 'clip' : db > -9 ? 'hot' : '';
+  });
+});
+refreshMicDevices();
 
 function renderPrompter() {
   if (!config || !config.teleprompter) return;

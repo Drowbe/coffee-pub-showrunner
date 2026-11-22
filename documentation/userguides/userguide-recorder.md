@@ -18,6 +18,12 @@ and Stop recording steps use for this profile.
 The same Start, Pause, Resume and Stop recording steps in Automations (and the cues in your teleprompter script) work with the
 built-in recorder: nothing in a rule set changes. Steps that need OBS (scenes, sources, text, volumes, Auto level) still need OBS.
 
+## Audio
+
+The **Audio** card on the Showrunner Recorder page has a row for each window and one for the microphone. Move the slider to set a level (100% is as it is) and press **Mute** to silence a source. Both work while recording, and the bars show what is going into the recording.
+
+To record your voice, tick **Record the microphone** and pick the microphone. The first time, macOS asks whether Showrunner may use it; if you said no, allow it in System Settings, Privacy & Security, Microphone. Wear headphones, or your speakers will be heard on the microphone too. **Echo cancel** helps if you cannot. Everything is mixed into one sound track.
+
 ## What it records
 
 - Each window's page as you see it, without the title bar. Windows must be open; docked windows record too.

@@ -877,6 +877,34 @@ function defaultRecording() {
     width: 1920,
     height: 1080,
     fps: 30,
+    audio: defaultRecordingAudio(),
+  };
+}
+
+// Sound for the Showrunner Recorder: a level (0 to 1.5, where 1 is as it is) and a mute for each chosen window, and the microphone.
+function defaultRecordingAudio() {
+  return {
+    windows: [{ level: 1, muted: false }, { level: 1, muted: false }],
+    mic: { enabled: false, device: '', level: 1, muted: false, echoCancel: false },
+  };
+}
+
+function sanitizeRecordingAudio(input) {
+  const d = defaultRecordingAudio();
+  const src = input && typeof input === 'object' ? input : {};
+  const level = (v, fallback) => (Number.isFinite(Number(v)) ? Math.min(1.5, Math.max(0, Number(v))) : fallback);
+  const win = (w, i) => ({ level: level(w && w.level, d.windows[i].level), muted: Boolean(w && w.muted) });
+  const m = src.mic && typeof src.mic === 'object' ? src.mic : {};
+  const list = Array.isArray(src.windows) ? src.windows : [];
+  return {
+    windows: [win(list[0], 0), win(list[1], 1)],
+    mic: {
+      enabled: Boolean(m.enabled),
+      device: typeof m.device === 'string' ? m.device.slice(0, 300) : '',
+      level: level(m.level, d.mic.level),
+      muted: Boolean(m.muted),
+      echoCancel: Boolean(m.echoCancel),
+    },
   };
 }
 
@@ -892,6 +920,7 @@ function sanitizeRecording(input) {
     width: size[0],
     height: size[1],
     fps: [24, 30, 60].includes(Number(src.fps)) ? Number(src.fps) : d.fps,
+    audio: sanitizeRecordingAudio(src.audio),
   };
 }
 

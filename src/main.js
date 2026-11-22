@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { renderScript, MAX_SCRIPT_BYTES } = require('./prompter');
-const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification, systemPreferences } = require('electron');
 const backups = require('./backup');
 const { calibrateInputs } = require('./leveling');
 const { AutoLevelService } = require('./autolevel');
@@ -834,6 +834,7 @@ const builtInRecorder = new BuiltInRecorder({
 });
 builtInRecorder.on('recording', noteRecording);
 builtInRecorder.on('status', () => broadcastStatus());
+builtInRecorder.on('levels', (levels) => { if (isAlive(controlWindow)) controlWindow.webContents.send('recording:levels', levels); });
 const recordingBackends = new RecordingBackends(
   [new ObsBackend(obs), new BuiltInBackend(builtInRecorder, () => configStore.get().recording)],
   () => configStore.get().recording.backend,
@@ -3401,6 +3402,15 @@ let calibrating = false;
 
 function registerIpc() {
   ipcMain.handle('config:get', () => configStore.get());
+  // The recorder's levels and mutes, applied at once while recording (the saved settings follow with the next save).
+  ipcMain.handle('recording:setAudio', (_event, audio) => { builtInRecorder.setAudio(audio); });
+  // Lets the person allow the microphone from the Recorder page before the first recording.
+  ipcMain.handle('recording:askMicrophone', async () => {
+    if (process.platform !== 'darwin') return 'granted';
+    const status = systemPreferences.getMediaAccessStatus('microphone');
+    if (status === 'not-determined') return (await systemPreferences.askForMediaAccess('microphone')) ? 'granted' : 'denied';
+    return status;
+  });
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also
     // renames the source in OBS; a stale copy from the panel must not undo that.

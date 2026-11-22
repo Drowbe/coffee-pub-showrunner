@@ -2,7 +2,7 @@
 // The built-in recorder: records Showrunner's own windows to an MP4, with no OBS. It reads each window's picture with capturePage(),
 // hands the frames to a hidden recorder window that lays them out and encodes (src/recorder/), and writes the chunks to disk as they
 // arrive. Audio comes from a small copy of each page's own sound (src/recorder/tap-preload.js). See documentation/plans/plan-recording.md.
-const { BrowserWindow, ipcMain } = require('electron');
+const { BrowserWindow, ipcMain, systemPreferences } = require('electron');
 const { EventEmitter } = require('events');
 const fs = require('fs');
 const path = require('path');
@@ -38,10 +38,12 @@ class BuiltInRecorder extends EventEmitter {
       this.pending += 1;
       fs.write(this.fd, buf, 0, buf.length, position, (err) => { this.pending -= 1; if (err && !this.error) this.error = `Could not write the recording: ${err.message}`; });
     });
+    ipcMain.on('recorder:levels', (_e, levels) => { this.levels = levels; this.emit('levels', levels); });
     ipcMain.on('recorder:failed', (_e, message) => { this.error = message; this.emit('status'); });
     ipcMain.on('recorder:audio', (e, msg) => {
       if (this.state !== 'recording' || !this.window || this.window.isDestroyed()) return;
-      this.window.webContents.send('audio', { key: `${e.sender.id}:${msg.id}`, l: msg.l, r: msg.r, rate: msg.rate });
+      const win = (this.sourceContents || []).findIndex((wc) => wc.id === e.sender.id); // which chosen window this sound came from
+      this.window.webContents.send('audio', { key: `${e.sender.id}:${msg.id}`, win: Math.max(0, win), l: msg.l, r: msg.r, rate: msg.rate });
     });
   }
 
@@ -61,6 +63,20 @@ class BuiltInRecorder extends EventEmitter {
     for (const wc of this.sourceContents || []) if (!wc.isDestroyed()) wc.send('recorder:tap', enabled);
   }
 
+  // macOS asks the person once, then remembers. Returns quietly when it is allowed; throws a plain message when it is not.
+  async allowMicrophone() {
+    if (process.platform !== 'darwin') return;
+    const status = systemPreferences.getMediaAccessStatus('microphone');
+    if (status === 'granted') return;
+    if (status === 'not-determined' && (await systemPreferences.askForMediaAccess('microphone'))) return;
+    throw new Error('macOS has not allowed Showrunner to use the microphone. Allow it in System Settings, Privacy & Security, Microphone.');
+  }
+
+  // Levels and mutes that change while recording.
+  setAudio(audio) {
+    if (this.window && !this.window.isDestroyed() && audio) this.window.webContents.send('audio-settings', audio);
+  }
+
   async start(settings) {
     if (this.state !== 'idle') throw new Error('The built-in recorder is already recording.');
     this.error = '';
@@ -69,6 +85,7 @@ class BuiltInRecorder extends EventEmitter {
     const folder = this.folderFor(settings.folder);
     fs.mkdirSync(folder, { recursive: true });
     this.file = uniquePath(folder, this.nameFor());
+    if (settings.audio && settings.audio.mic.enabled) await this.allowMicrophone();
     this.state = 'starting';
     this.emit('status');
     try {
@@ -76,7 +93,7 @@ class BuiltInRecorder extends EventEmitter {
       this.window = new BrowserWindow({ show: false, width: 320, height: 180, webPreferences: { nodeIntegration: true, contextIsolation: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' } });
       await this.window.loadFile(path.join(__dirname, 'recorder', 'index.html'));
       const started = new Promise((resolve) => ipcMain.once('recorder:started', (_e, v) => resolve(v)));
-      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps });
+      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio });
       const result = await started;
       if (!result.ok) throw new Error(result.error || 'The recorder could not start.');
     } catch (err) {
@@ -139,6 +156,7 @@ class BuiltInRecorder extends EventEmitter {
     } finally {
       await this.cleanup();
     }
+    this.levels = []; this.emit('levels', []);
     this.emit('recording', file); // the same event OBS raises, so "upload the recording" finds this file
     this.emit('status');
     return file;

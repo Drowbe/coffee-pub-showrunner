@@ -61,8 +61,8 @@
         }
       ],
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Coffee Pub Showrunner needs the microphone if you use FoundryVTT audio/video chat inside the Game window.",
-        "NSCameraUsageDescription": "Coffee Pub Showrunner needs the camera if you use FoundryVTT audio/video chat inside the Game window."
+        "NSMicrophoneUsageDescription": "Coffee Pub Showrunner needs the microphone if you use FoundryVTT audio/video chat inside the Game window, or record your voice or webcam with the Showrunner Recorder.",
+        "NSCameraUsageDescription": "Coffee Pub Showrunner needs the camera if you use FoundryVTT audio/video chat inside the Game window, or record your voice or webcam with the Showrunner Recorder."
       }
     },
     "dmg": {
