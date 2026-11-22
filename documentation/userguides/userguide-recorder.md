@@ -26,6 +26,8 @@ A small toolbar floats above your other windows while you record, with **Record*
 
 Choose a **Layout** with the webcam: **One window, webcam in a corner** puts the webcam over a corner of the window (pick the corner and a size), and **Webcam fills the picture** records the webcam alone, with no window. The **Webcam** card shows a live preview and lets you pick the camera. macOS asks once whether Showrunner may use the webcam.
 
+**Flip the webcam (mirror)** turns the webcam picture left to right, as a mirror would, in the preview and in the recording.
+
 Webcams show your picture a little late. If your voice seems ahead of your lips in a test recording, raise **Match voice to webcam (ms)** on the Audio card (start around 100) to delay the microphone by that much.
 
 ## Audio

@@ -21,6 +21,7 @@
     </span>
     <span class="group">
       <button type="button" data-edit="cue" title="Insert a cue above this paragraph; it fires an Automations event when the reading line reaches it">Insert cue</button>
+      <button type="button" data-edit="hold" title="Insert a hold above this paragraph: the scrolling stops there until you continue (Space), however long that takes. It also fires an Automations event.">Insert hold</button>
       <span class="divider" aria-hidden="true"></span>
       <button type="button" data-edit="events" title="List the events the headings and cues fire">Events</button>
     </span>
@@ -58,6 +59,7 @@
     <button type="button" data-do="edit" title="Edit the script (E)">Edit</button>
     <button type="button" data-do="mirror" title="Mirror for a beam-splitter prompter (M)">Mirror</button>
   </nav>
+  <div id="hold-banner" hidden><span id="hold-label"></span><button type="button" id="hold-continue">Continue</button></div>
   <script src="editor/lib-0-marked.js"></script>
   <script src="editor/lib-0-prosemirror.js"></script>
   <script src="editor/lib-a-records.js"></script>

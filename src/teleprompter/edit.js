@@ -30,8 +30,9 @@ function listEvents() {
   if (!editorView) return found;
   editorView.state.doc.descendants((node, pos) => {
     if (node.type.name === 'cue') {
-      const label = node.textContent.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Cue';
-      found.push({ kind: 'Cue', label, event: `teleprompter:${slug(label)}`, pos });
+      const hold = node.attrs.hold;
+      const label = node.textContent.replace(/\s+/g, ' ').trim().slice(0, 80) || (hold ? 'Hold' : 'Cue');
+      found.push({ kind: hold ? 'Hold' : 'Cue', label, event: hold ? `teleprompter:hold:${slug(label)}` : `teleprompter:${slug(label)}`, pos });
     } else if (node.type.name === 'heading') {
       const label = node.textContent.trim();
       found.push({ kind: 'Heading', label, event: `teleprompter:heading:${slug(label)}`, pos });
@@ -78,7 +79,7 @@ async function renderEvents() {
   const found = listEvents();
   const seen = new Map();
   for (const item of found) seen.set(item.event, (seen.get(item.event) || 0) + 1);
-  const shown = headingsBox.checked ? found : found.filter((item) => item.kind === 'Cue');
+  const shown = headingsBox.checked ? found : found.filter((item) => item.kind === 'Cue' || item.kind === 'Hold');
   if (!shown.length) {
     const none = document.createElement('li');
     none.className = 'none';
@@ -367,6 +368,7 @@ editBar.addEventListener('click', async (event) => {
   if (button.dataset.fmt) { ed.run(button.dataset.fmt); ed.focus(); paint(); return; }
   if (button.dataset.edit === 'events') { toggleEvents(); return; }
   if (button.dataset.edit === 'cue') { dlInsertCue(DlPM, editorView, 'Cue name'); paint(); return; }
+  if (button.dataset.edit === 'hold') { dlInsertCue(DlPM, editorView, 'What to do next', true); paint(); return; }
   if (button.dataset.edit === 'new') startNew();
   else if (button.dataset.edit === 'save') await save();
   else if (button.dataset.edit === 'saveas') await saveAs();

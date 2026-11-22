@@ -2197,7 +2197,7 @@ function renderPrompterScripts(open) {
 const recEls = {
   dot: $('recording-dot'), tag: $('rec-tag'), backend: $('rec-backend'), card: $('rec-builtin-card'),
   s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'),
-  camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
+  camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camFlip: $('rec-cam-flip'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
   camPreview: $('rec-cam-preview'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
   reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'),
   folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
@@ -2264,13 +2264,13 @@ function readRecording() {
     backend: recEls.backend.value,
     sources: [recEls.layout.value === 'cam' ? '' : recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
     layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), folder: recEls.folder.value,
-    camera: { device: recEls.camDevice.value, corner: recEls.camCorner.value, size: recEls.camSize.value },
+    camera: { device: recEls.camDevice.value, corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked },
     toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked },
   };
   scheduleSave();
   renderRecording();
 }
-for (const el of [recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
+for (const el of [recEls.camFlip, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder]) { el.addEventListener('change', readRecording); }
 recEls.folder.addEventListener('input', readRecording);
 recEls.reveal.addEventListener('click', () => api.recording.reveal().catch(reportError));
 recEls.toolbarShow.addEventListener('click', () => api.recording.showToolbar().catch(reportError));
@@ -2371,6 +2371,8 @@ function renderCamera() {
   if (document.activeElement !== recEls.camDevice) recEls.camDevice.value = r.camera.device;
   recEls.camCorner.value = r.camera.corner;
   recEls.camSize.value = r.camera.size;
+  recEls.camFlip.checked = r.camera.flip;
+  recEls.camPreview.classList.toggle('flip', r.camera.flip);
   const active = status && status.recording && status.recording.builtIn && ['recording', 'paused'].includes(status.recording.builtIn.state);
   for (const el of [recEls.camDevice, recEls.camCorner, recEls.camSize]) el.disabled = Boolean(active);
   setPreviewFeed(activeTab === 'builtin'); // the picture preview runs only while this page is open
@@ -4944,7 +4946,7 @@ function renderEventChoices() {
     if (label) option.label = label;
     list.appendChild(option);
   };
-  for (const cue of scriptEvents) add(cue.event, `${cue.kind === 'heading' ? 'Heading' : 'Cue'}: ${cue.label}`);
+  for (const cue of scriptEvents) add(cue.event, `${cue.kind === 'heading' ? 'Heading' : cue.kind === 'hold' ? 'Hold' : 'Cue'}: ${cue.label}`);
   for (const entry of (status && status.automations && status.automations.events) || []) add(entry.event, 'Recently received');
 }
 eventChoicesReady = true;

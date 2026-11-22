@@ -79,8 +79,8 @@
           out.push(made(N.code_block.create({ lang, info: dlCleanLine(String(b.info || ''), DL_RICH.infoMax) }, v ? [made(schema.text(v))] : [])));
         } else if (b.t === 'source') {
           // SHOWRUNNER: a comment block that is a cue line, at the top level, is a cue node
-          const cue = top ? /^\s*<!--\s*cue\s*:\s*(.+?)\s*-->\s*$/i.exec(String(b.v || '')) : null;
-          if (cue) out.push(made(N.cue.create(null, [made(schema.text(cue[1].slice(0, 80)))])));
+          const cue = top ? /^\s*<!--\s*(cue|hold)\s*:\s*(.+?)\s*-->\s*$/i.exec(String(b.v || '')) : null;
+          if (cue) out.push(made(N.cue.create({ hold: cue[1].toLowerCase() === 'hold' }, [made(schema.text(cue[2].slice(0, 80)))])));
           else if (b.v) out.push(made(N.source_block.create(null, [made(schema.text(String(b.v)))])));
         }
         else if (b.t === 'math') {

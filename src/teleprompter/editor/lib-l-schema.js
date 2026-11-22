@@ -68,7 +68,7 @@
       source_block: { group: 'block', content: 'text*', marks: '', code: true, defining: true, toDOM: () => ['pre', { class: 'dl-source' }, ['code', 0]] },
       horizontal_rule: { group: 'block', toDOM: () => ['hr'] },
       // SHOWRUNNER: a teleprompter cue, written as the line `<!-- cue: Name -->`. Its text is its name. Top level only, no group.
-      cue: { content: 'text*', marks: '', defining: true, toDOM: () => ['div', { class: 'dl-cue' }, 0] },
+      cue: { attrs: { hold: { default: false } }, content: 'text*', marks: '', defining: true, toDOM: (node) => ['div', { class: node.attrs.hold ? 'dl-cue dl-hold' : 'dl-cue' }, 0] }, // SHOWRUNNER: hold = a cue that also stops the scrolling
       // The manual page break: its own node, not the rule's (kept blocks are matched by Node.eq, so a rule typed before a kept
       // break would take the break's stored line). Top level only, as the reader makes it. Written as the line `_ _ _`.
       page_break: { toDOM: () => ['div', { class: 'dl-pagebreak', role: 'separator', 'aria-label': 'Page break' }, ['span', { class: 'dl-pagebreak-label', 'aria-hidden': 'true' }, 'Page break']] },

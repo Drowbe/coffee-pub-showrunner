@@ -293,3 +293,29 @@ body.editing #stage { transform: none; padding: 84px 0 40vh; }
 #events .copy:hover { border-color: var(--accent); }
 #events .warn { grid-column: 1 / -1; color: #e6b450; font-size: 12px; }
 body.editing.events-open #stage { margin: 0; width: calc(100% - 320px); padding-left: 4%; padding-right: 4%; }
+
+/* A hold: a cue that stops the scrolling. Filled, so it reads differently from an ordinary cue. */
+:is(#script, #editor .ProseMirror) .cue.hold span { background: var(--accent); border-color: var(--accent); color: #07202A; font-weight: 700; }
+#editor .ProseMirror .dl-hold { background: var(--accent); color: #07202A; font-weight: 700; }
+#editor .ProseMirror .dl-hold:has(> br:only-child)::before { content: "what to do next"; }
+
+/* While stopped at a hold. */
+#hold-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 18px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  background: rgba(8, 16, 28, 0.94);
+  color: #fff;
+  font-size: 16px;
+  z-index: 20;
+}
+#hold-banner[hidden] { display: none; }
+#hold-banner span::before { content: "HOLD  "; color: var(--accent); font-weight: 700; letter-spacing: 0.1em; }
+#hold-banner button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 0; background: var(--accent); color: #07202A; font-weight: 700; cursor: pointer; }

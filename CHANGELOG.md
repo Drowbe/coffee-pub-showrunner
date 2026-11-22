@@ -27,6 +27,10 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
   file, before the disk is full. Quitting during a recording finishes the file first. If the app is ever killed mid-recording, the
   file still plays and the next launch says where it is. **Show in Finder** on the recorder page and the toolbar.
   The left rail scrolls when it is long, and long names show "..." with the full name on hover.
+- **Teleprompter hold cue.** `<!-- hold: Name -->` in a script stops auto-scroll at that point until you continue (Space, the
+  Continue button or Play), for scripts that are notes about several screens. It also fires the event `teleprompter:hold:<name>`.
+  The editor has **Insert hold**.
+- **Webcam flip.** Mirror the webcam left to right, in the preview and the recording.
 - Recording and streaming actions now go through a recording backend (`src/recording.js`); OBS is the first backend.
 
 ## 0.4.9 -- 2026-11-20

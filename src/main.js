@@ -3895,7 +3895,7 @@ function registerIpc() {
   ipcMain.on('prompter:cue', (event, cue) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return;
     if (!cue || typeof cue.event !== 'string' || !cue.event.startsWith('teleprompter:')) return;
-    automations.recordEvent(cue.event.slice(0, 60), { cue: String(cue.label || '').slice(0, 80), kind: cue.kind === 'heading' ? 'heading' : 'cue' });
+    automations.recordEvent(cue.event.slice(0, 60), { cue: String(cue.label || '').slice(0, 80), kind: cue.kind === 'heading' ? 'heading' : cue.kind === 'hold' ? 'hold' : 'cue' });
   });
   // Speed, text size and mirroring changed from the page's own controls or keys.
   ipcMain.on('prompter:save', (event, patch) => {
