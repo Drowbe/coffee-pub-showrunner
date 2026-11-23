@@ -1,7 +1,7 @@
 'use strict';
 // The recording toolbar: record, pause and stop, the time, and a level and mute for each sound source, with meters.
 const $ = (id) => document.getElementById(id);
-let state = null; let shape = '';
+let state = null; let shape = ''; let peekWhileRecording = false; // brings the preview back during a recording that hides it
 const rowEls = [];
 
 const mmss = (n) => `${Math.floor(n / 3600) ? `${Math.floor(n / 3600)}:` : ''}${String(Math.floor(n / 60) % 60).padStart(Math.floor(n / 3600) ? 2 : 1, '0')}:${String(n % 60).padStart(2, '0')}`;
@@ -83,8 +83,10 @@ function render(s) {
   const key = list.map((x) => `${x.kind}${x.i}${x.label}`).join('|');
   if (key !== shape) { shape = key; build(list); }
   paintRows();
-  $('previewBox').hidden = !s.preview;
-  $('previewToggle').classList.toggle('on', Boolean(s.preview));
+  if (!live) peekWhileRecording = false;
+  const shown = Boolean(s.preview) && !(live && s.hidePreviewOnRecord && !peekWhileRecording);
+  $('previewBox').hidden = !shown;
+  $('previewToggle').classList.toggle('on', shown);
   syncCam(); syncMic();
   window.recbar.size(Math.ceil(document.body.scrollHeight));
 }
@@ -112,6 +114,16 @@ window.recbar.onComposite(({ w, h, buf }) => {
   liveAt = Date.now();
 });
 
+// The outline of the person, from the recorder (which already has the webcam open), for a blurred background in the preview.
+let maskCanvas = null; let maskAt = 0;
+window.recbar.onMask(({ w, h, buf }) => {
+  if (!maskCanvas || maskCanvas.width !== w || maskCanvas.height !== h) { maskCanvas = document.createElement('canvas'); maskCanvas.width = w; maskCanvas.height = h; }
+  const img = new ImageData(w, h);
+  for (let i = 0; i < buf.length; i += 1) img.data[i * 4 + 3] = buf[i];
+  maskCanvas.getContext('2d').putImageData(img, 0, 0);
+  maskAt = Date.now();
+});
+
 function stopCam() { if (camStream) camStream.getTracks().forEach((t) => t.stop()); camStream = null; camKey = ''; camEl.srcObject = null; }
 async function syncCam() {
   const uses = state && state.preview && !isLive() && (state.layout === 'corner' || state.layout === 'cam');
@@ -134,7 +146,7 @@ setInterval(() => {
   if (!state || !state.preview) return;
   if (isLive() && Date.now() - liveAt < 2000) { pen.drawImage(liveShot, 0, 0, canvas.width, canvas.height); return; }
   const shown = [state.layout === 'cam' ? null : winPics[0], state.layout === 'side' ? winPics[1] : null];
-  window.ShowrunnerLayout.compose(pen, canvas.width, canvas.height, { layout: state.layout, fit: state.fit, camera: state.camera, sources: shown, camVideo: camEl });
+  window.ShowrunnerLayout.compose(pen, canvas.width, canvas.height, { layout: state.layout, fit: state.fit, camera: state.camera, sources: shown, camVideo: camEl, camMask: Date.now() - maskAt < 1500 ? maskCanvas : null });
 }, 70);
 
 // ---- meters that work before recording: the windows' loudness comes from the app, the microphone is listened to here ----
@@ -182,7 +194,11 @@ async function syncMic() {
   } catch (err) { clearTimeout(giveUp); micMeter = null; }
 }
 
-$('previewToggle').addEventListener('click', () => window.recbar.setPreview(!(state && state.preview)));
+$('previewToggle').addEventListener('click', () => {
+  const live = state && (state.state === 'recording' || state.state === 'paused');
+  if (live && state.hidePreviewOnRecord) { peekWhileRecording = !peekWhileRecording; render(state); return; } // only for this recording
+  window.recbar.setPreview(!(state && state.preview));
+});
 window.recbar.onState(render);
 window.recbar.onLevels((levels) => { for (const el of rowEls) paint(el, (levels && levels[el.src.meter]) || 0); });
 $('rec').addEventListener('click', async () => {

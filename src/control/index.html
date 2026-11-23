@@ -243,13 +243,14 @@
         <div class="row">
           <button class="btn btn-primary" id="rec-start" type="button">Start recording</button>
           <button class="btn" id="rec-pause" type="button" hidden>Pause</button>
+          <button class="btn" id="rec-toolbar-show" type="button" title="The toolbar has the live picture, the meters and the Record button. You can also record from the menu bar icon.">Show the toolbar</button>
           <span class="hint rec-status" id="rec-status"></span>
           <button class="btn btn-small" id="rec-reveal" type="button" hidden>Show in Finder</button>
         </div>
         <div class="row">
-          <button class="btn btn-small" id="rec-toolbar-show" type="button" title="The toolbar has the live picture, the meters and the Record button">Show the toolbar</button>
           <label class="field field-inline"><input id="rec-toolbar-atstart" type="checkbox"><span>Open the toolbar when Showrunner starts</span></label>
           <label class="field field-inline"><input id="rec-toolbar-auto" type="checkbox"><span>Open it when recording starts</span></label>
+          <label class="field field-inline" title="The toolbar stays, but its picture is hidden while recording, to keep it small. Click Preview in the toolbar to see it again."><input id="rec-toolbar-hide" type="checkbox"><span>Hide the preview while recording</span></label>
         </div>
       </div>
 
@@ -290,8 +291,22 @@
           <label class="field field-inline field-grow"><span>Camera</span><select id="rec-cam-device"></select></label>
         </div>
         <div class="row"><label class="field field-inline" title="Mirror the webcam left to right, as a mirror shows you. Useful when you point at things, or when the picture should match what you see."><input id="rec-cam-flip" type="checkbox"><span>Flip the webcam (mirror)</span></label></div>
+        <div class="row">
+          <label class="field field-inline" title="Remove a plain coloured backdrop behind you (a green screen), so the window shows through instead. It works best with an evenly lit green or blue sheet."><span>Background</span>
+            <select id="rec-cam-bg"><option value="none">Keep as it is</option><option value="blur">Blur the background</option><option value="key">Remove a green screen</option></select></label>
+        </div>
+        <div class="row" id="rec-cam-blur-row" hidden>
+          <label class="field field-inline" title="How strongly the background behind you is blurred."><span>Blur strength</span><input id="rec-cam-blur" type="range" min="0" max="100" step="1"></label>
+          <span class="hint">Finds you in the picture and blurs the rest. It uses a little of the processor while the toolbar is open and while recording. The toolbar's picture shows the result.</span>
+        </div>
+        <div class="row" id="rec-cam-key-row" hidden>
+          <label class="field field-inline" title="The colour of the backdrop. Or click the webcam preview below, on the backdrop, to pick it."><span>Backdrop colour</span><input id="rec-cam-key-color" type="color"></label>
+          <label class="field field-inline" title="How far a colour can be from the backdrop and still be removed. Raise it if parts of the backdrop are left; lower it if you start to disappear."><span>Strength</span><input id="rec-cam-key-tol" type="range" min="0" max="100" step="1"></label>
+          <label class="field field-inline" title="How soft the edge is where you meet the backdrop."><span>Soft edge</span><input id="rec-cam-key-soft" type="range" min="0" max="100" step="1"></label>
+          <span class="hint">The toolbar's picture shows the result. To pick the colour, show the preview and click the backdrop.</span>
+        </div>
         <div class="row"><button class="btn btn-small" id="rec-cam-preview-btn" type="button">Show webcam preview</button><span class="hint">The toolbar shows the live picture; this is only for choosing and framing the camera.</span></div>
-        <div class="cam-preview" id="rec-cam-preview-box" hidden><video id="rec-cam-preview" autoplay muted playsinline></video><span class="hint" id="rec-cam-hint"></span></div>
+        <div class="cam-preview" id="rec-cam-preview-box" hidden><video id="rec-cam-preview" autoplay muted playsinline></video><canvas id="rec-cam-preview-canvas" width="480" height="270" title="Click the backdrop to pick the colour to remove"></canvas><span class="hint" id="rec-cam-hint"></span></div>
         <div class="row"><button class="btn btn-small" id="rec-cam-allow" type="button" hidden>Allow the webcam</button></div>
       </div>
 
@@ -1208,6 +1223,7 @@
     </div>
   </div>
 
+  <script src="../recorder/layout.js"></script>
   <script src="control.js"></script>
 </body>
 </html>

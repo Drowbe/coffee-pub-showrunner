@@ -75,6 +75,8 @@ contextBridge.exposeInMainWorld('coffeePub', {
       return () => ipcRenderer.removeListener('recording:idleLevels', listener);
     },
     previewFeed: (on) => ipcRenderer.send('recording:previewFeed', Boolean(on)),
+    camPreview: (on) => ipcRenderer.send('recording:camPreview', Boolean(on)),
+    onMask: (callback) => { const listener = (_event, mask) => callback(mask); ipcRenderer.on('recording:mask', listener); return () => ipcRenderer.removeListener('recording:mask', listener); },
     onPreviewFrame: (callback) => {
       const listener = (_event, frame) => callback(frame);
       ipcRenderer.on('recording:previewFrame', listener);

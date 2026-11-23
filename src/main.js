@@ -873,6 +873,10 @@ builtInRecorder.on('idle', (peaks) => {
   if (isAlive(controlWindow)) controlWindow.webContents.send('recording:idleLevels', peaks);
   if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:idle', peaks);
 });
+builtInRecorder.on('mask', (mask) => {
+  if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:mask', mask);
+  if (isAlive(controlWindow) && camPreviewOn) controlWindow.webContents.send('recording:mask', mask);
+});
 builtInRecorder.on('levels', (levels) => {
   if (isAlive(controlWindow)) controlWindow.webContents.send('recording:levels', levels);
   if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:levels', levels);
@@ -2009,7 +2013,7 @@ function fullStatus() {
     displays: screen.getAllDisplays().map(displaySummary),
     config: configStore.get(),
     obs: { ...obs.status(), hasPassword: readObsPassword() !== '' },
-    recording: { active: recordingBackends.active.id, backends: recordingBackends.list(), builtIn: builtInRecorder.status() },
+    recording: { active: recordingBackends.active.id, backends: recordingBackends.list(), builtIn: { ...builtInRecorder.status(), toolbarOpen: isAlive(toolbarWindow) } },
     tavern: { ...tavern.status(), hasPassword: readSecret(TAVERN_SECRET_PATH) !== '', sync: tavernSync },
     automations: {
       ...automations.status(),
@@ -3377,6 +3381,7 @@ function trayMenuTemplate() {
     { type: 'separator' },
     { label: 'Show Control Panel', click: () => createControlWindow() },
     { type: 'separator' },
+    ...recordingMenuItems(),
     ...views.map((view) => {
       const open = isAlive(viewWindows.get(view.id));
       return {
@@ -3415,7 +3420,45 @@ function trayMenuTemplate() {
   ];
 }
 
+// Recording from the menu bar: start or stop, pause or resume, and show or hide the toolbar (the Showrunner Recorder only).
+function recordingMenuItems() {
+  if (configStore.get().recording.backend !== 'builtin') return [];
+  const st = builtInRecorder.status();
+  const live = st.state === 'recording' || st.state === 'paused';
+  const busy = st.state === 'starting' || st.state === 'stopping';
+  const time = `${Math.floor(st.seconds / 60)}:${String(st.seconds % 60).padStart(2, '0')}`;
+  const run = (action) => () => { recordingBackends.run(action).catch((err) => logActivity('Recorder', err.message, 'error')); };
+  return [
+    { label: live ? `Stop Recording (${time})` : busy ? 'Recording...' : 'Start Recording', enabled: !busy, click: run(live ? 'stopRecording' : 'startRecording') },
+    ...(live ? [{ label: st.state === 'paused' ? 'Resume Recording' : 'Pause Recording', click: run(st.state === 'paused' ? 'resumeRecording' : 'pauseRecording') }] : []),
+    { label: isAlive(toolbarWindow) ? 'Hide Recording Toolbar' : 'Show Recording Toolbar', click: () => toggleToolbar() },
+    { type: 'separator' },
+  ];
+}
+
+// While recording, the menu bar icon is a red disc with the time (orange when paused); otherwise it is the usual icon.
+let trayIcons = { normal: null };
+function recordingDot(color) {
+  const size = 44; const buf = Buffer.alloc(size * size * 4);
+  const [r, g, b] = color; const c = (size - 1) / 2; const rad = size * 0.36;
+  for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
+    const d = Math.hypot(x - c, y - c); const a = Math.max(0, Math.min(1, rad + 0.5 - d));
+    const i = (y * size + x) * 4; buf[i] = b; buf[i + 1] = g; buf[i + 2] = r; buf[i + 3] = Math.round(a * 255); // BGRA
+  }
+  return nativeImage.createFromBitmap(buf, { width: size, height: size, scaleFactor: 2 });
+}
+function updateTrayRecording() {
+  if (!tray || tray.isDestroyed()) return;
+  const st = builtInRecorder.status();
+  const live = configStore.get().recording.backend === 'builtin' && (st.state === 'recording' || st.state === 'paused');
+  if (!trayIcons.rec) { trayIcons.rec = recordingDot([229, 72, 77]); trayIcons.paused = recordingDot([230, 162, 60]); }
+  tray.setImage(live ? (st.state === 'paused' ? trayIcons.paused : trayIcons.rec) : trayIcons.normal);
+  if (process.platform === 'darwin') tray.setTitle(live ? ` ${Math.floor(st.seconds / 60)}:${String(st.seconds % 60).padStart(2, '0')}${st.state === 'paused' ? ' paused' : ''}` : '');
+  tray.setToolTip(live ? `${APP_NAME} - ${st.state === 'paused' ? 'paused' : 'recording'}` : APP_NAME);
+}
+
 function refreshTrayMenu() {
+  updateTrayRecording();
   if (tray && !tray.isDestroyed()) tray.setContextMenu(Menu.buildFromTemplate(trayMenuTemplate()));
 }
 
@@ -3437,6 +3480,7 @@ function setupTray() {
       : nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayWin.png'));
     if (process.platform === 'darwin') icon.setTemplateImage(true);
     tray = new Tray(icon);
+    trayIcons = { normal: icon };
     tray.setToolTip(APP_NAME);
     tray.on('double-click', () => createControlWindow());
     refreshTrayMenu();
@@ -3463,6 +3507,7 @@ let previewTimer = null;
 let previewBusy = false;
 let previewLast = [0, 0];
 let feedControl = false; // the recorder page is open
+let camPreviewOn = false; // its webcam preview is showing
 
 function sendPreviewFrame(index, image) {
   if (!isAlive(toolbarWindow)) return;
@@ -3491,6 +3536,7 @@ function updateFeed() {
   }, 250);
 }
 ipcMain.on('recording:previewFeed', (_event, on) => { feedControl = Boolean(on); updateFeed(); });
+ipcMain.on('recording:camPreview', (_event, on) => { camPreviewOn = Boolean(on); scheduleWarm(); });
 builtInRecorder.on('composite', (picture) => { if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:composite', picture); });
 
 // ---------------------------------------------------------------------------
@@ -3504,7 +3550,7 @@ function toolbarState() {
   const cfg = configStore.get();
   const r = cfg.recording;
   const label = (id) => { const v = cfg.views.find((x) => x.id === id); return v ? (v.label || v.id) : ''; };
-  return { ...builtInRecorder.status(), layout: r.layout, fit: r.fit, camera: r.camera, preview: r.toolbar.preview, names: [label(r.sources[0]), label(r.sources[1])], audio: r.audio };
+  return { ...builtInRecorder.status(), layout: r.layout, fit: r.fit, camera: r.camera, preview: r.toolbar.preview, hidePreviewOnRecord: r.toolbar.hidePreviewOnRecord, names: [label(r.sources[0]), label(r.sources[1])], audio: r.audio };
 }
 
 // While the toolbar is open the recorder is kept ready (its window, microphone and webcam), so Record starts at once. It is made ready
@@ -3514,7 +3560,7 @@ function scheduleWarm() {
   clearTimeout(warmTimer);
   warmTimer = setTimeout(() => {
     const r = configStore.get().recording;
-    if (isAlive(toolbarWindow) && r.backend === 'builtin') builtInRecorder.warm({ layout: r.layout, camera: r.camera, audio: r.audio });
+    if ((isAlive(toolbarWindow) || camPreviewOn) && r.backend === 'builtin') builtInRecorder.warm({ layout: r.layout, camera: r.camera, audio: r.audio });
     else builtInRecorder.unwarm();
   }, 700);
 }
@@ -3555,9 +3601,15 @@ function openToolbar({ focus = true } = {}) {
     const [x, y] = win.getPosition();
     saveRecordingPatch({ toolbar: { ...configStore.get().recording.toolbar, x, y } });
   });
-  win.on('closed', () => { if (toolbarWindow === win) toolbarWindow = null; updateFeed(); scheduleWarm(); });
+  win.on('closed', () => { if (toolbarWindow === win) toolbarWindow = null; updateFeed(); scheduleWarm(); broadcastStatus(); });
   updateFeed();
   scheduleWarm();
+  broadcastStatus();
+}
+
+// One button to show or hide the toolbar (the control panel and the menu bar icon both use it).
+function toggleToolbar() {
+  if (isAlive(toolbarWindow)) toolbarWindow.close(); else openToolbar();
 }
 
 function registerToolbarIpc() {
@@ -3578,7 +3630,7 @@ function registerToolbarIpc() {
   });
   ipcMain.handle('toolbar:reveal', () => { const f = builtInRecorder.file; if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
   ipcMain.on('toolbar:close', () => { if (isAlive(toolbarWindow)) toolbarWindow.close(); });
-  ipcMain.handle('toolbar:show', () => { openToolbar(); });
+  ipcMain.handle('toolbar:show', () => { toggleToolbar(); });
   ipcMain.on('toolbar:setPreview', (_event, on) => { saveRecordingPatch({ toolbar: { ...configStore.get().recording.toolbar, preview: Boolean(on) } }); updateFeed(); sendToolbarState(); });
 }
 

@@ -2200,8 +2200,9 @@ const recEls = {
   dot: $('recording-dot'), tag: $('rec-tag'), backend: $('rec-backend'), card: $('rec-builtin-card'),
   s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'), format: $('rec-format'), encoder: $('rec-encoder'), capture: $('rec-capture'), fit: $('rec-fit'),
   camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camFlip: $('rec-cam-flip'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
+  camBg: $('rec-cam-bg'), camKeyRow: $('rec-cam-key-row'), camBlurRow: $('rec-cam-blur-row'), camBlur: $('rec-cam-blur'), camKeyColor: $('rec-cam-key-color'), camKeyTol: $('rec-cam-key-tol'), camKeySoft: $('rec-cam-key-soft'),
   camPreview: $('rec-cam-preview'), camPreviewBtn: $('rec-cam-preview-btn'), camPreviewBox: $('rec-cam-preview-box'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
-  reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'), toolbarAtStart: $('rec-toolbar-atstart'),
+  reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'), toolbarAtStart: $('rec-toolbar-atstart'), toolbarHide: $('rec-toolbar-hide'),
   folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
 };
 
@@ -2248,6 +2249,7 @@ function renderRecording() {
   recEls.start.classList.toggle('btn-danger', active);
   recEls.start.disabled = st.state === 'starting' || st.state === 'stopping';
   recEls.pause.hidden = !active;
+  recEls.toolbarShow.textContent = st.toolbarOpen ? 'Hide the toolbar' : 'Show the toolbar';
   recEls.pause.textContent = st.state === 'paused' ? 'Resume' : 'Pause';
   const mm = (n) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
   const note = st.warning ? `${st.warning}  ` : '';
@@ -2268,6 +2270,7 @@ function renderRecording() {
   $('rec-capture-field').hidden = r.layout === 'cam';
   if (document.activeElement !== recEls.toolbarAuto) recEls.toolbarAuto.checked = r.toolbar.auto;
   if (document.activeElement !== recEls.toolbarAtStart) recEls.toolbarAtStart.checked = r.toolbar.atStart;
+  recEls.toolbarHide.checked = r.toolbar.hidePreviewOnRecord;
   renderCamera();
   renderAudio();
 }
@@ -2279,13 +2282,13 @@ function readRecording() {
     backend: recEls.backend.value,
     sources: [recEls.layout.value === 'cam' ? '' : recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
     layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), format: recEls.format.value, encoder: recEls.encoder.value, capture: recEls.capture.value, fit: recEls.fit.value, folder: recEls.folder.value,
-    camera: { device: recEls.camDevice.value, deviceLabel: recEls.camDevice.selectedOptions[0] ? recEls.camDevice.selectedOptions[0].textContent : '', corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked },
-    toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked, atStart: recEls.toolbarAtStart.checked },
+    camera: { device: recEls.camDevice.value, deviceLabel: recEls.camDevice.selectedOptions[0] ? recEls.camDevice.selectedOptions[0].textContent : '', corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked, background: recEls.camBg.value, keyColor: recEls.camKeyColor.value, keyTolerance: Number(recEls.camKeyTol.value), keySoftness: Number(recEls.camKeySoft.value), blur: Number(recEls.camBlur.value) },
+    toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked, atStart: recEls.toolbarAtStart.checked, hidePreviewOnRecord: recEls.toolbarHide.checked },
   };
   scheduleSave();
   renderRecording();
 }
-for (const el of [recEls.camFlip, recEls.toolbarAtStart, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.format, recEls.encoder, recEls.capture, recEls.fit, recEls.folder]) { el.addEventListener('change', readRecording); }
+for (const el of [recEls.toolbarHide, recEls.camBlur, recEls.camBg, recEls.camKeyColor, recEls.camKeyTol, recEls.camKeySoft, recEls.camFlip, recEls.toolbarAtStart, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.format, recEls.encoder, recEls.capture, recEls.fit, recEls.folder]) { el.addEventListener('change', readRecording); }
 recEls.folder.addEventListener('input', readRecording);
 // Clicking a corner of the picture moves the webcam there (when the layout has it in a corner).
 $('rec-stage').addEventListener('click', (e) => {
@@ -2324,6 +2327,21 @@ function setPreviewFeed(on) {
 
 // ---- Showrunner Recorder webcam: the picker and a live preview, shown only for the layouts that use it ----
 let camPreviewWanted = false; // the webcam preview here runs only when asked for
+let camPreviewReported = false;
+let camMaskCanvas = null; let camMaskAt = 0;
+api.recording.onMask(({ w, h, buf }) => {
+  if (!camMaskCanvas || camMaskCanvas.width !== w || camMaskCanvas.height !== h) { camMaskCanvas = document.createElement('canvas'); camMaskCanvas.width = w; camMaskCanvas.height = h; }
+  const img = new ImageData(w, h);
+  for (let i = 0; i < buf.length; i += 1) img.data[i * 4 + 3] = buf[i];
+  camMaskCanvas.getContext('2d').putImageData(img, 0, 0);
+  camMaskAt = Date.now();
+});
+// The preview is drawn by the same code as the recording, so it shows the green screen and the blur as they will be recorded.
+const camCanvas = $('rec-cam-preview-canvas'); const camPen = camCanvas.getContext('2d');
+setInterval(() => {
+  if (recEls.camPreviewBox.hidden || !recEls.camPreview.videoWidth || !window.ShowrunnerLayout) return;
+  window.ShowrunnerLayout.compose(camPen, camCanvas.width, camCanvas.height, { layout: 'cam', camera: config.recording.camera, sources: [], camVideo: recEls.camPreview, fit: 'fit', camMask: Date.now() - camMaskAt < 1500 ? camMaskCanvas : null });
+}, 70);
 let camPreviewStream = null; let camPreviewDevice = null; let camPreviewFailed = null; // the device that failed, so a status update does not retry it every second
 
 function stopCamPreview() {
@@ -2380,6 +2398,13 @@ function renderCamera() {
   recEls.camCorner.value = r.camera.corner;
   recEls.camSize.value = r.camera.size;
   recEls.camFlip.checked = r.camera.flip;
+  recEls.camBg.value = r.camera.background;
+  recEls.camKeyRow.hidden = r.camera.background !== 'key';
+  recEls.camBlurRow.hidden = r.camera.background !== 'blur';
+  if (document.activeElement !== recEls.camBlur) recEls.camBlur.value = String(r.camera.blur);
+  if (document.activeElement !== recEls.camKeyColor) recEls.camKeyColor.value = r.camera.keyColor;
+  if (document.activeElement !== recEls.camKeyTol) recEls.camKeyTol.value = String(r.camera.keyTolerance);
+  if (document.activeElement !== recEls.camKeySoft) recEls.camKeySoft.value = String(r.camera.keySoftness);
   recEls.camPreview.classList.toggle('flip', r.camera.flip);
   const active = status && status.recording && status.recording.builtIn && ['recording', 'paused'].includes(status.recording.builtIn.state);
   for (const el of [recEls.camDevice, recEls.camCorner, recEls.camSize]) el.disabled = Boolean(active);
@@ -2387,10 +2412,27 @@ function renderCamera() {
   // The webcam preview runs only while the Showrunner Recorder page is open and the layout needs a webcam.
   if (camPreviewFailed !== null && camPreviewFailed !== r.camera.device) camPreviewFailed = null;
   const showing = uses && activeTab === 'builtin' && camPreviewWanted && !recordingNow();
+  if (showing !== camPreviewReported) { camPreviewReported = showing; api.recording.camPreview(showing); } // lets the app get the person finder ready for the blur preview
   recEls.camPreviewBox.hidden = !showing;
   recEls.camPreviewBtn.textContent = camPreviewWanted ? 'Hide webcam preview' : 'Show webcam preview';
   if (showing) startCamPreview(r.camera.device); else stopCamPreview();
 }
+// Click the webcam preview, on the backdrop, to pick the colour to remove.
+camCanvas.addEventListener('click', (e) => {
+  const v = recEls.camPreview;
+  if (!v.videoWidth) return;
+  const box = camCanvas.getBoundingClientRect();
+  let fx = (e.clientX - box.left) / box.width; const fy = (e.clientY - box.top) / box.height;
+  if (config.recording.camera.flip) fx = 1 - fx;
+  const c = document.createElement('canvas'); c.width = 9; c.height = 9;
+  const pen = c.getContext('2d', { willReadFrequently: true });
+  pen.drawImage(v, Math.max(0, fx * v.videoWidth - 4), Math.max(0, fy * v.videoHeight - 4), 9, 9, 0, 0, 9, 9);
+  const d = pen.getImageData(0, 0, 9, 9).data; let r = 0; let g = 0; let b = 0;
+  for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+  const n = d.length / 4; const hex = (x) => Math.round(x / n).toString(16).padStart(2, '0');
+  recEls.camKeyColor.value = `#${hex(r)}${hex(g)}${hex(b)}`; recEls.camBg.value = 'key';
+  readRecording();
+});
 recEls.camPreviewBtn.addEventListener('click', () => { camPreviewWanted = !camPreviewWanted; renderCamera(); });
 recEls.camAllow.addEventListener('click', async () => {
   try {

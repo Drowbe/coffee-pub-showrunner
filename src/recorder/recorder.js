@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const { buildArgs } = require('../ffmpeg.js');
 const Layout = require('./layout.js');
+const Segment = require('./segment.js'); // finds the person in the webcam picture, for the background blur
 
 const RATE = 48000;
 const AUDIO_CUSHION = 0.12; // seconds of cushion so unevenly arriving audio chunks still play evenly (less than this left audible gaps)
@@ -20,7 +21,7 @@ const MIC_DELAY = AUDIO_CUSHION; // the microphone is played as it arrives, so i
 let camVideo = null; let camStream = null;
 let winGain = []; let micGain = null; let micStream = null; let levelTimer = null; let audioCfg = null;
 const analysers = []; // [window 1, window 2, microphone, everything]
-let micPeakSeen = 0; let drawMsMax = 0; let winFrames = 0; let camFrames = 0; let statsTimer = null;
+let maskCanvas = null; let segTimer = null; let segMsTotal = 0; let segCount = 0; let micPeakSeen = 0; let drawMsMax = 0; let winFrames = 0; let camFrames = 0; let statsTimer = null;
 let previewCanvas = null; let previewPen = null;
 let cfg = null; let canvas; let g; let actx; let bus; let proc; let timer;
 let enc = null; // { child, video, audio, stderr, codec, stopping }
@@ -82,7 +83,7 @@ function draw() {
   if (failure || paused || !recording || !enc) return;
   const drawStart = performance.now();
   const { width: W, height: H } = canvas;
-  Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo, fit: cfg.fit });
+  Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo, fit: cfg.fit, camMask: maskCanvas });
   const px = g.getImageData(0, 0, W, H);
   lastFrame = Buffer.from(px.data.buffer, px.data.byteOffset, px.data.byteLength);
   const due = Math.floor((clockMs() / 1000) * cfg.fps) + 1;
@@ -137,13 +138,49 @@ function dropWarm(which) {
   const w = warmDev[which]; warmDev[which] = null;
   if (w) w.promise.then((r) => (which === 'mic' ? r : r.stream).getTracks().forEach((t) => t.stop())).catch(() => {});
 }
+// The person in a webcam picture, found in a small copy of it (so it stays cheap): { data, width, height } or null.
+const segWork = { small: null, pen: null };
+function maskFrom(video) {
+  if (!segWork.small) { segWork.small = document.createElement('canvas'); segWork.pen = segWork.small.getContext('2d', { willReadFrequently: true }); }
+  const { small, pen } = segWork;
+  small.width = 384; small.height = Math.max(2, Math.round(384 * video.videoHeight / video.videoWidth));
+  pen.drawImage(video, 0, 0, small.width, small.height);
+  return Segment.segment(small, Math.round(performance.now()));
+}
+
+// While the toolbar is open and no recording is running, the person is still found ten times a second and the outline sent to the
+// toolbar, so its preview shows the blur before recording starts.
+let idleSegTimer = null; let idleVideo = null;
+function stopIdleBlur() { clearInterval(idleSegTimer); idleSegTimer = null; idleVideo = null; }
+function idleBlur(c, wantCam) {
+  const want = wantCam && c.camera && c.camera.background === 'blur' && warmDev.cam;
+  if (!want) { stopIdleBlur(); return; }
+  warmDev.cam.promise.then((r) => { idleVideo = r.video; }).catch(() => {});
+  if (idleSegTimer) return;
+  Segment.load().then(() => {
+    if (idleSegTimer || recording || enc) return;
+    idleSegTimer = setInterval(() => {
+      if (recording || enc || !idleVideo || !idleVideo.videoWidth) return;
+      try {
+        const m = maskFrom(idleVideo);
+        if (!m) return;
+        const alpha = new Uint8Array(m.data.length);
+        for (let i = 0; i < alpha.length; i += 1) alpha[i] = Math.round(m.data[i] * 255);
+        ipcRenderer.send('recorder:mask', { w: m.width, h: m.height, buf: alpha });
+      } catch (err) { /* one picture missed */ }
+    }, 100);
+  }).catch(() => {});
+}
+
 ipcRenderer.on('warm', (_e, c) => {
   if (recording || enc) return;
   const wantMic = c.audio && c.audio.mic.enabled; const wantCam = c.layout === 'corner' || c.layout === 'cam';
   if (!wantMic || (warmDev.mic && warmDev.mic.key !== micKey(c.audio.mic))) dropWarm('mic');
   if (!wantCam || (warmDev.cam && warmDev.cam.key !== camKey(c.camera))) dropWarm('cam');
+  if (c.camera && c.camera.background === 'blur' && wantCam) Segment.load().catch(() => {}); // the person finder is made ready too
   if (wantMic && !warmDev.mic) { const p = openMic(c.audio.mic); p.catch(() => { warmDev.mic = null; }); warmDev.mic = { key: micKey(c.audio.mic), promise: p }; }
   if (wantCam && !warmDev.cam) { const p = openCam(c.camera); p.catch(() => { warmDev.cam = null; }); warmDev.cam = { key: camKey(c.camera), promise: p }; }
+  idleBlur(c, wantCam);
 });
 async function takeDevice(which, key, open) {
   const w = warmDev[which];
@@ -233,6 +270,7 @@ async function start(config) {
   const wantCam = cfg.layout === 'corner' || cfg.layout === 'cam';
   const micP = wantMic ? timed('microphone', takeDevice('mic', micKey(config.audio.mic), () => openMic(config.audio.mic))) : Promise.resolve(null);
   const camP = wantCam ? timed('webcam', takeDevice('cam', camKey(cfg.camera), () => openCam(cfg.camera))) : Promise.resolve(null);
+  stopIdleBlur(); // recording finds the person itself from here
   screenSources = [];
   const screenP = cfg.capture === 'screen' ? timed('screen capture', Promise.all((cfg.screens || []).map((info) => openScreen(info, cfg.fps)))) : Promise.resolve([]);
   const [encR, micR, camR, screenR] = await Promise.allSettled([encP, micP, camP, screenP]);
@@ -279,6 +317,28 @@ async function start(config) {
   if (camR.value) {
     camStream = camR.value.stream; camVideo = camR.value.video;
     if (camVideo.requestVideoFrameCallback) { const tick = () => { camFrames += 1; camVideo.requestVideoFrameCallback(tick); }; camVideo.requestVideoFrameCallback(tick); }
+  }
+  // Background blur: the person is found in a small copy of the webcam picture about fifteen times a second, on the processor.
+  maskCanvas = null; clearInterval(segTimer); segMsTotal = 0; segCount = 0;
+  if (cfg.camera && cfg.camera.background === 'blur' && camVideo) {
+    try {
+      await Segment.load();
+      let mask = null; let image = null;
+      segTimer = setInterval(() => {
+        if (!recording || paused || !camVideo.videoWidth) return;
+        try {
+          const t = performance.now();
+          const m = maskFrom(camVideo);
+          if (!m) return;
+          if (!mask) { mask = document.createElement('canvas'); }
+          if (mask.width !== m.width || mask.height !== m.height) { mask.width = m.width; mask.height = m.height; image = new ImageData(m.width, m.height); }
+          for (let i = 0; i < m.data.length; i += 1) image.data[i * 4 + 3] = Math.round(m.data[i] * 255);
+          mask.getContext('2d').putImageData(image, 0, 0);
+          maskCanvas = mask;
+          segMsTotal += performance.now() - t; segCount += 1;
+        } catch (err) { /* one picture missed; the next will do */ }
+      }, 66);
+    } catch (err) { ipcRenderer.send('recorder:note', `background blur is not available (${err.message}); recording without it`); }
   }
   if (config.audio) applyAudio(config.audio);
   const levelBuf = new Float32Array(1024);
@@ -336,7 +396,8 @@ async function start(config) {
   statsTimer = setInterval(() => {
     statSeconds += 5;
     if (statSeconds > 60 || failure) return;
-    ipcRenderer.send('recorder:note', `t=${statSeconds}s pictures sent ${framesSent} (dropped ${framesDropped}), slowest picture ${Math.round(drawMsMax)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}, encoder ${enc ? enc.codec : '-'}${micGain ? `, microphone loudest ${micPeakSeen.toFixed(3)}` : ''}`);
+    ipcRenderer.send('recorder:note', `t=${statSeconds}s pictures sent ${framesSent} (dropped ${framesDropped}), slowest picture ${Math.round(drawMsMax)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}, encoder ${enc ? enc.codec : '-'}${micGain ? `, microphone loudest ${micPeakSeen.toFixed(3)}` : ''}${segCount ? `, blur ${(segMsTotal / segCount).toFixed(1)} ms each (${segCount})` : ''}`);
+    segMsTotal = 0; segCount = 0;
     drawMsMax = 0; micPeakSeen = 0;
   }, 5000);
 }
@@ -348,7 +409,7 @@ async function stop() {
     while (framesSent < due) { enc.video.write(lastFrame); framesSent += 1; }
   }
   recording = false;
-  clearInterval(timer); clearInterval(levelTimer); clearInterval(statsTimer); clearInterval(healthTimer);
+  clearInterval(timer); clearInterval(levelTimer); clearInterval(statsTimer); clearInterval(healthTimer); clearInterval(segTimer);
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
   screenSources.forEach((src) => { try { src.stream.getTracks().forEach((t) => t.stop()); } catch (err) { /* gone */ } }); screenSources = [];

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('recbar', {
   onLevels: (callback) => ipcRenderer.on('toolbar:levels', (_event, levels) => callback(levels)),
   onFrame: (callback) => ipcRenderer.on('toolbar:frame', (_event, frame) => callback(frame)),
   onComposite: (callback) => ipcRenderer.on('toolbar:composite', (_event, picture) => callback(picture)),
+  onMask: (callback) => ipcRenderer.on('toolbar:mask', (_event, mask) => callback(mask)),
   onIdle: (callback) => ipcRenderer.on('toolbar:idle', (_event, peaks) => callback(peaks)),
   setPreview: (on) => ipcRenderer.send('toolbar:setPreview', Boolean(on)),
   action: (name) => ipcRenderer.invoke('toolbar:action', name),

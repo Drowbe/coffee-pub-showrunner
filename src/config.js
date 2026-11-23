@@ -884,8 +884,8 @@ function defaultRecording() {
     encoder: 'auto', // 'auto' (the Mac's own encoder, switching to software if it stalls), 'hardware' or 'software'
     format: 'mp4', // the file type: 'mp4' or 'mkv' (both are written as they go, so both survive a crash)
     audio: defaultRecordingAudio(),
-    camera: { device: '', deviceLabel: '', corner: 'br', size: 'medium', flip: false }, // the webcam (flip mirrors it left to right), for the 'corner' and 'cam' layouts
-    toolbar: { auto: true, atStart: false, preview: true, x: null, y: null }, // the recording toolbar: opens when recording starts (auto) or when Showrunner starts (atStart), shows the live picture (preview), and where it was left
+    camera: { device: '', deviceLabel: '', corner: 'br', size: 'medium', flip: false, background: 'none', keyColor: '#00b140', keyTolerance: 35, keySoftness: 25, blur: 50 }, // the webcam (flip mirrors it left to right), for the 'corner' and 'cam' layouts; background 'key' removes a backdrop of keyColor, 'blur' blurs everything but the person
+    toolbar: { auto: true, atStart: false, preview: true, hidePreviewOnRecord: true, x: null, y: null }, // the recording toolbar: opens when recording starts (auto) or when Showrunner starts (atStart), shows the live picture (preview), and where it was left
   };
 }
 
@@ -941,11 +941,17 @@ function sanitizeRecording(input) {
       size: src.camera && CAMERA_SIZES.includes(src.camera.size) ? src.camera.size : 'medium',
       deviceLabel: src.camera && typeof src.camera.deviceLabel === 'string' ? src.camera.deviceLabel.slice(0, 200) : '',
       flip: Boolean(src.camera && src.camera.flip),
+      background: src.camera && ['key', 'blur'].includes(src.camera.background) ? src.camera.background : 'none',
+      blur: src.camera && Number.isFinite(Number(src.camera.blur)) ? Math.min(100, Math.max(0, Math.round(Number(src.camera.blur)))) : 50,
+      keyColor: src.camera && typeof src.camera.keyColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.camera.keyColor) ? src.camera.keyColor.toLowerCase() : '#00b140',
+      keyTolerance: src.camera && Number.isFinite(Number(src.camera.keyTolerance)) ? Math.min(100, Math.max(0, Math.round(Number(src.camera.keyTolerance)))) : 35,
+      keySoftness: src.camera && Number.isFinite(Number(src.camera.keySoftness)) ? Math.min(100, Math.max(0, Math.round(Number(src.camera.keySoftness)))) : 25,
     },
     toolbar: {
       auto: !src.toolbar || src.toolbar.auto !== false,
       atStart: Boolean(src.toolbar && src.toolbar.atStart),
       preview: !src.toolbar || src.toolbar.preview !== false,
+      hidePreviewOnRecord: !src.toolbar || src.toolbar.hidePreviewOnRecord !== false,
       x: src.toolbar && Number.isInteger(src.toolbar.x) ? src.toolbar.x : null,
       y: src.toolbar && Number.isInteger(src.toolbar.y) ? src.toolbar.y : null,
     },

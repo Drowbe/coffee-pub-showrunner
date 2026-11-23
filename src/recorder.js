@@ -61,6 +61,7 @@ class BuiltInRecorder extends EventEmitter {
       if (Array.isArray(levels)) [0, 1].forEach((i) => { if (levels[i] > 0.002) this.heard[i] = true; }); // the mixer hears it, so it is not silent
     });
     // What kind of sound each page plays, as found by its preload: written to the activity log, to see what a page does.
+    ipcMain.on('recorder:mask', (_e, mask) => this.emit('mask', mask)); // the person's outline, for the toolbar's preview
     ipcMain.on('recorder:tapinfo', (e, text) => this.emit('tapinfo', e.sender.id, String(text)));
     ipcMain.on('recorder:peak', (e, peak) => {
       const i = this.monitorWcs.findIndex((wc) => wc.id === e.sender.id);

@@ -11,6 +11,11 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
 ## Unreleased
 
+- **Recording from the menu bar.** With the Showrunner Recorder, the menu bar icon turns into a red dot with the time while
+  recording (orange when paused), and its menu has Start/Stop, Pause/Resume and Show/Hide Recording Toolbar. **Show the toolbar** sits
+  beside Start recording. The toolbar hides its picture while recording (switch off on the recorder page); click Preview to see it.
+- **Webcam background.** Remove a green screen (pick the backdrop colour by clicking the preview, with strength and soft edge), or blur
+  everything behind you (MediaPipe selfie segmentation, Apache 2.0, bundled in `src/vendor/mediapipe` with its licence and notice).
 - **Showrunner Recorder: smoother and clearer.** The recorder keeps its microphone and webcam ready while the toolbar is open, so
   Record starts almost at once, with a tone when it really begins. Sound is captured on the audio thread, so a busy game cannot make
   gaps in it. A new **Capture method** can take each window straight from the system, as OBS's window capture does (it asks for the
