@@ -110,6 +110,8 @@ function migrateLegacyUserData() {
 migrateLegacyUserData();
 
 const configStore = new ConfigStore(path.join(app.getPath('userData'), 'config.json'));
+// Whatever saves the settings (the control panel, the toolbar), the toolbar shows the new values straight away.
+{ const save = configStore.save.bind(configStore); configStore.save = (next) => { const saved = save(next); setImmediate(() => { try { sendToolbarState(); scheduleWarm(); } catch (err) { /* toolbar not ready yet */ } }); return saved; }; }
 
 // OBS sources this app made used to end in " (CP Studio)" and now end in
 // " (CPS)". Everything that remembers one by name has to follow, or a source
@@ -324,6 +326,8 @@ let activityLog = []; // newest first: {at, source, event, level}
 
 function logActivity(source, event, level = 'info') {
   activityLog.unshift({ at: Date.now(), source, event, level });
+  // The recorder's lines are also kept in a file, so they survive a restart and can be sent along when a recording goes wrong.
+  if (source === 'Recorder') { try { fs.appendFileSync(path.join(app.getPath('userData'), 'recorder.log'), `${new Date().toISOString()} ${event}\n`); } catch (err) { /* logging is best effort */ } }
   activityLog.length = Math.min(activityLog.length, ACTIVITY_LOG_LIMIT);
   broadcastStatus();
 }
@@ -827,6 +831,13 @@ automations.on('event', (entry) => {
 // The built-in recorder reads the pages of the windows the profile chose (the page inside each window, without its bar).
 const builtInRecorder = new BuiltInRecorder({
   getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
+  // For screen capture: each chosen window's id for the system, and where its page sits inside the window (the bar and frame are cropped away).
+  getCaptureInfo: (ids) => ids.map((id) => {
+    const win = viewWindows.get(id); const page = pageViews.get(id);
+    if (!win || win.isDestroyed() || !page) return null;
+    const b = win.getBounds(); const c = win.getContentBounds(); const p = page.getBounds();
+    return { sourceId: win.getMediaSourceId(), winW: b.width, winH: b.height, rect: { x: c.x - b.x + p.x, y: c.y - b.y + p.y, w: p.width, h: p.height } };
+  }).filter(Boolean),
   folderFor: (folder) => folder || app.getPath('videos'),
   windowName: (id) => { const v = configStore.getView(id); return v ? (v.label || v.id) : id; },
   dataDir: app.getPath('userData'),
@@ -853,6 +864,7 @@ builtInRecorder.on('status', () => {
   const now = builtInRecorder.state;
   // The toolbar opens by itself when a recording starts (unless switched off on the recorder page), without taking focus.
   if (now === 'recording' && lastRecorderState !== 'recording' && lastRecorderState !== 'paused' && configStore.get().recording.toolbar.auto) openToolbar({ focus: false });
+  if (now === 'idle' && lastRecorderState !== 'idle') scheduleWarm(); // ready again for the next recording
   lastRecorderState = now;
   broadcastStatus();
   sendToolbarState();
@@ -3492,7 +3504,19 @@ function toolbarState() {
   const cfg = configStore.get();
   const r = cfg.recording;
   const label = (id) => { const v = cfg.views.find((x) => x.id === id); return v ? (v.label || v.id) : ''; };
-  return { ...builtInRecorder.status(), layout: r.layout, camera: r.camera, preview: r.toolbar.preview, names: [label(r.sources[0]), label(r.sources[1])], audio: r.audio };
+  return { ...builtInRecorder.status(), layout: r.layout, fit: r.fit, camera: r.camera, preview: r.toolbar.preview, names: [label(r.sources[0]), label(r.sources[1])], audio: r.audio };
+}
+
+// While the toolbar is open the recorder is kept ready (its window, microphone and webcam), so Record starts at once. It is made ready
+// again a moment after any setting changes, and let go when the toolbar closes.
+let warmTimer = null;
+function scheduleWarm() {
+  clearTimeout(warmTimer);
+  warmTimer = setTimeout(() => {
+    const r = configStore.get().recording;
+    if (isAlive(toolbarWindow) && r.backend === 'builtin') builtInRecorder.warm({ layout: r.layout, camera: r.camera, audio: r.audio });
+    else builtInRecorder.unwarm();
+  }, 700);
 }
 
 function sendToolbarState() {
@@ -3511,7 +3535,7 @@ function openToolbar({ focus = true } = {}) {
   const t = configStore.get().recording.toolbar;
   const options = {
     title: `${APP_NAME} - Recording`,
-    width: 400, height: 150, useContentSize: true,
+    width: 480, height: 150, useContentSize: true,
     frame: false, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
     alwaysOnTop: true, skipTaskbar: true, hasShadow: true, backgroundColor: '#0E1A2B', show: false,
     webPreferences: { preload: path.join(__dirname, 'toolbar-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
@@ -3531,8 +3555,9 @@ function openToolbar({ focus = true } = {}) {
     const [x, y] = win.getPosition();
     saveRecordingPatch({ toolbar: { ...configStore.get().recording.toolbar, x, y } });
   });
-  win.on('closed', () => { if (toolbarWindow === win) toolbarWindow = null; updateFeed(); });
+  win.on('closed', () => { if (toolbarWindow === win) toolbarWindow = null; updateFeed(); scheduleWarm(); });
   updateFeed();
+  scheduleWarm();
 }
 
 function registerToolbarIpc() {
@@ -3549,7 +3574,7 @@ function registerToolbarIpc() {
     toolbarAudioTimer = setTimeout(() => saveRecordingPatch({ audio }), 400);
   });
   ipcMain.on('toolbar:size', (_event, height) => {
-    if (isAlive(toolbarWindow) && Number.isFinite(height) && height > 40 && height < 600) toolbarWindow.setContentSize(400, Math.round(height));
+    if (isAlive(toolbarWindow) && Number.isFinite(height) && height > 40 && height < 600) toolbarWindow.setContentSize(480, Math.round(height));
   });
   ipcMain.handle('toolbar:reveal', () => { const f = builtInRecorder.file; if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
   ipcMain.on('toolbar:close', () => { if (isAlive(toolbarWindow)) toolbarWindow.close(); });
@@ -3574,6 +3599,7 @@ function registerIpc() {
   ipcMain.handle('recording:askMicrophone', () => askMediaAccess('microphone'));
   ipcMain.handle('recording:askCamera', () => askMediaAccess('camera'));
   ipcMain.handle('recording:reveal', (_event, file) => { const f = file || builtInRecorder.file || (builtInRecorder.interrupted && builtInRecorder.interrupted.file); if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
+  ipcMain.handle('activity:clear', () => { activityLog = []; try { fs.writeFileSync(path.join(app.getPath('userData'), 'recorder.log'), ''); } catch (err) { /* nothing to clear */ } broadcastStatus(); });
   ipcMain.handle('recording:openPrivacy', (_event, kind) => shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'camera' ? 'Camera' : 'Microphone'}`));
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also
@@ -4681,6 +4707,7 @@ if (!app.requestSingleInstanceLock()) {
       setTimeout(() => { if (isAlive(controlWindow)) controlWindow.webContents.send('toast', message); broadcastStatus(); }, 3000);
     }
     openLaunchViews();
+    { const rc = configStore.get().recording; if (rc.backend === 'builtin' && rc.toolbar.atStart) openToolbar({ focus: false }); }
     if (configStore.get().teleprompter.enabled) openPrompter();
     obs.start().catch(() => {});
     tavern.start().catch(() => {});

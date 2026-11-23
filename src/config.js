@@ -879,6 +879,8 @@ function defaultRecording() {
     width: 1920,
     height: 1080,
     fps: 30,
+    fit: 'fit', // a window whose shape differs from its place: 'fit' (all of it, with bars) or 'fill' (fills the place, crops the edges)
+    capture: 'pictures', // how the windows are captured: 'pictures' (each window's own pictures) or 'screen' (the system's screen capture, like OBS)
     encoder: 'auto', // 'auto' (the Mac's own encoder, switching to software if it stalls), 'hardware' or 'software'
     format: 'mp4', // the file type: 'mp4' or 'mkv' (both are written as they go, so both survive a crash)
     audio: defaultRecordingAudio(),
@@ -929,6 +931,8 @@ function sanitizeRecording(input) {
     height: size[1],
     fps: [24, 30, 60].includes(Number(src.fps)) ? Number(src.fps) : d.fps,
     format: src.format === 'mkv' ? 'mkv' : 'mp4',
+    fit: src.fit === 'fill' ? 'fill' : 'fit',
+    capture: src.capture === 'screen' ? 'screen' : 'pictures',
     encoder: ['auto', 'hardware', 'software'].includes(src.encoder) ? src.encoder : 'auto',
     audio: sanitizeRecordingAudio(src.audio),
     camera: {

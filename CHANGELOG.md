@@ -11,6 +11,12 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
 ## Unreleased
 
+- **Showrunner Recorder: smoother and clearer.** The recorder keeps its microphone and webcam ready while the toolbar is open, so
+  Record starts almost at once, with a tone when it really begins. Sound is captured on the audio thread, so a busy game cannot make
+  gaps in it. A new **Capture method** can take each window straight from the system, as OBS's window capture does (it asks for the
+  Screen Recording permission, and records only the chosen window), which keeps up much better while the window is busy. The recorder
+  page is reorganised: Record first, then Layout (pictures to choose from, the window choosers inside the layout, webcam corner and
+  size, and **Window shape**: fit or fill), Webcam, Audio and Capture. Status page: **Copy logs** and **Clear logs**.
 - **Built-in recorder (Mac).** A new Recordings page chooses what records for the profile: OBS, or Showrunner itself, which saves
   one window, or two side by side, with their sound to an MP4 (H.264 and AAC, 1080p or 720p, up to 60 fps), with pause. The Start,
   Pause, Resume and Stop recording steps work with either. The file is written as it records. See

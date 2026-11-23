@@ -2405,3 +2405,36 @@ select option { background: var(--bg-card); color: var(--text); }
 .layout-preview canvas { width: 480px; max-width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--border); border-radius: 6px; display: block; }
 
 .cam-preview video.flip { transform: scaleX(-1); }
+
+.activity-log-tools { display: flex; justify-content: flex-end; gap: 8px; margin: 0 0 6px; }
+
+/* The Showrunner Recorder's layout: pictures to choose from, then the chosen layout drawn large with a window chooser in each place. */
+.layout-picker { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 14px; }
+.layout-thumb { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 118px; padding: 8px 8px 6px; background: var(--bg-input); border: 2px solid var(--border); border-radius: 8px; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; }
+.layout-thumb svg { width: 100%; height: auto; display: block; }
+.layout-thumb:hover:not(:disabled) { border-color: var(--text-dim); }
+.layout-thumb.on { border-color: var(--accent); color: var(--text); }
+.layout-thumb:disabled { opacity: 0.55; cursor: default; }
+.t-bg { fill: var(--bg); } .t-win { fill: var(--border); } .t-cam { fill: var(--accent); opacity: 0.85; } .t-person { fill: var(--bg); opacity: 0.7; }
+.layout-thumb.on .t-win { fill: var(--text-dim); }
+
+.layout-stage { position: relative; width: 100%; max-width: 560px; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.stage-slot { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 8px; background: var(--bg-input); border: 2px dashed var(--border); border-radius: 6px; min-width: 0; }
+.stage-slot select { max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+.stage-label { font-size: 11px; color: var(--text-dim); }
+.stage-a { inset: 6px; }
+.stage-b { display: none; }
+.stage-cam { display: none; position: absolute; align-items: center; justify-content: center; background: var(--accent); color: #07202A; font-size: 11px; font-weight: 600; border-radius: 8px; opacity: 0.9; }
+.layout-stage[data-layout="side"] .stage-a { inset: 6px 50% 6px 6px; margin-right: 3px; }
+.layout-stage[data-layout="side"] .stage-b { display: flex; inset: 6px 6px 6px 50%; margin-left: 3px; }
+.layout-stage[data-layout="corner"] .stage-cam, .layout-stage[data-layout="cam"] .stage-cam { display: flex; }
+.layout-stage[data-layout="cam"] .stage-a { display: none; }
+.layout-stage[data-layout="cam"] .stage-cam { inset: 6px; }
+.layout-stage[data-layout="corner"] .stage-cam { width: 18%; aspect-ratio: 4 / 3; }
+.layout-stage[data-layout="corner"][data-size="medium"] .stage-cam { width: 26%; }
+.layout-stage[data-layout="corner"][data-size="large"] .stage-cam { width: 36%; }
+.layout-stage[data-layout="corner"][data-corner="br"] .stage-cam { right: 3%; bottom: 4%; }
+.layout-stage[data-layout="corner"][data-corner="bl"] .stage-cam { left: 3%; bottom: 4%; }
+.layout-stage[data-layout="corner"][data-corner="tr"] .stage-cam { right: 3%; top: 4%; }
+.layout-stage[data-layout="corner"][data-corner="tl"] .stage-cam { left: 3%; top: 4%; }
+.rec-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

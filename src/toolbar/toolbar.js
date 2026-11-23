@@ -52,7 +52,19 @@ function paintRows() {
   }
 }
 
+// A short, quiet tone when the recording really begins, so it is clear when to start speaking.
+function readyTone() {
+  try {
+    const ctx = new AudioContext(); const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.frequency.value = 880; gain.gain.value = 0.0001; gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02); gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+    osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.25); osc.onended = () => ctx.close().catch(() => {});
+  } catch (err) { /* no tone */ }
+}
+let lastState = 'idle';
+
 function render(s) {
+  if (lastState === 'starting' && s.state === 'recording') readyTone();
+  lastState = s.state;
   state = s;
   const live = s.state === 'recording' || s.state === 'paused';
   const rec = $('rec');
@@ -62,9 +74,10 @@ function render(s) {
   $('pause').hidden = !live;
   $('pause').textContent = s.state === 'paused' ? 'Resume' : 'Pause';
   $('time').textContent = mmss(s.seconds);
-  const label = s.state === 'paused' ? 'PAUSED' : live ? 'RECORDING' : s.error ? '' : s.file ? `Saved ${s.file.split(/[\\/]/).pop()}` : 'Ready';
-  const st = $('state'); st.textContent = label; st.title = label; st.className = live ? 'live' : '';
-  $('msg').textContent = s.error || s.warning || '';
+  const label = s.state === 'starting' ? 'Starting... wait for the tone before you speak' : s.state === 'stopping' ? 'Saving...' : s.state === 'paused' ? 'PAUSED' : live ? 'RECORDING' : s.error ? '' : s.file ? `Saved ${s.file.split(/[\\/]/).pop()}` : 'Ready';
+  const note = s.error || s.warning || '';
+  const text = note || label;
+  const st = $('state'); st.textContent = text; st.title = text; st.className = note ? 'warn' : live ? 'live' : s.state === 'starting' ? 'start' : '';
   $('reveal').hidden = live || !s.file;
   const list = sources(s);
   const key = list.map((x) => `${x.kind}${x.i}${x.label}`).join('|');
@@ -121,7 +134,7 @@ setInterval(() => {
   if (!state || !state.preview) return;
   if (isLive() && Date.now() - liveAt < 2000) { pen.drawImage(liveShot, 0, 0, canvas.width, canvas.height); return; }
   const shown = [state.layout === 'cam' ? null : winPics[0], state.layout === 'side' ? winPics[1] : null];
-  window.ShowrunnerLayout.compose(pen, canvas.width, canvas.height, { layout: state.layout, camera: state.camera, sources: shown, camVideo: camEl });
+  window.ShowrunnerLayout.compose(pen, canvas.width, canvas.height, { layout: state.layout, fit: state.fit, camera: state.camera, sources: shown, camVideo: camEl });
 }, 70);
 
 // ---- meters that work before recording: the windows' loudness comes from the app, the microphone is listened to here ----
@@ -143,11 +156,16 @@ async function syncMic() {
   const m = state.audio.mic; const key = `${m.device}|${m.deviceLabel}`;
   if (micMeter && micMeter.key === key) return;
   stopMic(); micMeter = { key };
+  // Opening can stall (the device is still being let go by the recorder), so it is given a few seconds and then tried again.
+  const retry = () => { if (micMeter && micMeter.key === key && !micMeter.stream) { micMeter = null; setTimeout(() => { if (state) syncMic(); }, 1500); } };
+  const giveUp = setTimeout(retry, 4000);
   try {
     let stream = null;
     for (const t of m.device ? [{ deviceId: { exact: m.device } }, {}] : [{}]) {
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { ...t, echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); break; } catch (err) { /* next */ }
     }
+    clearTimeout(giveUp);
+    if (!stream && micMeter && micMeter.key === key) { retry(); return; }
     if (!stream || !micMeter || micMeter.key !== key) { if (stream) stream.getTracks().forEach((t) => t.stop()); return; }
     const ctx = new AudioContext(); ctx.resume().catch(() => {});
     const analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
@@ -161,7 +179,7 @@ async function syncMic() {
       if (ticks % 5 === 0) { const el = rowEls.find((r) => r.src.kind === 'm'); if (el) { const mm = state.audio.mic; paint(el, mm.muted ? 0 : held * mm.level); } held = 0; }
     }, 20);
     micMeter = { key, stream, ctx, timer };
-  } catch (err) { micMeter = null; }
+  } catch (err) { clearTimeout(giveUp); micMeter = null; }
 }
 
 $('previewToggle').addEventListener('click', () => window.recbar.setPreview(!(state && state.preview)));
@@ -170,11 +188,11 @@ window.recbar.onLevels((levels) => { for (const el of rowEls) paint(el, (levels 
 $('rec').addEventListener('click', async () => {
   const live = state && (state.state === 'recording' || state.state === 'paused');
   const result = await window.recbar.action(live ? 'stop' : 'start');
-  if (result && result.error) $('msg').textContent = result.error;
+  if (result && result.error) { const st = $('state'); st.textContent = result.error; st.title = result.error; st.className = 'warn'; }
 });
 $('pause').addEventListener('click', async () => {
   const result = await window.recbar.action(state.state === 'paused' ? 'resume' : 'pause');
-  if (result && result.error) $('msg').textContent = result.error;
+  if (result && result.error) { const st = $('state'); st.textContent = result.error; st.title = result.error; st.className = 'warn'; }
 });
 $('reveal').addEventListener('click', () => window.recbar.reveal());
 $('close').addEventListener('click', () => window.recbar.close());

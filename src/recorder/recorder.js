@@ -9,20 +9,22 @@ const { buildArgs } = require('../ffmpeg.js');
 const Layout = require('./layout.js');
 
 const RATE = 48000;
-const AUDIO_CUSHION = 0.04; // seconds of cushion so unevenly arriving audio chunks still play evenly
+const AUDIO_CUSHION = 0.12; // seconds of cushion so unevenly arriving audio chunks still play evenly (less than this left audible gaps)
 const AUDIO_OFFSET_MS = 0; // delays the sound against the picture in the file (tuned by measurement; see plan-recording.md)
-const VIDEO_DELAY_MS = 255; // the picture is held back this long so it lines up with the audio (measured; see plan-recording.md)
+const VIDEO_DELAY_MS = 335;
+const SCREEN_LATENCY_MS = 60; // a live screen capture is this late (a guess to be tuned by measurement); the sound is brought forward by the difference // the picture is held back this long so it lines up with the audio (measured; see plan-recording.md)
 
 const sources = [null, null]; // the latest frame of each source, held in a canvas
 const nextAt = new Map(); // per audio source: when its next chunk should play
-const MIC_DELAY = 0.04; // the microphone is played as it arrives, so it waits as long as the windows' sound does (AUDIO_CUSHION)
+const MIC_DELAY = AUDIO_CUSHION; // the microphone is played as it arrives, so it waits as long as the windows' sound does (AUDIO_CUSHION)
 let camVideo = null; let camStream = null;
 let winGain = []; let micGain = null; let micStream = null; let levelTimer = null; let audioCfg = null;
 const analysers = []; // [window 1, window 2, microphone, everything]
-let drawMsMax = 0; let winFrames = 0; let camFrames = 0; let statsTimer = null;
+let micPeakSeen = 0; let drawMsMax = 0; let winFrames = 0; let camFrames = 0; let statsTimer = null;
 let previewCanvas = null; let previewPen = null;
 let cfg = null; let canvas; let g; let actx; let bus; let proc; let timer;
 let enc = null; // { child, video, audio, stderr, codec, stopping }
+let audioLead = 0; let audioSkip = 0; const offsetBuckets = new Map();
 let framesSent = 0; let framesDropped = 0; let lastFrame = null; let audioWritten = 0; let recording = false;
 let t0 = 0; let paused = false; let pausedTotal = 0; let pausedAt = 0; let ticks = 0; let failure = '';
 
@@ -80,7 +82,7 @@ function draw() {
   if (failure || paused || !recording || !enc) return;
   const drawStart = performance.now();
   const { width: W, height: H } = canvas;
-  Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo });
+  Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo, fit: cfg.fit });
   const px = g.getImageData(0, 0, W, H);
   lastFrame = Buffer.from(px.data.buffer, px.data.byteOffset, px.data.byteLength);
   const due = Math.floor((clockMs() / 1000) * cfg.fps) + 1;
@@ -119,6 +121,60 @@ async function openDevice(kind, id, label, base) {
   }
   throw last;
 }
+// Devices opened ahead of Record (while the toolbar is open), kept by a key of what was asked for. A promise, so a Record pressed
+// while they are still opening simply waits for them.
+const warmDev = { mic: null, cam: null };
+const micKey = (m) => `${m.device}|${m.deviceLabel}|${m.echoCancel}`;
+const camKey = (c) => `${c.device}|${c.deviceLabel}`;
+const openMic = (m) => openDevice('audio', m.device, m.deviceLabel, { echoCancellation: m.echoCancel, noiseSuppression: false, autoGainControl: false, channelCount: 1 });
+async function openCam(c) {
+  const stream = await openDevice('video', c.device, c.deviceLabel, { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } });
+  const video = document.createElement('video'); video.muted = true; video.srcObject = stream;
+  await video.play();
+  return { stream, video };
+}
+function dropWarm(which) {
+  const w = warmDev[which]; warmDev[which] = null;
+  if (w) w.promise.then((r) => (which === 'mic' ? r : r.stream).getTracks().forEach((t) => t.stop())).catch(() => {});
+}
+ipcRenderer.on('warm', (_e, c) => {
+  if (recording || enc) return;
+  const wantMic = c.audio && c.audio.mic.enabled; const wantCam = c.layout === 'corner' || c.layout === 'cam';
+  if (!wantMic || (warmDev.mic && warmDev.mic.key !== micKey(c.audio.mic))) dropWarm('mic');
+  if (!wantCam || (warmDev.cam && warmDev.cam.key !== camKey(c.camera))) dropWarm('cam');
+  if (wantMic && !warmDev.mic) { const p = openMic(c.audio.mic); p.catch(() => { warmDev.mic = null; }); warmDev.mic = { key: micKey(c.audio.mic), promise: p }; }
+  if (wantCam && !warmDev.cam) { const p = openCam(c.camera); p.catch(() => { warmDev.cam = null; }); warmDev.cam = { key: camKey(c.camera), promise: p }; }
+});
+async function takeDevice(which, key, open) {
+  const w = warmDev[which];
+  if (w && w.key === key) { warmDev[which] = null; try { return await w.promise; } catch (err) { /* fall through to a fresh open */ } }
+  dropWarm(which);
+  return open();
+}
+
+// A window taken live from the system's screen capture. Only the page is wanted (the bar and frame are cropped away), so it knows where
+// the page sits inside the window, in the window's own units; the video's pixels per unit tell it how big that is on the video.
+class ScreenSource {
+  constructor(video, stream, info) { this.video = video; this.stream = stream; this.info = info; }
+  get scale() { return this.video.videoWidth && this.info.winW ? this.video.videoWidth / this.info.winW : 1; }
+  get width() { return this.video.videoWidth ? Math.max(1, Math.round(this.info.rect.w * this.scale)) : 0; }
+  get height() { return this.video.videoWidth ? Math.max(1, Math.round(this.info.rect.h * this.scale)) : 0; }
+  drawTo(g, dx, dy, dw, dh, sx = 0, sy = 0, sw = this.width, sh = this.height) {
+    const k = this.scale; const r = this.info.rect;
+    g.drawImage(this.video, r.x * k + sx, r.y * k + sy, sw, sh, dx, dy, dw, dh);
+  }
+}
+async function openScreen(info, fps) {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: info.sourceId, maxFrameRate: fps, maxWidth: 3840, maxHeight: 2160 } } });
+  const video = document.createElement('video'); video.muted = true; video.srcObject = stream;
+  await video.play();
+  if (video.requestVideoFrameCallback) { const tick = () => { winFrames += 1; video.requestVideoFrameCallback(tick); }; video.requestVideoFrameCallback(tick); }
+  stream.getVideoTracks()[0].onended = () => fail(new Error('The screen capture of a window stopped (the window was closed?). The recording was stopped; what was saved is kept.'));
+  return new ScreenSource(video, stream, info);
+}
+let screenSources = [];
+ipcRenderer.on('screen-rects', (_e, list) => { (list || []).forEach((info, i) => { if (screenSources[i] && info) screenSources[i].info = info; }); });
+
 const why = (err) => (err.name === 'NotAllowedError' ? 'macOS has not allowed it' : `${err.name}${err.message ? `: ${err.message}` : ''}`);
 
 // Starts ffmpeg with the Mac's own encoder, or software if that cannot start. Resolves once it has stayed up for a moment.
@@ -159,13 +215,44 @@ async function switchToSoftware() {
 async function start(config) {
   cfg = config;
   sources[0] = sources[1] = null; nextAt.clear(); failure = ''; ticks = 0; pausedTotal = 0; paused = false; recording = false;
+  audioLead = cfg.capture === 'screen' ? Math.round(((VIDEO_DELAY_MS - SCREEN_LATENCY_MS) / 1000) * RATE) : 0; audioSkip = audioLead;
   framesSent = 0; framesDropped = 0; audioWritten = 0; lastFrame = null; drawMsMax = 0; winFrames = 0; camFrames = 0;
   canvas = document.createElement('canvas'); canvas.width = cfg.width; canvas.height = cfg.height; g = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
   previewCanvas = document.createElement('canvas'); previewCanvas.width = 320; previewCanvas.height = 180; previewPen = previewCanvas.getContext('2d', { willReadFrequently: true });
   // The Mac's own encoder is the default; 'software' always uses x264. In 'auto', a hardware encoder that stalls is replaced (below).
   const wantHardware = process.platform === 'darwin' && cfg.encoder !== 'software';
-  try { enc = await launchEncoder(wantHardware ? 'videotoolbox' : 'x264'); } catch (first) {
-    try { enc = await launchEncoder('x264'); } catch (second) { throw new Error(`The video encoder (ffmpeg) could not start: ${second.message}`); }
+  // The encoder, the microphone and the webcam open at the same time (the last two are usually already open, from the toolbar).
+  const s0 = performance.now(); const steps = [];
+  const timed = (name, p) => p.then((v) => { steps.push(`${name} ${Math.round(performance.now() - s0)} ms`); return v; });
+  const encP = timed('encoder', (async () => {
+    try { return await launchEncoder(wantHardware ? 'videotoolbox' : 'x264'); } catch (first) {
+      try { return await launchEncoder('x264'); } catch (second) { throw new Error(`The video encoder (ffmpeg) could not start: ${second.message}`); }
+    }
+  })());
+  const wantMic = Boolean(config.audio && config.audio.mic.enabled);
+  const wantCam = cfg.layout === 'corner' || cfg.layout === 'cam';
+  const micP = wantMic ? timed('microphone', takeDevice('mic', micKey(config.audio.mic), () => openMic(config.audio.mic))) : Promise.resolve(null);
+  const camP = wantCam ? timed('webcam', takeDevice('cam', camKey(cfg.camera), () => openCam(cfg.camera))) : Promise.resolve(null);
+  screenSources = [];
+  const screenP = cfg.capture === 'screen' ? timed('screen capture', Promise.all((cfg.screens || []).map((info) => openScreen(info, cfg.fps)))) : Promise.resolve([]);
+  const [encR, micR, camR, screenR] = await Promise.allSettled([encP, micP, camP, screenP]);
+  if (encR.status === 'fulfilled') enc = encR.value;
+  const closeOpened = () => {
+    for (const r of [micR, camR]) if (r.status === 'fulfilled' && r.value) (r.value.stream || r.value).getTracks().forEach((t) => t.stop());
+    if (screenR.status === 'fulfilled') screenR.value.forEach((src) => src.stream.getTracks().forEach((t) => t.stop()));
+  };
+  if (encR.status === 'rejected') { closeOpened(); throw encR.reason; }
+  if (micR.status === 'rejected') { closeOpened(); throw new Error(`The microphone could not be opened (${why(micR.reason)}).`); }
+  if (screenR.status === 'rejected') { closeOpened(); throw new Error(`A window could not be captured (${why(screenR.reason)}). Check that Showrunner is allowed to capture windows (macOS Screen Recording), and that the window is open and on screen.`); }
+  screenSources = screenR.value || [];
+  if (cfg.capture === 'screen' && cfg.layout !== 'cam' && !screenSources.length) { closeOpened(); throw new Error('The window to record could not be found. Open it, and make sure it is on screen.'); }
+  screenSources.forEach((src, i) => { sources[i] = src; });
+  if (camR.status === 'rejected') { closeOpened(); throw new Error(`The webcam could not be opened (${why(camR.reason)}).`); }
+  micStream = micR.value;
+  if (micStream) {
+    const track = micStream.getAudioTracks()[0]; const st = track ? track.getSettings() : {};
+    ipcRenderer.send('recorder:note', `microphone: ${track ? track.label : 'no track'}, echo cancel ${st.echoCancellation}, state ${track ? track.readyState : '-'}`);
+    if (track) { track.onended = () => ipcRenderer.send('recorder:note', 'microphone: the device stopped (unplugged or taken by another program)'); track.onmute = () => ipcRenderer.send('recorder:note', 'microphone: the system muted it'); track.onunmute = () => ipcRenderer.send('recorder:note', 'microphone: sound is flowing again'); }
   }
   enc.closed.then((code) => {
     if (!enc || enc.stopping || failure) return;
@@ -181,51 +268,59 @@ async function start(config) {
   winGain.forEach((gain, i) => { const a = meter(); analysers[i] = a; gain.connect(a); a.connect(bus); });
   analysers[2] = meter(); analysers[3] = meter();
   bus.connect(analysers[3]);
-  micGain = null; micStream = null;
-  if (config.audio && config.audio.mic.enabled) {
+  micGain = null;
+  if (micStream) {
     const m = config.audio.mic;
-    try {
-      micStream = await openDevice('audio', m.device, m.deviceLabel, { echoCancellation: m.echoCancel, noiseSuppression: false, autoGainControl: false, channelCount: 1 });
-    } catch (err) { throw new Error(`The microphone could not be opened (${why(err)}).`); }
     const delay = actx.createDelay(1); delay.delayTime.value = MIC_DELAY + (m.delayMs || 0) / 1000;
     micGain = actx.createGain();
     actx.createMediaStreamSource(micStream).connect(delay); delay.connect(micGain); micGain.connect(analysers[2]); analysers[2].connect(bus);
   }
   camVideo = null; camStream = null;
-  if (cfg.layout === 'corner' || cfg.layout === 'cam') {
-    try {
-      camStream = await openDevice('video', cfg.camera.device, cfg.camera.deviceLabel, { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } });
-      camVideo = document.createElement('video'); camVideo.muted = true; camVideo.srcObject = camStream;
-      await camVideo.play();
-      if (camVideo.requestVideoFrameCallback) { const tick = () => { camFrames += 1; camVideo.requestVideoFrameCallback(tick); }; camVideo.requestVideoFrameCallback(tick); }
-    } catch (err) { throw new Error(`The webcam could not be opened (${why(err)}).`); }
+  if (camR.value) {
+    camStream = camR.value.stream; camVideo = camR.value.video;
+    if (camVideo.requestVideoFrameCallback) { const tick = () => { camFrames += 1; camVideo.requestVideoFrameCallback(tick); }; camVideo.requestVideoFrameCallback(tick); }
   }
   if (config.audio) applyAudio(config.audio);
   const levelBuf = new Float32Array(1024);
-  levelTimer = setInterval(() => ipcRenderer.send('recorder:levels', analysers.map((a, i) => (paused || (i === 2 && !micGain) ? 0 : peakOf(a, levelBuf)))), 100);
-  proc = actx.createScriptProcessor(1024, 2, 2);
-  proc.onaudioprocess = (e) => {
+  levelTimer = setInterval(() => { const levels = analysers.map((a, i) => (paused || (i === 2 && !micGain) ? 0 : peakOf(a, levelBuf))); if (levels[2] > micPeakSeen) micPeakSeen = levels[2]; ipcRenderer.send('recorder:levels', levels); }, 100);
+  await actx.audioWorklet.addModule('tap-worklet.js');
+  proc = new AudioWorkletNode(actx, 'recorder-tap', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+  offsetBuckets.clear();
+  // Sound chunks can reach this page late (it is busy for a moment when the game is) but never lost; each carries the audio clock's time
+  // for its start. The audio clock is tied to the wall clock by the least-delayed chunk in the last few seconds (a late chunk is only
+  // ever late), so a stall here never looks like missing sound. Real drift between the two clocks is still corrected, slowly.
+  proc.port.onmessage = ({ data }) => {
     if (paused || failure || !recording || !enc) return;
-    const n = e.inputBuffer.length;
-    // The sound is written as it is made (interleaved, 32-bit). Its own clock and the wall clock part ways slowly, so now and then it
-    // is brought back in step: silence is added if it has fallen behind, a block is skipped if it has run ahead.
-    const expected = Math.round((clockMs() / 1000) * RATE);
-    const behind = expected - audioWritten;
+    const left = data.l; const right = data.r; const n = left.length;
+    const late = performance.now() - data.t * 1000; // arbitrary base; only its smallest recent value is used
+    const sec = Math.floor(data.t);
+    const had = offsetBuckets.get(sec);
+    if (had === undefined || late < had) offsetBuckets.set(sec, late);
+    for (const k of offsetBuckets.keys()) if (k < sec - 8) offsetBuckets.delete(k);
+    const offset = Math.min(...offsetBuckets.values());
+    // Where this chunk belongs in the file: the wall time it was made, as the recording clock sees it.
+    const expected = Math.round((((data.t * 1000 + offset) - t0 - pausedTotal) / 1000) * RATE) - audioLead;
+    // A live screen capture shows the picture sooner than the sound arrives, so the sound is moved earlier by the difference: the first
+    // part of it is dropped, and the clock it is held to is that much behind the wall clock.
+    let from = 0;
+    if (audioSkip > 0) { if (n <= audioSkip) { audioSkip -= n; return; } from = audioSkip; audioSkip = 0; audioWritten = Math.max(audioWritten, expected + from); }
+    const behind = expected + from - audioWritten;
     if (behind > RATE * 0.05) { enc.audio.write(Buffer.alloc(behind * 8)); audioWritten += behind; }
     else if (behind < -RATE * 0.05) return;
-    const left = e.inputBuffer.getChannelData(0); const right = e.inputBuffer.getChannelData(1);
-    const out = new Float32Array(n * 2);
-    for (let i = 0; i < n; i += 1) {
-      const l = left[i]; const r = right[i];
+    const m = n - from;
+    const out = new Float32Array(m * 2);
+    for (let i = 0; i < m; i += 1) {
+      const l = left[from + i]; const r = right[from + i];
       out[i * 2] = l > 1 ? 1 : l < -1 ? -1 : l; // mixed sources can add up past full scale: stop at the top rather than wrap
       out[i * 2 + 1] = r > 1 ? 1 : r < -1 ? -1 : r;
     }
     enc.audio.write(Buffer.from(out.buffer));
-    audioWritten += n;
+    audioWritten += m;
   };
   bus.connect(proc); proc.connect(actx.destination);
   t0 = performance.now();
   recording = true;
+  ipcRenderer.send('recorder:note', `startup: ${steps.join(', ')}, ready ${Math.round(performance.now() - s0)} ms`);
   timer = setInterval(draw, 1000 / cfg.fps);
   // A hardware encoder that is starved (a busy graphics chip) takes pictures in and writes nothing. In 'auto', the first seconds are
   // watched, and if nothing is being written (or the pictures are piling up) the recording restarts with the software encoder.
@@ -241,8 +336,8 @@ async function start(config) {
   statsTimer = setInterval(() => {
     statSeconds += 5;
     if (statSeconds > 60 || failure) return;
-    ipcRenderer.send('recorder:note', `t=${statSeconds}s pictures sent ${framesSent} (dropped ${framesDropped}), slowest picture ${Math.round(drawMsMax)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}, encoder ${enc ? enc.codec : '-'}`);
-    drawMsMax = 0;
+    ipcRenderer.send('recorder:note', `t=${statSeconds}s pictures sent ${framesSent} (dropped ${framesDropped}), slowest picture ${Math.round(drawMsMax)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}, encoder ${enc ? enc.codec : '-'}${micGain ? `, microphone loudest ${micPeakSeen.toFixed(3)}` : ''}`);
+    drawMsMax = 0; micPeakSeen = 0;
   }, 5000);
 }
 
@@ -256,7 +351,8 @@ async function stop() {
   clearInterval(timer); clearInterval(levelTimer); clearInterval(statsTimer); clearInterval(healthTimer);
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
-  if (proc) { proc.onaudioprocess = null; proc.disconnect(); }
+  screenSources.forEach((src) => { try { src.stream.getTracks().forEach((t) => t.stop()); } catch (err) { /* gone */ } }); screenSources = [];
+  if (proc) { proc.port.onmessage = null; proc.disconnect(); proc = null; }
   if (enc) {
     // Closing both pipes tells ffmpeg the recording is over; it finishes the file and exits. Not waited for forever.
     enc.stopping = true;

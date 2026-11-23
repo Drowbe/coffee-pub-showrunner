@@ -2,7 +2,7 @@
 // The built-in recorder: records Showrunner's own windows to an MP4, with no OBS. It reads each window's picture with capturePage(),
 // hands the frames to a hidden recorder window that lays them out and encodes (src/recorder/), and writes the chunks to disk as they
 // arrive. Audio comes from a small copy of each page's own sound (src/recorder/tap-preload.js). See documentation/plans/plan-recording.md.
-const { BrowserWindow, ipcMain, systemPreferences } = require('electron');
+const { BrowserWindow, desktopCapturer, ipcMain, systemPreferences } = require('electron');
 const { EventEmitter } = require('events');
 const fs = require('fs');
 const path = require('path');
@@ -21,9 +21,10 @@ function defaultFileName(date = new Date()) {
 
 class BuiltInRecorder extends EventEmitter {
   // getSources(ids) returns the webContents to record, in order; folderFor() the folder to write to.
-  constructor({ getSources, folderFor, nameFor, markerFile, windowName, dataDir }) {
+  constructor({ getSources, getCaptureInfo, folderFor, nameFor, markerFile, windowName, dataDir }) {
     super();
     this.getSources = getSources;
+    this.getCaptureInfo = getCaptureInfo || (() => []);
     this.folderFor = folderFor;
     this.nameFor = nameFor || (() => defaultName());
     this.state = 'idle'; // idle | starting | recording | paused | stopping
@@ -55,7 +56,10 @@ class BuiltInRecorder extends EventEmitter {
     ipcMain.on('recorder:composite', (_e, picture) => this.emit('composite', picture));
     ipcMain.on('recorder:note', (_e, text) => this.emit('diag', String(text)));
     ipcMain.on('recorder:stats', (_e, stats) => this.emit('diag', `Recorder state: ${JSON.stringify(stats)}`));
-    ipcMain.on('recorder:levels', (_e, levels) => { this.lastLevelsAt = Date.now(); this.levels = levels; this.emit('levels', levels); });
+    ipcMain.on('recorder:levels', (_e, levels) => {
+      this.lastLevelsAt = Date.now(); this.levels = levels; this.emit('levels', levels);
+      if (Array.isArray(levels)) [0, 1].forEach((i) => { if (levels[i] > 0.002) this.heard[i] = true; }); // the mixer hears it, so it is not silent
+    });
     // What kind of sound each page plays, as found by its preload: written to the activity log, to see what a page does.
     ipcMain.on('recorder:tapinfo', (e, text) => this.emit('tapinfo', e.sender.id, String(text)));
     ipcMain.on('recorder:peak', (e, peak) => {
@@ -186,6 +190,32 @@ class BuiltInRecorder extends EventEmitter {
     if (this.window && !this.window.isDestroyed() && audio) this.window.webContents.send('audio-settings', audio);
   }
 
+  // The recorder's hidden window is made ahead of time (while the toolbar is open) with the microphone and webcam already open, so
+  // pressing Record does not wait for them. Anything that changes the devices opens them again.
+  async ensureWindow() {
+    if (!this.window || this.window.isDestroyed()) {
+      this.window = new BrowserWindow({ show: false, width: 320, height: 180, webPreferences: { nodeIntegration: true, contextIsolation: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' } });
+      this.windowReady = this.window.loadFile(path.join(__dirname, 'recorder', 'index.html'));
+    }
+    await this.windowReady;
+  }
+
+  async warm(settings) {
+    if (this.active) return;
+    try {
+      if (settings.audio && settings.audio.mic.enabled) await this.allowMicrophone();
+      if (settings.layout === 'corner' || settings.layout === 'cam') await this.allowCamera();
+      await this.ensureWindow();
+      if (!this.active && this.window && !this.window.isDestroyed()) this.window.webContents.send('warm', { layout: settings.layout, camera: settings.camera, audio: settings.audio });
+    } catch (err) { /* warming is only a head start; Record will open everything itself */ }
+  }
+
+  unwarm() {
+    if (this.active) return;
+    if (this.window && !this.window.isDestroyed()) this.window.destroy();
+    this.window = null;
+  }
+
   async start(settings) {
     if (this.state !== 'idle') throw new Error('The built-in recorder is already recording.');
     this.error = ''; this.warning = ''; this.interrupted = null;
@@ -199,16 +229,21 @@ class BuiltInRecorder extends EventEmitter {
     if (!ffmpeg) throw new Error('The video encoder (ffmpeg) is missing, so the Showrunner Recorder cannot record. Reinstall Showrunner, or put an ffmpeg program in the "ffmpeg" folder inside its data folder.');
     const format = settings.format === 'mkv' ? 'mkv' : 'mp4';
     this.file = uniquePath(folder, this.nameFor(), undefined, format);
+    const screenMode = settings.capture === 'screen' && settings.layout !== 'cam';
+    if (screenMode && process.platform === 'darwin' && systemPreferences.getMediaAccessStatus('screen') !== 'granted') {
+      // Asking for the list of windows is what makes macOS show its Screen Recording prompt (and list Showrunner under that setting).
+      try { await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } }); } catch (err) { /* only to raise the prompt */ }
+      throw new Error('macOS has not allowed Showrunner to capture windows (it calls this Screen Recording; only the window you chose is recorded, never your whole screen). Allow it in System Settings, Privacy & Security, Screen & System Audio Recording, then quit and reopen Showrunner. Or set Capture method to "Copy the window" on the recorder page.');
+    }
     if (settings.audio && settings.audio.mic.enabled) await this.allowMicrophone();
     if (settings.layout === 'corner' || settings.layout === 'cam') await this.allowCamera();
     this.state = 'starting';
     this.emit('status');
     try {
       this.writeMarker();
-      this.window = new BrowserWindow({ show: false, width: 320, height: 180, webPreferences: { nodeIntegration: true, contextIsolation: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' } });
-      await this.window.loadFile(path.join(__dirname, 'recorder', 'index.html'));
+      await this.ensureWindow();
       const started = new Promise((resolve) => ipcMain.once('recorder:started', (_e, v) => resolve(v)));
-      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format, encoder: settings.encoder });
+      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format, encoder: settings.encoder, fit: settings.fit, capture: screenMode ? 'screen' : 'pictures', screens: screenMode ? this.getCaptureInfo(settings.sources) : [] });
       const result = await started;
       if (!result.ok) throw new Error(result.error || 'The recorder could not start.');
     } catch (err) {
@@ -226,17 +261,29 @@ class BuiltInRecorder extends EventEmitter {
     this.monitorWcs = [];
     this.setSourcesAudio(true);
     // One picture at a time per window: ask again as soon as the last one lands, no faster than the frame rate.
-    sources.forEach((wc, index) => {
+    this.screenMode = screenMode;
+    clearInterval(this.rectTimer);
+    if (screenMode) {
+      // Windows can be moved or resized while recording: where each page sits in its window is sent again every half second.
+      this.rectTimer = setInterval(() => { if (this.window && !this.window.isDestroyed()) this.window.webContents.send('screen-rects', this.getCaptureInfo(settings.sources)); }, 500);
+    }
+    (screenMode ? [] : sources).forEach((wc, index) => {
       let busy = false;
       const timer = setInterval(async () => {
         if (busy || this.inFlight[index] >= 2 || this.state !== 'recording' || wc.isDestroyed() || !this.window || this.window.isDestroyed()) return;
         busy = true;
         try {
+          const t1 = Date.now();
           const image = await wc.capturePage();
+          const t2 = Date.now();
           const size = image.getSize();
           if (size.width && size.height && this.state === 'recording' && this.window && !this.window.isDestroyed()) {
             this.inFlight[index] += 1;
-            this.window.webContents.send('frame', { i: index, w: size.width, h: size.height, buf: image.toBitmap() });
+            const bitmap = image.toBitmap();
+            const t3 = Date.now();
+            this.window.webContents.send('frame', { i: index, w: size.width, h: size.height, buf: bitmap });
+            const m = this.capStats[index] || (this.capStats[index] = { n: 0, grab: 0, grabMax: 0, copy: 0, send: 0, w: 0, h: 0 });
+            m.n += 1; m.grab += t2 - t1; m.grabMax = Math.max(m.grabMax, t2 - t1); m.copy += t3 - t2; m.send += Date.now() - t3; m.w = size.width; m.h = size.height;
           }
         } catch (err) { /* the window is closing or reloading: the next picture will do */ } finally { busy = false; }
       }, 1000 / settings.fps);
@@ -246,7 +293,15 @@ class BuiltInRecorder extends EventEmitter {
     this.checkSpace();
     this.inFlight = [0, 0];
     this.heard = [false, false]; this.soundNote = ''; this.saveNote = ''; this.bytesWritten = 0; this.lastLevelsAt = Date.now(); this.runSeconds = 0; this.settingsSources = settings.sources; this.audioSettings = settings.audio;
-    this.ticker = setInterval(() => { this.spaceChecks += 1; this.checkSound(); if (this.spaceChecks % 10 === 0) this.checkSpace(); this.emit('status'); }, 1000);
+    this.capStats = [];
+    this.ticker = setInterval(() => {
+      this.spaceChecks += 1; this.checkSound();
+      if (this.spaceChecks % 5 === 0 && this.spaceChecks <= 60) {
+        const text = this.capStats.map((m, i) => (m && m.n ? `window ${i + 1}: ${m.w}x${m.h}, ${m.n} pictures, grab avg ${Math.round(m.grab / m.n)} ms (worst ${m.grabMax}), copy avg ${Math.round(m.copy / m.n)} ms, send avg ${Math.round(m.send / m.n)} ms` : '')).filter(Boolean).join('; ');
+        if (text) this.emit('diag', `capture: ${text}`);
+        this.capStats = [];
+      }
+       if (this.spaceChecks % 10 === 0) this.checkSpace(); this.emit('status'); }, 1000);
     this.emit('status');
   }
 
@@ -288,12 +343,14 @@ class BuiltInRecorder extends EventEmitter {
   }
 
   async cleanup() {
+    clearInterval(this.rectTimer);
     this.grabbers.forEach(clearInterval); this.grabbers = [];
     clearInterval(this.ticker);
     if (this.window && !this.window.isDestroyed()) this.window.destroy();
     this.window = null;
     this.clearMarker();
     this.state = 'idle';
+    this.soundNote = ''; // the sound note belongs to a running recording only
     this.startedAt = 0;
     this.warning = '';
     this.saveNote = '';

@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld('coffeePub', {
     askCamera: () => ipcRenderer.invoke('recording:askCamera'),
     reveal: (file) => ipcRenderer.invoke('recording:reveal', file),
     openPrivacy: (kind) => ipcRenderer.invoke('recording:openPrivacy', kind),
+    clearLogs: () => ipcRenderer.invoke('activity:clear'),
     onIdleLevels: (callback) => {
       const listener = (_event, peaks) => callback(peaks);
       ipcRenderer.on('recording:idleLevels', listener);
