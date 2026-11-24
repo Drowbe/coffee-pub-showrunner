@@ -1,0 +1,77 @@
+name: Build ffmpeg
+
+# Builds the ffmpeg program that Showrunner ships (GPL, with x264 and the Mac's VideoToolbox), from the pinned official sources in
+# scripts/ffmpeg/versions.env. Mac only for now (the Showrunner Recorder is Mac only). Run it by hand with "publish" ticked to put the
+# result in a release named ffmpeg-<version>-r<revision>, which the app build downloads.
+
+on:
+  push:
+    paths:
+      - 'scripts/ffmpeg/**'
+      - '.github/workflows/ffmpeg.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish the result as a release (ffmpeg-<version>-r<revision>)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    name: ffmpeg for macOS (${{ matrix.arch }})
+    runs-on: macos-14
+    strategy:
+      matrix:
+        arch: [arm64, x86_64]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Tools
+        run: brew install pkg-config nasm
+
+      - name: Build
+        run: scripts/ffmpeg/build-mac.sh ${{ matrix.arch }}
+
+      - name: Keep the program
+        uses: actions/upload-artifact@v7
+        with:
+          name: ffmpeg-mac-${{ matrix.arch }}
+          path: build/ffmpeg-work/${{ matrix.arch }}/prefix/bin/ffmpeg
+          if-no-files-found: error
+
+  universal:
+    name: ffmpeg for macOS (universal)
+    needs: mac
+    runs-on: macos-14
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Get both builds
+        uses: actions/download-artifact@v7
+        with:
+          path: parts
+
+      - name: Join and check
+        run: scripts/ffmpeg/package-mac.sh parts out
+
+      - name: Keep the package
+        uses: actions/upload-artifact@v7
+        with:
+          name: ffmpeg-mac-universal
+          path: out/*
+          if-no-files-found: error
+
+      - name: Publish
+        if: ${{ inputs.publish }}
+        run: |
+          . scripts/ffmpeg/versions.env
+          TAG="ffmpeg-${FFMPEG_VERSION}-r${BUILD_REVISION}"
+          gh release create "$TAG" out/* --title "ffmpeg ${FFMPEG_VERSION} for Showrunner (r${BUILD_REVISION})" \
+            --notes "The ffmpeg program Showrunner ships, built from the pinned official sources (see SOURCE.txt in the download). GPL: see COPYING.GPLv3." --prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
