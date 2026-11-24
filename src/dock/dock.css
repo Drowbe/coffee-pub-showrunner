@@ -341,3 +341,5 @@ body.expanded .panel {
   opacity: 0.45;
   cursor: default;
 }
+
+.tool.live { background: rgba(229, 72, 77, 0.45); border-color: rgba(229, 72, 77, 0.7); }

@@ -20,15 +20,28 @@ function render() {
     dot.title = `${w.label}: ${w.parked ? 'docked' : w.open ? 'on screen' : 'stopped'}`;
     dots.appendChild(dot);
   }
-  $('rec-dot').hidden = !outputs.recording;
+  const rec = state.recorder; // the Showrunner Recorder, when the profile records with it (otherwise OBS does)
+  const recLive = rec ? ['recording', 'paused'].includes(rec.state) : false;
+  const recTime = rec ? `${Math.floor(rec.seconds / 60)}:${String(rec.seconds % 60).padStart(2, '0')}` : '';
+  $('rec-dot').hidden = rec ? !recLive : !outputs.recording;
   $('live-dot').hidden = !outputs.streaming;
 
   // Expanded panel
   const obsState = $('obs-state');
-  obsState.textContent = state.obsConnected ? 'OBS connected' : 'OBS offline';
-  obsState.classList.toggle('on', state.obsConnected);
-  $('rec').hidden = !outputs.recording;
-  $('rec-time').textContent = outputs.recordTime || '';
+  obsState.textContent = rec ? (rec.state === 'paused' ? 'Paused' : recLive ? 'Recording' : 'Ready to record') : state.obsConnected ? 'OBS connected' : 'OBS offline';
+  obsState.classList.toggle('on', rec ? recLive : state.obsConnected);
+  $('rec').hidden = rec ? !recLive : !outputs.recording;
+  $('rec').firstChild.textContent = rec && rec.state === 'paused' ? 'PAUSED ' : 'REC ';
+  $('rec-time').textContent = rec ? recTime : (outputs.recordTime || '');
+  for (const id of ['rec-toggle', 'rec-pause', 'rec-toolbar']) $(id).hidden = !rec;
+  if (rec) {
+    $('rec-toggle').textContent = recLive ? 'Stop recording' : 'Start recording';
+    $('rec-toggle').classList.toggle('live', recLive);
+    $('rec-toggle').disabled = ['starting', 'stopping'].includes(rec.state);
+    $('rec-pause').hidden = !recLive;
+    $('rec-pause').textContent = rec.state === 'paused' ? 'Resume' : 'Pause';
+    $('rec-toolbar').textContent = rec.toolbarOpen ? 'Hide toolbar' : 'Show toolbar';
+  }
   $('live').hidden = !outputs.streaming;
   $('live-time').textContent = outputs.streamTime || '';
   $('scene').textContent = state.obsConnected && outputs.scene ? `Scene: ${outputs.scene}` : '';
@@ -74,12 +87,13 @@ function render() {
     foot.appendChild(st);
     const src = document.createElement('span');
     src.className = 'src';
-    src.textContent = w.sources && w.sources.length ? w.sources.join(', ') : 'no OBS source';
+    src.textContent = rec ? '' : w.sources && w.sources.length ? w.sources.join(', ') : 'no OBS source';
     src.title = src.textContent;
     foot.appendChild(src);
     card.appendChild(foot);
     cards.appendChild(card);
   }
+  $('sync').hidden = Boolean(rec); // syncing OBS only means something when OBS records
   $('sync').disabled = !state.obsConnected;
 }
 

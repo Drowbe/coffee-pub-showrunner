@@ -885,7 +885,7 @@ function defaultRecording() {
     format: 'mp4', // the file type: 'mp4' or 'mkv' (both are written as they go, so both survive a crash)
     audio: defaultRecordingAudio(),
     camera: { device: '', deviceLabel: '', corner: 'br', size: 'medium', flip: false, background: 'none', keyColor: '#00b140', keyTolerance: 35, keySoftness: 25, blur: 50 }, // the webcam (flip mirrors it left to right), for the 'corner' and 'cam' layouts; background 'key' removes a backdrop of keyColor, 'blur' blurs everything but the person
-    toolbar: { auto: true, atStart: false, preview: true, hidePreviewOnRecord: true, x: null, y: null }, // the recording toolbar: opens when recording starts (auto) or when Showrunner starts (atStart), shows the live picture (preview), and where it was left
+    toolbar: { auto: true, atStart: false, preview: true, hidePreviewOnRecord: true, keepReady: false, x: null, y: null }, // the recording toolbar: opens when recording starts (auto) or when Showrunner starts (atStart), shows the live picture (preview), and where it was left
   };
 }
 
@@ -952,6 +952,7 @@ function sanitizeRecording(input) {
       atStart: Boolean(src.toolbar && src.toolbar.atStart),
       preview: !src.toolbar || src.toolbar.preview !== false,
       hidePreviewOnRecord: !src.toolbar || src.toolbar.hidePreviewOnRecord !== false,
+      keepReady: Boolean(src.toolbar && src.toolbar.keepReady),
       x: src.toolbar && Number.isInteger(src.toolbar.x) ? src.toolbar.x : null,
       y: src.toolbar && Number.isInteger(src.toolbar.y) ? src.toolbar.y : null,
     },

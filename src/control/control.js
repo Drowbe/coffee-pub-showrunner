@@ -2202,7 +2202,7 @@ const recEls = {
   camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camFlip: $('rec-cam-flip'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
   camBg: $('rec-cam-bg'), camKeyRow: $('rec-cam-key-row'), camBlurRow: $('rec-cam-blur-row'), camBlur: $('rec-cam-blur'), camKeyColor: $('rec-cam-key-color'), camKeyTol: $('rec-cam-key-tol'), camKeySoft: $('rec-cam-key-soft'),
   camPreview: $('rec-cam-preview'), camPreviewBtn: $('rec-cam-preview-btn'), camPreviewBox: $('rec-cam-preview-box'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
-  reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'), toolbarAtStart: $('rec-toolbar-atstart'), toolbarHide: $('rec-toolbar-hide'),
+  reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'), toolbarAtStart: $('rec-toolbar-atstart'), toolbarHide: $('rec-toolbar-hide'), keepReady: $('rec-keep-ready'),
   folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
 };
 
@@ -2271,6 +2271,7 @@ function renderRecording() {
   if (document.activeElement !== recEls.toolbarAuto) recEls.toolbarAuto.checked = r.toolbar.auto;
   if (document.activeElement !== recEls.toolbarAtStart) recEls.toolbarAtStart.checked = r.toolbar.atStart;
   recEls.toolbarHide.checked = r.toolbar.hidePreviewOnRecord;
+  recEls.keepReady.checked = r.toolbar.keepReady;
   renderCamera();
   renderAudio();
 }
@@ -2283,12 +2284,12 @@ function readRecording() {
     sources: [recEls.layout.value === 'cam' ? '' : recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
     layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), format: recEls.format.value, encoder: recEls.encoder.value, capture: recEls.capture.value, fit: recEls.fit.value, folder: recEls.folder.value,
     camera: { device: recEls.camDevice.value, deviceLabel: recEls.camDevice.selectedOptions[0] ? recEls.camDevice.selectedOptions[0].textContent : '', corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked, background: recEls.camBg.value, keyColor: recEls.camKeyColor.value, keyTolerance: Number(recEls.camKeyTol.value), keySoftness: Number(recEls.camKeySoft.value), blur: Number(recEls.camBlur.value) },
-    toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked, atStart: recEls.toolbarAtStart.checked, hidePreviewOnRecord: recEls.toolbarHide.checked },
+    toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked, atStart: recEls.toolbarAtStart.checked, hidePreviewOnRecord: recEls.toolbarHide.checked, keepReady: recEls.keepReady.checked },
   };
   scheduleSave();
   renderRecording();
 }
-for (const el of [recEls.toolbarHide, recEls.camBlur, recEls.camBg, recEls.camKeyColor, recEls.camKeyTol, recEls.camKeySoft, recEls.camFlip, recEls.toolbarAtStart, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.format, recEls.encoder, recEls.capture, recEls.fit, recEls.folder]) { el.addEventListener('change', readRecording); }
+for (const el of [recEls.keepReady, recEls.toolbarHide, recEls.camBlur, recEls.camBg, recEls.camKeyColor, recEls.camKeyTol, recEls.camKeySoft, recEls.camFlip, recEls.toolbarAtStart, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.format, recEls.encoder, recEls.capture, recEls.fit, recEls.folder]) { el.addEventListener('change', readRecording); }
 recEls.folder.addEventListener('input', readRecording);
 // Clicking a corner of the picture moves the webcam there (when the layout has it in a corner).
 $('rec-stage').addEventListener('click', (e) => {

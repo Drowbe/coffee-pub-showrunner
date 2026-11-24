@@ -2775,7 +2775,7 @@ function expandViews() {
 function dockSize(expanded) {
   const n = configStore.get().views.length;
   if (!expanded) return { width: DOCK_WIDTH, height: 92 + n * 16 };
-  return { width: DOCK_EXPANDED, height: 200 + n * 182 };
+  return { width: DOCK_EXPANDED, height: 200 + n * 182 + (configStore.get().recording.backend === 'builtin' ? 90 : 0) }; // the recording buttons add rows
 }
 
 function dockBounds(display) {
@@ -2806,6 +2806,7 @@ function dockState() {
     collapsed: dockSize(false),
     obsConnected: obs.connected,
     outputs: obs.status().outputs,
+    recorder: configStore.get().recording.backend === 'builtin' ? { state: builtInRecorder.state, seconds: builtInRecorder.seconds(), toolbarOpen: isAlive(toolbarWindow) } : null, // the Showrunner Recorder, when the profile uses it
     windows: configStore.get().views.map((view) => {
       const win = viewWindows.get(view.id);
       const open = isAlive(win);
@@ -3452,8 +3453,10 @@ function updateTrayRecording() {
   const st = builtInRecorder.status();
   const live = configStore.get().recording.backend === 'builtin' && (st.state === 'recording' || st.state === 'paused');
   if (!trayIcons.rec) { trayIcons.rec = recordingDot([229, 72, 77]); trayIcons.paused = recordingDot([230, 162, 60]); }
-  tray.setImage(live ? (st.state === 'paused' ? trayIcons.paused : trayIcons.rec) : trayIcons.normal);
-  if (process.platform === 'darwin') tray.setTitle(live ? ` ${Math.floor(st.seconds / 60)}:${String(st.seconds % 60).padStart(2, '0')}${st.state === 'paused' ? ' paused' : ''}` : '');
+  const starting = configStore.get().recording.backend === 'builtin' && st.state === 'starting';
+  tray.setImage(live ? (st.state === 'paused' ? trayIcons.paused : trayIcons.rec) : starting ? trayIcons.paused : trayIcons.normal);
+  if (process.platform === 'darwin' && starting) tray.setTitle(' starting...');
+  else if (process.platform === 'darwin') tray.setTitle(live ? ` ${Math.floor(st.seconds / 60)}:${String(st.seconds % 60).padStart(2, '0')}${st.state === 'paused' ? ' paused' : ''}` : '');
   tray.setToolTip(live ? `${APP_NAME} - ${st.state === 'paused' ? 'paused' : 'recording'}` : APP_NAME);
 }
 
@@ -3560,7 +3563,7 @@ function scheduleWarm() {
   clearTimeout(warmTimer);
   warmTimer = setTimeout(() => {
     const r = configStore.get().recording;
-    if ((isAlive(toolbarWindow) || camPreviewOn) && r.backend === 'builtin') builtInRecorder.warm({ layout: r.layout, camera: r.camera, audio: r.audio });
+    if ((isAlive(toolbarWindow) || camPreviewOn || r.toolbar.keepReady) && r.backend === 'builtin') builtInRecorder.warm({ layout: r.layout, camera: r.camera, audio: r.audio });
     else builtInRecorder.unwarm();
   }, 700);
 }
@@ -4046,6 +4049,11 @@ function registerIpc() {
     else if (name === 'stopAll') closeAllViews();
     else if (name === 'sync') syncObs().catch(() => {});
     else if (name === 'panel') createControlWindow();
+    else if (name === 'recToggle' || name === 'recPause') {
+      const live = ['recording', 'paused'].includes(builtInRecorder.state);
+      const action = name === 'recToggle' ? (live ? 'stopRecording' : 'startRecording') : (builtInRecorder.state === 'paused' ? 'resumeRecording' : 'pauseRecording');
+      recordingBackends.run(action).catch((err) => logActivity('Recorder', err.message, 'error'));
+    } else if (name === 'toolbar') toggleToolbar();
     else if (name === 'wakeAudio') {
       for (const id of viewWindows.keys()) {
         if (wakeAudio(id)) wakeWhenReady(id, 5000);
@@ -4760,6 +4768,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     openLaunchViews();
     { const rc = configStore.get().recording; if (rc.backend === 'builtin' && rc.toolbar.atStart) openToolbar({ focus: false }); }
+    scheduleWarm();
     if (configStore.get().teleprompter.enabled) openPrompter();
     obs.start().catch(() => {});
     tavern.start().catch(() => {});
