@@ -11,6 +11,10 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
 ## Unreleased
 
+- **Dock and menu bar, tidied.** The dock panel has one big Start/Stop recording button (for the Showrunner Recorder or OBS) with a
+  ... menu, Windows and OBS menus instead of a grid of buttons, and a right-click menu on each window. The menu bar icon stays our
+  mark and gains a red badge (orange when paused or starting) and the time while recording. The recorder's log lines are grey unless
+  they report trouble; a microphone that stops is shown as a warning, and a ready microphone or webcam that has stopped is reopened.
 - **Recording from the menu bar.** With the Showrunner Recorder, the menu bar icon turns into a red dot with the time while
   recording (orange when paused), and its menu has Start/Stop, Pause/Resume and Show/Hide Recording Toolbar. **Show the toolbar** sits
   beside Start recording. The toolbar hides its picture while recording (switch off on the recorder page); click Preview to see it.

@@ -41,7 +41,7 @@ class BuiltInRecorder extends EventEmitter {
     this.dataDir = dataDir || '';
     this.windowName = windowName || ((id) => id);
     this.heard = [false, false]; // whether any sound has arrived from each chosen window
-    this.soundNote = '';
+    this.soundNote = ''; this.micNote = '';
     this.runSeconds = 0;
     this.inFlight = [0, 0]; // pictures sent to the recorder page and not yet used
     this.bytesWritten = 0;
@@ -54,7 +54,12 @@ class BuiltInRecorder extends EventEmitter {
     this.spaceChecks = 0;
     ipcMain.on('recorder:frameAck', (_e, i) => { if (this.inFlight[i] > 0) this.inFlight[i] -= 1; });
     ipcMain.on('recorder:composite', (_e, picture) => this.emit('composite', picture));
-    ipcMain.on('recorder:note', (_e, text) => this.emit('diag', String(text)));
+    ipcMain.on('recorder:note', (_e, text) => {
+      this.emit('diag', String(text));
+      // A microphone that stops is said out loud, since the recording would carry on with no voice in it.
+      if (/microphone: .*(state ended|device stopped|system muted)/.test(String(text)) && this.state !== 'idle') { this.micNote = 'The microphone stopped working, so your voice is not being recorded.'; this.emit('status'); }
+      if (/microphone: sound is flowing again/.test(String(text))) { this.micNote = ''; this.emit('status'); }
+    });
     ipcMain.on('recorder:stats', (_e, stats) => this.emit('diag', `Recorder state: ${JSON.stringify(stats)}`));
     ipcMain.on('recorder:levels', (_e, levels) => {
       this.lastLevelsAt = Date.now(); this.levels = levels; this.emit('levels', levels);
@@ -88,7 +93,7 @@ class BuiltInRecorder extends EventEmitter {
   }
 
   status() {
-    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: [this.saveNote, this.soundNote, this.warning].filter(Boolean).join('  '), interrupted: this.interrupted };
+    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: [this.saveNote, this.micNote, this.soundNote, this.warning].filter(Boolean).join('  '), interrupted: this.interrupted };
   }
 
   // A note is left while a recording runs and removed when it ends cleanly. If it is still there at the next launch, the app closed in
@@ -351,7 +356,7 @@ class BuiltInRecorder extends EventEmitter {
     this.window = null;
     this.clearMarker();
     this.state = 'idle';
-    this.soundNote = ''; // the sound note belongs to a running recording only
+    this.soundNote = ''; this.micNote = ''; // these notes belong to a running recording only
     this.startedAt = 0;
     this.warning = '';
     this.saveNote = '';

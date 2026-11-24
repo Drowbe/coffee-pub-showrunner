@@ -33,17 +33,13 @@ function render() {
   $('rec').hidden = rec ? !recLive : !outputs.recording;
   $('rec').firstChild.textContent = rec && rec.state === 'paused' ? 'PAUSED ' : 'REC ';
   $('rec-time').textContent = rec ? recTime : (outputs.recordTime || '');
-  for (const id of ['rec-toggle', 'rec-pause', 'rec-toolbar']) $(id).hidden = !rec;
-  if (rec) {
-    $('rec-toggle').textContent = recLive ? 'Stop recording' : 'Start recording';
-    $('rec-toggle').classList.toggle('live', recLive);
-    $('rec-toggle').disabled = ['starting', 'stopping'].includes(rec.state);
-    $('rec-pause').hidden = !recLive;
-    $('rec-pause').textContent = rec.state === 'paused' ? 'Resume' : 'Pause';
-    $('rec-toolbar').textContent = rec.toolbarOpen ? 'Hide toolbar' : 'Show toolbar';
-  }
-  $('live').hidden = !outputs.streaming;
-  $('live-time').textContent = outputs.streamTime || '';
+  // The one big action: start or stop recording, for whichever recorder the profile uses.
+  const live = rec ? recLive : Boolean(outputs.recording);
+  const starting = rec ? ['starting', 'stopping'].includes(rec.state) : false;
+  $('rec-toggle').classList.toggle('live', live);
+  $('rec-toggle').disabled = starting || (!rec && !state.obsConnected);
+  $('rec-toggle-label').textContent = live ? `Stop recording${rec ? ` (${recTime})` : outputs.recordTime ? ` (${outputs.recordTime})` : ''}` : rec && rec.state === 'starting' ? 'Starting...' : 'Start recording';
+  $('menu-obs').hidden = Boolean(rec);
   $('scene').textContent = state.obsConnected && outputs.scene ? `Scene: ${outputs.scene}` : '';
 
   const cards = $('cards');
@@ -93,8 +89,6 @@ function render() {
     card.appendChild(foot);
     cards.appendChild(card);
   }
-  $('sync').hidden = Boolean(rec); // syncing OBS only means something when OBS records
-  $('sync').disabled = !state.obsConnected;
 }
 
 window.dock.onState((next) => {
@@ -111,6 +105,7 @@ let collapseTimer = 0;
 function setExpanded(next) {
   if (expanded === next) return;
   expanded = next;
+  if (!next) closeMenu();
   document.body.classList.toggle('expanded', next);
   window.dock.hover(next);
 }
@@ -142,11 +137,71 @@ $('cards').addEventListener('click', (event) => {
   if (card) window.dock.toggle(card.dataset.id);
 });
 
+// ---- Menus: the main button is the one thing used every session; the rest live in small menus (and right-click on a window) ----
+const menu = $('menu');
+function closeMenu() { menu.hidden = true; menu.textContent = ''; }
+function openMenu(items, x, y) {
+  menu.textContent = '';
+  for (const item of items) {
+    if (item === '-') { const hr = document.createElement('div'); hr.className = 'menu-sep'; menu.appendChild(hr); continue; }
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'menu-item'; b.textContent = item.label; b.disabled = Boolean(item.disabled); b.setAttribute('role', 'menuitem');
+    b.addEventListener('click', () => { closeMenu(); item.run(); });
+    menu.appendChild(b);
+  }
+  menu.hidden = false;
+  const panel = $('panel').getBoundingClientRect(); const box = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(4, Math.min(x, panel.width - box.width - 4))}px`;
+  menu.style.top = `${Math.max(4, Math.min(y, panel.height - box.height - 4))}px`;
+}
+const anchored = (el, items) => { const r = el.getBoundingClientRect(); const p = $('panel').getBoundingClientRect(); openMenu(items, r.left - p.left, r.bottom - p.top + 2); };
+const act = (name) => () => window.dock.action(name);
+document.addEventListener('mousedown', (event) => { if (!menu.hidden && !event.target.closest('#menu') && !event.target.closest('.tool') && !event.target.closest('.card')) closeMenu(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
+
+$('menu-windows').addEventListener('click', (event) => {
+  if (!menu.hidden) { closeMenu(); return; }
+  anchored(event.currentTarget, [
+    { label: 'Start all', run: act('startAll') }, { label: 'Stop all', run: act('stopAll') }, '-',
+    { label: 'Dock all', run: () => window.dock.parkAll() }, { label: 'Undock all', run: () => window.dock.restoreAll() }, '-',
+    { label: 'Auto-arrange on display', run: act('arrange') }, { label: 'Wake audio', run: act('wakeAudio') },
+  ]);
+});
+$('menu-obs').addEventListener('click', (event) => {
+  if (!menu.hidden) { closeMenu(); return; }
+  anchored(event.currentTarget, [{ label: 'Sync OBS sources', disabled: !state.obsConnected, run: act('sync') }]);
+});
+$('rec-more').addEventListener('click', (event) => {
+  if (!menu.hidden) { closeMenu(); return; }
+  const rec = state.recorder; const outputs = state.outputs || {};
+  const live = rec ? ['recording', 'paused'].includes(rec.state) : Boolean(outputs.recording);
+  const paused = rec ? rec.state === 'paused' : Boolean(outputs.recordingPaused);
+  const items = [];
+  if (live) items.push({ label: paused ? 'Resume recording' : 'Pause recording', run: act('recPause') });
+  if (rec) items.push({ label: rec.toolbarOpen ? 'Hide recording toolbar' : 'Show recording toolbar', run: act('toolbar') });
+  if (!items.length) items.push({ label: 'Nothing to change while not recording', disabled: true, run: () => {} });
+  anchored(event.currentTarget, items);
+});
+
+// Right-click a window: what can be done to that one window.
+$('cards').addEventListener('contextmenu', (event) => {
+  const card = event.target.closest('.card');
+  if (!card) return;
+  event.preventDefault();
+  const w = state.windows.find((x) => x.id === card.dataset.id);
+  if (!w) return;
+  const p = $('panel').getBoundingClientRect();
+  const doIt = (what) => () => window.dock.card(w.id, what);
+  openMenu(w.open
+    ? [{ label: w.parked ? 'Undock' : 'Dock', run: doIt('toggle') }, { label: 'Stop', run: doIt('stop') }, '-', { label: 'Reload', run: doIt('reload') }, { label: 'Wake audio', run: doIt('wake') }, { label: 'Reset window', run: doIt('reset') }]
+    : [{ label: 'Start', run: doIt('start') }], event.clientX - p.left, event.clientY - p.top);
+});
+
+document.querySelector('.primary').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-action]');
+  if (button) window.dock.action(button.dataset.action);
+});
 document.querySelector('.tools').addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
-  if (!button) return;
-  const action = button.dataset.action;
-  if (action === 'parkAll') window.dock.parkAll();
-  else if (action === 'restoreAll') window.dock.restoreAll();
-  else window.dock.action(action);
+  if (button) window.dock.action(button.dataset.action);
 });

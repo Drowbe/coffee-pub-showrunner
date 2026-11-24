@@ -849,7 +849,8 @@ const builtInRecorder = new BuiltInRecorder({
   },
 });
 builtInRecorder.on('recording', noteRecording);
-builtInRecorder.on('diag', (text) => logActivity('Recorder', text, 'error'));
+// Most of what the recorder reports is information; only trouble is shown in red.
+builtInRecorder.on('diag', (text) => logActivity('Recorder', text, /ended|stopped|not available|could not|nothing written|nothing has been|failed|muted it|not responding/i.test(text) ? 'error' : 'info'));
 const tapInfoSeen = new Set();
 builtInRecorder.on('tapinfo', (senderId, text) => {
   const entry = [...pageViews.entries()].find(([, page]) => !page.webContents.isDestroyed() && page.webContents.id === senderId);
@@ -2775,7 +2776,7 @@ function expandViews() {
 function dockSize(expanded) {
   const n = configStore.get().views.length;
   if (!expanded) return { width: DOCK_WIDTH, height: 92 + n * 16 };
-  return { width: DOCK_EXPANDED, height: 200 + n * 182 + (configStore.get().recording.backend === 'builtin' ? 90 : 0) }; // the recording buttons add rows
+  return { width: DOCK_EXPANDED, height: 150 + n * 182 };
 }
 
 function dockBounds(display) {
@@ -2806,6 +2807,7 @@ function dockState() {
     collapsed: dockSize(false),
     obsConnected: obs.connected,
     outputs: obs.status().outputs,
+    backend: configStore.get().recording.backend,
     recorder: configStore.get().recording.backend === 'builtin' ? { state: builtInRecorder.state, seconds: builtInRecorder.seconds(), toolbarOpen: isAlive(toolbarWindow) } : null, // the Showrunner Recorder, when the profile uses it
     windows: configStore.get().views.map((view) => {
       const win = viewWindows.get(view.id);
@@ -3437,14 +3439,23 @@ function recordingMenuItems() {
   ];
 }
 
-// While recording, the menu bar icon is a red disc with the time (orange when paused); otherwise it is the usual icon.
+// While recording, the menu bar icon is still our mark, with a red badge and the time (orange badge when paused or starting).
 let trayIcons = { normal: null };
 function recordingDot(color) {
-  const size = 44; const buf = Buffer.alloc(size * size * 4);
-  const [r, g, b] = color; const c = (size - 1) / 2; const rad = size * 0.36;
+  // Our own mark in colour (not a template image, so it keeps its colours in light and dark), with a badge in the corner: red while recording.
+  const size = 44;
+  const mark = nativeImage.createFromPath(path.join(__dirname, 'assets', 'mark-color.png')).resize({ width: size, height: size, quality: 'best' });
+  const buf = Buffer.from(mark.toBitmap()); // BGRA
+  const [r, g, b] = color; const cx = size - 8.5; const cy = size - 8.5;
   for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
-    const d = Math.hypot(x - c, y - c); const a = Math.max(0, Math.min(1, rad + 0.5 - d));
-    const i = (y * size + x) * 4; buf[i] = b; buf[i + 1] = g; buf[i + 2] = r; buf[i + 3] = Math.round(a * 255); // BGRA
+    const d = Math.hypot(x - cx, y - cy);
+    const ring = Math.max(0, Math.min(1, 9 - d)); const dot = Math.max(0, Math.min(1, 6.5 - d));
+    const i = (y * size + x) * 4;
+    if (ring > 0) { // a white ring, then the coloured disc, over the mark
+      const mix = (from, to, t) => Math.round(from * (1 - t) + to * t);
+      buf[i] = mix(buf[i], 255, ring); buf[i + 1] = mix(buf[i + 1], 255, ring); buf[i + 2] = mix(buf[i + 2], 255, ring); buf[i + 3] = Math.max(buf[i + 3], Math.round(ring * 255));
+      if (dot > 0) { buf[i] = mix(buf[i], b, dot); buf[i + 1] = mix(buf[i + 1], g, dot); buf[i + 2] = mix(buf[i + 2], r, dot); }
+    }
   }
   return nativeImage.createFromBitmap(buf, { width: size, height: size, scaleFactor: 2 });
 }
@@ -4042,6 +4053,16 @@ function registerIpc() {
     else if (isAlive(viewWindows.get(id))) parkView(id);
     else createViewWindow(getView(id));
   });
+  // The right-click menu on one window in the dock.
+  ipcMain.on('dock:card', (_event, id, what) => {
+    if (!configStore.getView(id)) return;
+    if (what === 'toggle') { if (parked.has(id)) restoreView(id); else if (isAlive(viewWindows.get(id))) parkView(id); }
+    else if (what === 'start') { if (!isAlive(viewWindows.get(id))) createViewWindow(getView(id)); }
+    else if (what === 'stop') closeView(id);
+    else if (what === 'reload') reloadView(id);
+    else if (what === 'wake') { if (wakeAudio(id)) wakeWhenReady(id, 5000); setTimeout(broadcastStatus, 800); }
+    else if (what === 'reset') resetView(id);
+  });
   ipcMain.on('dock:parkAll', () => collapseViews());
   ipcMain.on('dock:restoreAll', () => expandViews());
   ipcMain.on('dock:action', (_event, name) => {
@@ -4050,8 +4071,11 @@ function registerIpc() {
     else if (name === 'sync') syncObs().catch(() => {});
     else if (name === 'panel') createControlWindow();
     else if (name === 'recToggle' || name === 'recPause') {
-      const live = ['recording', 'paused'].includes(builtInRecorder.state);
-      const action = name === 'recToggle' ? (live ? 'stopRecording' : 'startRecording') : (builtInRecorder.state === 'paused' ? 'resumeRecording' : 'pauseRecording');
+      const builtin = configStore.get().recording.backend === 'builtin';
+      const outputs = obs.status().outputs || {};
+      const live = builtin ? ['recording', 'paused'].includes(builtInRecorder.state) : Boolean(outputs.recording);
+      const paused = builtin ? builtInRecorder.state === 'paused' : Boolean(outputs.recordingPaused);
+      const action = name === 'recToggle' ? (live ? 'stopRecording' : 'startRecording') : (paused ? 'resumeRecording' : 'pauseRecording');
       recordingBackends.run(action).catch((err) => logActivity('Recorder', err.message, 'error'));
     } else if (name === 'toolbar') toggleToolbar();
     else if (name === 'wakeAudio') {

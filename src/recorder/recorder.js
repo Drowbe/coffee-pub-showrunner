@@ -178,13 +178,21 @@ ipcRenderer.on('warm', (_e, c) => {
   if (!wantMic || (warmDev.mic && warmDev.mic.key !== micKey(c.audio.mic))) dropWarm('mic');
   if (!wantCam || (warmDev.cam && warmDev.cam.key !== camKey(c.camera))) dropWarm('cam');
   if (c.camera && c.camera.background === 'blur' && wantCam) Segment.load().catch(() => {}); // the person finder is made ready too
-  if (wantMic && !warmDev.mic) { const p = openMic(c.audio.mic); p.catch(() => { warmDev.mic = null; }); warmDev.mic = { key: micKey(c.audio.mic), promise: p }; }
+  if (wantMic && !warmDev.mic) { const p = openMic(c.audio.mic); p.catch(() => { warmDev.mic = null; }); p.then((st) => { const t = st.getAudioTracks()[0]; if (t) t.onended = () => { if (warmDev.mic && warmDev.mic.promise === p) warmDev.mic = null; ipcRenderer.send('recorder:note', 'the ready microphone stopped by itself (the device was taken or changed)'); }; }).catch(() => {}); warmDev.mic = { key: micKey(c.audio.mic), promise: p }; }
   if (wantCam && !warmDev.cam) { const p = openCam(c.camera); p.catch(() => { warmDev.cam = null; }); warmDev.cam = { key: camKey(c.camera), promise: p }; }
   idleBlur(c, wantCam);
 });
 async function takeDevice(which, key, open) {
   const w = warmDev[which];
-  if (w && w.key === key) { warmDev[which] = null; try { return await w.promise; } catch (err) { /* fall through to a fresh open */ } }
+  if (w && w.key === key) {
+    warmDev[which] = null;
+    try {
+      const got = await w.promise;
+      const track = (which === 'mic' ? got : got.stream).getTracks()[0];
+      if (track && track.readyState === 'live') return got;
+      ipcRenderer.send('recorder:note', `the ready ${which === 'mic' ? 'microphone' : 'webcam'} had stopped before recording; opening it again`);
+    } catch (err) { /* fall through to a fresh open */ }
+  }
   dropWarm(which);
   return open();
 }

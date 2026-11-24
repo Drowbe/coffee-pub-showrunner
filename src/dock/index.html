@@ -24,20 +24,17 @@
         <span class="pillet live" id="live" hidden>LIVE <b id="live-time"></b></span>
         <span class="scene" id="scene"></span>
       </div>
+      <div class="primary">
+        <button class="primary-btn" data-action="recToggle" type="button" id="rec-toggle"><span class="rec-glyph" aria-hidden="true"></span><span id="rec-toggle-label">Start recording</span></button>
+        <button class="tool more" type="button" id="rec-more" title="More recording options" aria-label="More recording options" aria-haspopup="menu">&hellip;</button>
+      </div>
       <div class="cards" id="cards"></div>
       <div class="tools">
-        <button class="tool rec-tool" data-action="recToggle" type="button" id="rec-toggle" hidden>Start recording</button>
-        <button class="tool rec-tool" data-action="recPause" type="button" id="rec-pause" hidden>Pause</button>
-        <button class="tool rec-tool" data-action="toolbar" type="button" id="rec-toolbar" hidden>Show toolbar</button>
-        <button class="tool" data-action="parkAll" type="button">Dock all</button>
-        <button class="tool" data-action="restoreAll" type="button">Undock all</button>
-        <button class="tool" data-action="startAll" type="button">Start all</button>
-        <button class="tool" data-action="stopAll" type="button">Stop all</button>
-        <button class="tool" data-action="sync" type="button" id="sync">Sync OBS</button>
-        <button class="tool" data-action="wakeAudio" type="button" title="Send every window the click that lets its audio start">Wake audio</button>
-        <button class="tool" data-action="arrange" type="button" title="Lay out the windows left to right on the display chosen on the Session tab">Auto-arrange</button>
+        <button class="tool" type="button" id="menu-windows" aria-haspopup="menu">Windows &#9662;</button>
+        <button class="tool" type="button" id="menu-obs" aria-haspopup="menu" hidden>OBS &#9662;</button>
         <button class="tool" data-action="panel" type="button">Control panel</button>
       </div>
+      <div class="menu" id="menu" role="menu" hidden></div>
     </div>
   </div>
   <script src="dock.js"></script>

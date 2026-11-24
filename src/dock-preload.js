@@ -11,4 +11,5 @@ contextBridge.exposeInMainWorld('dock', {
   parkAll: () => ipcRenderer.send('dock:parkAll'),
   restoreAll: () => ipcRenderer.send('dock:restoreAll'),
   action: (name) => ipcRenderer.send('dock:action', name),
+  card: (id, what) => ipcRenderer.send('dock:card', id, what),
 });
