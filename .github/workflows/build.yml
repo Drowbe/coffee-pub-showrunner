@@ -36,6 +36,10 @@ jobs:
       - name: Syntax check
         run: npm run check
 
+      # The ffmpeg program the Showrunner Recorder uses, built by the Build ffmpeg workflow and checked against its recorded checksum.
+      - name: Get ffmpeg
+        run: node scripts/fetch-ffmpeg.js mac
+
       - name: Write notarization API key
         if: ${{ env.HAS_APPLE_KEY == 'true' }}
         run: echo "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
@@ -59,6 +63,18 @@ jobs:
           APPLE_API_KEY: ${{ runner.temp }}/AuthKey.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+      # The installer must really contain a working, universal ffmpeg.
+      - name: Check ffmpeg is in the app
+        run: |
+          APP=$(ls -d dist/mac-universal/*.app | head -1)
+          FF="$APP/Contents/Resources/ffmpeg/ffmpeg"
+          test -x "$FF"
+          lipo -info "$FF"
+          "$FF" -hide_banner -version | head -1
+          "$FF" -hide_banner -encoders 2>/dev/null | grep -E "h264_videotoolbox|libx264 "
+          test -f "$APP/Contents/Resources/ffmpeg/COPYING.GPLv3"
+          test -f "$APP/Contents/Resources/THIRD-PARTY-NOTICES.md"
 
       - name: Upload installer
         uses: actions/upload-artifact@v7

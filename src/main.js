@@ -3690,6 +3690,15 @@ function registerIpc() {
     fs.copyFileSync(from, path.join(dir, name));
     return { id: `image:${name}`, name: path.basename(from) };
   });
+  // The few fixed links in About (licences and where to get the source of the software we ship); nothing else can be opened this way.
+  const NOTICE_LINKS = {
+    'ffmpeg-source': 'https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz',
+    'x264-source': 'https://code.videolan.org/videolan/x264/-/tree/b35605ace3ddf7c1a5d67a2eb553f034aef41d55',
+    'build-scripts': 'https://github.com/Drowbe/coffee-pub-showrunner/tree/main/scripts/ffmpeg',
+    mediapipe: 'https://github.com/google-ai-edge/mediapipe',
+    notices: 'https://github.com/Drowbe/coffee-pub-showrunner/blob/main/THIRD-PARTY-NOTICES.md',
+  };
+  ipcMain.handle('app:openLink', (_event, key) => { if (NOTICE_LINKS[key]) return shell.openExternal(NOTICE_LINKS[key]); return null; });
   ipcMain.handle('recording:openPrivacy', (_event, kind) => shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'camera' ? 'Camera' : 'Microphone'}`));
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also

@@ -5745,6 +5745,9 @@ new MutationObserver(fitTabLabels).observe($('tabs'), { childList: true, subtree
 
 $('activity-clear').addEventListener('click', () => { window.coffeePub.recording.clearLogs(); });
 
+// The licence links in About.
+for (const a of document.querySelectorAll('[data-link]')) a.addEventListener('click', (event) => { event.preventDefault(); api.recording.openLink(a.dataset.link).catch(() => {}); });
+
 // Copies the whole activity log (oldest first, one line each) so it can be pasted into a message.
 $('activity-copy').addEventListener('click', async () => {
   const text = activityEvents.slice().reverse().map((e) => `${new Date(e.at).toLocaleTimeString()} [${e.source}]${e.level === 'error' ? ' !' : ''} ${e.event}`).join('\n') || 'No activity yet.';

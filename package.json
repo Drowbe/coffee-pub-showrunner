@@ -43,6 +43,10 @@
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "build/AppIcon.icon",
+      "extraResources": [
+        { "from": "build/ffmpeg", "to": "ffmpeg", "filter": ["ffmpeg", "COPYING.GPLv3", "FFMPEG-LICENSE.md", "SOURCE.txt"] },
+        { "from": "THIRD-PARTY-NOTICES.md", "to": "THIRD-PARTY-NOTICES.md" }
+      ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
