@@ -830,6 +830,7 @@ automations.on('event', (entry) => {
 
 // The built-in recorder reads the pages of the windows the profile chose (the page inside each window, without its bar).
 const builtInRecorder = new BuiltInRecorder({
+  mediaAccess: (kind) => askMediaAccess(kind),
   getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
   // For screen capture: each chosen window's id for the system, and where its page sits inside the window (the bar and frame are cropped away).
   getCaptureInfo: (ids) => ids.map((id) => {
@@ -3662,11 +3663,15 @@ function registerToolbarIpc() {
 
 let calibrating = false;
 
-async function askMediaAccess(kind) {
-  if (process.platform !== 'darwin') return 'granted';
+// macOS shows its question once, and keeps it up until it is answered. Everyone who needs the camera or microphone shares this one
+// question: asking again while it is open would only stack up more identical questions.
+const mediaAsks = new Map();
+function askMediaAccess(kind) {
+  if (process.platform !== 'darwin') return Promise.resolve('granted');
   const status = systemPreferences.getMediaAccessStatus(kind);
-  if (status === 'not-determined') return (await systemPreferences.askForMediaAccess(kind)) ? 'granted' : 'denied';
-  return status;
+  if (status !== 'not-determined') return Promise.resolve(status);
+  if (!mediaAsks.has(kind)) mediaAsks.set(kind, systemPreferences.askForMediaAccess(kind).then((ok) => (ok ? 'granted' : 'denied')).finally(() => mediaAsks.delete(kind)));
+  return mediaAsks.get(kind);
 }
 
 function registerIpc() {
@@ -3674,6 +3679,7 @@ function registerIpc() {
   // The recorder's levels and mutes, applied at once while recording (the saved settings follow with the next save).
   ipcMain.handle('recording:setAudio', (_event, audio) => { builtInRecorder.setAudio(audio); });
   // Lets the person allow the microphone from the Recorder page before the first recording.
+  ipcMain.handle('toolbar:askMedia', (_event, kind) => askMediaAccess(kind === 'camera' ? 'camera' : 'microphone'));
   ipcMain.handle('recording:askMicrophone', () => askMediaAccess('microphone'));
   ipcMain.handle('recording:askCamera', () => askMediaAccess('camera'));
   ipcMain.handle('recording:reveal', (_event, file) => { const f = file || builtInRecorder.file || (builtInRecorder.interrupted && builtInRecorder.interrupted.file); if (f && fs.existsSync(f)) shell.showItemInFolder(f); });

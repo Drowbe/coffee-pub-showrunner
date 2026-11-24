@@ -16,4 +16,5 @@ contextBridge.exposeInMainWorld('recbar', {
   size: (height) => ipcRenderer.send('toolbar:size', height),
   reveal: () => ipcRenderer.invoke('toolbar:reveal'),
   close: () => ipcRenderer.send('toolbar:close'),
+  askMedia: (kind) => ipcRenderer.invoke('toolbar:askMedia', kind),
 });

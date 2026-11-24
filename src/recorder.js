@@ -21,9 +21,10 @@ function defaultFileName(date = new Date()) {
 
 class BuiltInRecorder extends EventEmitter {
   // getSources(ids) returns the webContents to record, in order; folderFor() the folder to write to.
-  constructor({ getSources, getCaptureInfo, folderFor, nameFor, markerFile, windowName, dataDir }) {
+  constructor({ mediaAccess, getSources, getCaptureInfo, folderFor, nameFor, markerFile, windowName, dataDir }) {
     super();
     this.getSources = getSources;
+    this.mediaAccess = mediaAccess || null; // the app's one shared question to macOS about the camera or microphone
     this.getCaptureInfo = getCaptureInfo || (() => []);
     this.folderFor = folderFor;
     this.nameFor = nameFor || (() => defaultName());
@@ -190,9 +191,9 @@ class BuiltInRecorder extends EventEmitter {
   async allowCamera() { return this.allowAccess('camera', 'the webcam', 'Camera'); }
   async allowAccess(kind, what, pane) {
     if (process.platform !== 'darwin') return;
-    const status = systemPreferences.getMediaAccessStatus(kind);
+    const status = this.mediaAccess ? await this.mediaAccess(kind) : systemPreferences.getMediaAccessStatus(kind);
     if (status === 'granted') return;
-    if (status === 'not-determined' && (await systemPreferences.askForMediaAccess(kind))) return;
+    if (!this.mediaAccess && status === 'not-determined' && (await systemPreferences.askForMediaAccess(kind))) return;
     throw new Error(`macOS has not allowed Showrunner to use ${what}. Allow it in System Settings, Privacy & Security, ${pane}.`);
   }
 

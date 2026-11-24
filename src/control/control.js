@@ -2589,6 +2589,7 @@ async function syncMicMeter() {
   const device = a.mic.device;
   micMeter = { device, starting: true };
   try {
+    if ((await api.recording.askMicrophone()) !== 'granted') { if (micMeter && micMeter.device === device) micMeter = null; return; } // not allowed (yet): do not ask the system again from here
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: device ? { exact: device } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     if (!micMeter || micMeter.device !== device) { stream.getTracks().forEach((t) => t.stop()); return; }
     const ctx = new AudioContext();

@@ -144,6 +144,8 @@ async function syncCam() {
   if (key === camKey) return;
   stopCam(); camKey = key;
   try {
+    if ((await window.recbar.askMedia('camera')) !== 'granted') { camKey = ''; return; } // macOS has not allowed it (yet): no further asking from here
+    if (camKey !== key) return;
     const tries = [];
     if (state.camera.device) tries.push({ deviceId: { exact: state.camera.device } });
     tries.push({});
@@ -182,8 +184,11 @@ async function syncMic() {
   stopMic(); micMeter = { key };
   // Opening can stall (the device is still being let go by the recorder), so it is given a few seconds and then tried again.
   const retry = () => { if (micMeter && micMeter.key === key && !micMeter.stream) { micMeter = null; setTimeout(() => { if (state) syncMic(); }, 1500); } };
-  const giveUp = setTimeout(retry, 4000);
+  let giveUp = null;
   try {
+    // Wait for macOS's answer first (one shared question, so this waits quietly and never asks again); only then is a stall worth a retry.
+    if ((await window.recbar.askMedia('microphone')) !== 'granted') { if (micMeter && micMeter.key === key) micMeter = null; return; }
+    giveUp = setTimeout(retry, 4000);
     let stream = null;
     for (const t of m.device ? [{ deviceId: { exact: m.device } }, {}] : [{}]) {
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { ...t, echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); break; } catch (err) { /* next */ }
