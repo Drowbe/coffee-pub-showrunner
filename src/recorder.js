@@ -149,6 +149,12 @@ class BuiltInRecorder extends EventEmitter {
       this.emit('diag', `Nothing written after 10 s (${this.bytesWritten} bytes).`);
       if (this.window && !this.window.isDestroyed()) this.window.webContents.send('stats');
     }
+    // The warning is only true while nothing is reaching the file: once the file starts to grow, it goes away by itself.
+    if (this.saveNote.startsWith('Nothing has been saved') && this.runSeconds > 10) {
+      let size = 0; try { size = fs.statSync(this.file).size; } catch (err) { size = 0; }
+      if (size > 4096) { this.saveNote = ''; this.emit('diag', `The file is being written after all (${size} bytes at ${this.runSeconds} s).`); }
+    }
+    if (this.saveNote.includes('responding') && Date.now() - this.lastLevelsAt < 2000) this.saveNote = this.saveNote.replace(' The recorder has stopped responding.', ''); // it is back
     if (this.state === 'recording' && this.lastLevelsAt && Date.now() - this.lastLevelsAt > 5000 && !this.saveNote.includes('responding')) {
       this.saveNote += ' The recorder has stopped responding.';
       this.emit('diag', 'The recorder window stopped sending its level readings for 5 s.');
