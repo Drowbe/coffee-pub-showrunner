@@ -42,16 +42,23 @@ jobs:
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
 
-      # Signs + notarizes when the Apple secrets exist; otherwise builds unsigned.
-      - name: Build app
+      # Without the Apple secrets the app is built unsigned (no signing, no notarization), as it always was.
+      - name: Build app (unsigned)
+        if: ${{ env.HAS_APPLE_KEY != 'true' }}
+        run: npm run build-info && npx electron-builder --mac --publish never -c.mac.identity=null -c.mac.hardenedRuntime=false -c.mac.notarize=false
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # With them, it is signed and notarized.
+      - name: Build app (signed and notarized)
+        if: ${{ env.HAS_APPLE_KEY == 'true' }}
         run: npm run build-info && npx electron-builder --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' && format('{0}/AuthKey.p8', runner.temp) || '' }}
+          APPLE_API_KEY: ${{ runner.temp }}/AuthKey.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERT_P12_BASE64 != '' }}
 
       - name: Upload installer
         uses: actions/upload-artifact@v7

@@ -22,7 +22,7 @@ permissions:
 jobs:
   mac:
     name: ffmpeg for macOS (${{ matrix.arch }})
-    runs-on: macos-14
+    runs-on: macos-latest
     strategy:
       matrix:
         arch: [arm64, x86_64]
@@ -46,7 +46,7 @@ jobs:
   universal:
     name: ffmpeg for macOS (universal)
     needs: mac
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - name: Check out
         uses: actions/checkout@v7
