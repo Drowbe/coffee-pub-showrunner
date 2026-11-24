@@ -2430,6 +2430,9 @@ select option { background: var(--bg-card); color: var(--text); }
 .layout-stage[data-layout="side"] .stage-b { display: flex; inset: 6px 6px 6px 50%; margin-left: 3px; }
 .layout-stage[data-layout="corner"] .stage-cam, .layout-stage[data-layout="cam"] .stage-cam { display: flex; }
 .layout-stage[data-layout="cam"] .stage-a { display: none; }
+.layout-stage[data-layout="center"] .stage-cam { display: flex; width: 45%; aspect-ratio: 4 / 3; left: calc(var(--cx, 0.5) * 100%); top: calc(var(--cy, 0.5) * 100%); transform: translate(-50%, -50%); }
+.layout-stage[data-layout="center"][data-size="small"] .stage-cam { width: 30%; }
+.layout-stage[data-layout="center"][data-size="large"] .stage-cam { width: 60%; }
 .layout-stage[data-layout="cam"] .stage-cam { inset: 6px; }
 .layout-stage[data-layout="corner"] .stage-cam { width: 18%; aspect-ratio: 4 / 3; }
 .layout-stage[data-layout="corner"][data-size="medium"] .stage-cam { width: 26%; }

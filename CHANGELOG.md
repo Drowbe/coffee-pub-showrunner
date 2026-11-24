@@ -11,6 +11,10 @@ Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
 ## Unreleased
 
+- **Pictures and a centred webcam.** Any place in the recorder's layout can hold a picture (PNG, JPEG or WebP, copied into the app's
+  data folder) instead of a window, and a new **Webcam centred** layout puts the webcam in the middle of the window or picture; click
+  the layout picture to move it. Capture the window is now the default method on Mac, and a recording falls back to copying the window
+  (with a note) if macOS has not yet allowed Screen Recording.
 - **Dock and menu bar, tidied.** The dock panel has one big Start/Stop recording button (for the Showrunner Recorder or OBS) with a
   ... menu, Windows and OBS menus instead of a grid of buttons, and a right-click menu on each window. The menu bar icon stays our
   mark and gains a red badge (orange when paused or starting) and the time while recording. The recorder's log lines are grey unless

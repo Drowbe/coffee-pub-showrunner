@@ -69,7 +69,7 @@ class BuiltInRecorder extends EventEmitter {
     ipcMain.on('recorder:mask', (_e, mask) => this.emit('mask', mask)); // the person's outline, for the toolbar's preview
     ipcMain.on('recorder:tapinfo', (e, text) => this.emit('tapinfo', e.sender.id, String(text)));
     ipcMain.on('recorder:peak', (e, peak) => {
-      const i = this.monitorWcs.findIndex((wc) => wc.id === e.sender.id);
+      const i = this.monitorWcs.findIndex((wc) => wc && wc.id === e.sender.id);
       if (i >= 0 && Number.isFinite(peak)) this.idlePeaks[i] = Math.max(this.idlePeaks[i], peak);
     });
     ipcMain.on('recorder:failed', (_e, message) => {
@@ -78,7 +78,7 @@ class BuiltInRecorder extends EventEmitter {
     });
     ipcMain.on('recorder:audio', (e, msg) => {
       if (this.state !== 'recording' || !this.window || this.window.isDestroyed()) return;
-      const win = (this.sourceContents || []).findIndex((wc) => wc.id === e.sender.id); // which chosen window this sound came from
+      const win = (this.sourceContents || []).findIndex((wc) => wc && wc.id === e.sender.id); // which chosen window this sound came from
       if (win >= 0) this.heard[win] = true;
       this.window.webContents.send('audio', { key: `${e.sender.id}:${msg.id}`, win: Math.max(0, win), l: msg.l, r: msg.r, rate: msg.rate });
     });
@@ -93,7 +93,7 @@ class BuiltInRecorder extends EventEmitter {
   }
 
   status() {
-    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: [this.saveNote, this.micNote, this.soundNote, this.warning].filter(Boolean).join('  '), interrupted: this.interrupted };
+    return { state: this.state, seconds: this.seconds(), file: this.file, error: this.error, warning: [this.captureNote, this.saveNote, this.micNote, this.soundNote, this.warning].filter(Boolean).join('  '), interrupted: this.interrupted };
   }
 
   // A note is left while a recording runs and removed when it ends cleanly. If it is still there at the next launch, the app closed in
@@ -154,30 +154,35 @@ class BuiltInRecorder extends EventEmitter {
       if (this.window && !this.window.isDestroyed()) this.window.webContents.send('stats');
     }
     if (this.runSeconds < 8) return;
-    const silent = (this.settingsSources || []).map((id, i) => ({ id, i })).filter(({ id, i }) => id && !this.heard[i] && !(this.audioSettings && this.audioSettings.windows[i].muted)).map(({ id }) => this.windowName(id));
+    const silent = (this.settingsSources || []).map((id, i) => ({ id, i })).filter(({ id, i }) => id && !String(id).startsWith('image:') && !this.heard[i] && !(this.audioSettings && this.audioSettings.windows[i].muted)).map(({ id }) => this.windowName(id));
     this.soundNote = silent.length ? `No sound from ${silent.join(' or ')} yet. Nothing may be playing there, or it plays in a way Showrunner cannot copy.` : '';
   }
 
   // Watches how loud each chosen window is, so the meters on the recorder page move before any recording. Pass the window ids, or
   // nothing to stop. It does nothing while recording (the recorder reports its own levels then) and picks up again afterwards.
+  // The window behind each place in the picture (null where the place is empty or holds a picture), in the same order as `ids`.
+  windowsAt(ids) {
+    return (ids || []).map((id) => (id && !String(id).startsWith('image:') ? (this.getSources([id])[0] || null) : null));
+  }
+
   monitor(ids) {
     this.monitorIds = ids || [];
     if (this.active) return;
-    const next = this.monitorIds.length ? this.getSources(this.monitorIds) : [];
-    for (const wc of this.monitorWcs) if (!next.includes(wc) && !wc.isDestroyed()) wc.send('recorder:tap', false);
-    for (const wc of next) if (!wc.isDestroyed()) wc.send('recorder:tap', 'meter');
+    const next = this.windowsAt(this.monitorIds);
+    for (const wc of this.monitorWcs) if (wc && !next.includes(wc) && !wc.isDestroyed()) wc.send('recorder:tap', false);
+    for (const wc of next) if (wc && !wc.isDestroyed()) wc.send('recorder:tap', 'meter');
     this.monitorWcs = next;
-    if (next.length && !this.idleTimer) {
+    if (next.some(Boolean) && !this.idleTimer) {
       this.idleTimer = setInterval(() => {
         if (this.active) return;
         this.emit('idle', this.idlePeaks.slice());
         this.idlePeaks = [0, 0];
       }, 100);
-    } else if (!next.length && this.idleTimer) { clearInterval(this.idleTimer); this.idleTimer = null; this.emit('idle', [0, 0]); }
+    } else if (!next.some(Boolean) && this.idleTimer) { clearInterval(this.idleTimer); this.idleTimer = null; this.emit('idle', [0, 0]); }
   }
 
   setSourcesAudio(enabled) {
-    for (const wc of this.sourceContents || []) if (!wc.isDestroyed()) wc.send('recorder:tap', enabled);
+    for (const wc of this.sourceContents || []) if (wc && !wc.isDestroyed()) wc.send('recorder:tap', enabled);
   }
 
   // macOS asks the person once, then remembers. Returns quietly when it is allowed; throws a plain message when it is not.
@@ -210,7 +215,7 @@ class BuiltInRecorder extends EventEmitter {
     if (this.active) return;
     try {
       if (settings.audio && settings.audio.mic.enabled) await this.allowMicrophone();
-      if (settings.layout === 'corner' || settings.layout === 'cam') await this.allowCamera();
+      if (['corner', 'center', 'cam'].includes(settings.layout)) await this.allowCamera();
       await this.ensureWindow();
       if (!this.active && this.window && !this.window.isDestroyed()) this.window.webContents.send('warm', { layout: settings.layout, camera: settings.camera, audio: settings.audio });
     } catch (err) { /* warming is only a head start; Record will open everything itself */ }
@@ -225,8 +230,10 @@ class BuiltInRecorder extends EventEmitter {
   async start(settings) {
     if (this.state !== 'idle') throw new Error('The built-in recorder is already recording.');
     this.error = ''; this.warning = ''; this.interrupted = null;
-    const sources = this.getSources(settings.sources);
-    if (!sources.length && settings.layout !== 'cam') throw new Error('Choose a window to record first (Showrunner Recorder page), and open it.');
+    const sources = this.windowsAt(settings.sources); // one for each place in the picture, null where it holds a picture or nothing
+    const images = (settings.sources || []).map((id) => (id && String(id).startsWith('image:') ? path.join(this.dataDir, 'recording-images', String(id).slice(6)) : null));
+    for (const file of images) if (file && !fs.existsSync(file)) throw new Error(`A picture chosen for the recording is missing (${path.basename(file)}). Choose it again on the recorder page.`);
+    if (!sources.some(Boolean) && !images.some(Boolean) && settings.layout !== 'cam') throw new Error('Choose a window or a picture to record first (Showrunner Recorder page), and open the window.');
     const folder = this.folderFor(settings.folder);
     fs.mkdirSync(folder, { recursive: true });
     const free = this.freeBytes(folder);
@@ -235,21 +242,25 @@ class BuiltInRecorder extends EventEmitter {
     if (!ffmpeg) throw new Error('The video encoder (ffmpeg) is missing, so the Showrunner Recorder cannot record. Reinstall Showrunner, or put an ffmpeg program in the "ffmpeg" folder inside its data folder.');
     const format = settings.format === 'mkv' ? 'mkv' : 'mp4';
     this.file = uniquePath(folder, this.nameFor(), undefined, format);
-    const screenMode = settings.capture === 'screen' && settings.layout !== 'cam';
+    let screenMode = settings.capture === 'screen' && settings.layout !== 'cam' && sources.some(Boolean);
+    this.captureNote = '';
     if (screenMode && process.platform === 'darwin' && systemPreferences.getMediaAccessStatus('screen') !== 'granted') {
       // Asking for the list of windows is what makes macOS show its Screen Recording prompt (and list Showrunner under that setting).
+      // This recording carries on the other way, so the first one is never lost to a permission question.
       try { await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } }); } catch (err) { /* only to raise the prompt */ }
-      throw new Error('macOS has not allowed Showrunner to capture windows (it calls this Screen Recording; only the window you chose is recorded, never your whole screen). Allow it in System Settings, Privacy & Security, Screen & System Audio Recording, then quit and reopen Showrunner. Or set Capture method to "Copy the window" on the recorder page.');
+      screenMode = false;
+      this.captureNote = 'Recorded by copying the window, because macOS has not allowed Showrunner to capture windows (it calls this Screen Recording; only the window you chose is recorded, never your whole screen). Allow it in System Settings, Privacy & Security, Screen & System Audio Recording, then quit and reopen Showrunner for smoother recording.';
+      this.emit('diag', this.captureNote);
     }
     if (settings.audio && settings.audio.mic.enabled) await this.allowMicrophone();
-    if (settings.layout === 'corner' || settings.layout === 'cam') await this.allowCamera();
+    if (['corner', 'center', 'cam'].includes(settings.layout)) await this.allowCamera();
     this.state = 'starting';
     this.emit('status');
     try {
       this.writeMarker();
       await this.ensureWindow();
       const started = new Promise((resolve) => ipcMain.once('recorder:started', (_e, v) => resolve(v)));
-      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format, encoder: settings.encoder, fit: settings.fit, capture: screenMode ? 'screen' : 'pictures', screens: screenMode ? this.getCaptureInfo(settings.sources) : [] });
+      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format, encoder: settings.encoder, fit: settings.fit, images, capture: screenMode ? 'screen' : 'pictures', screens: screenMode ? this.getCaptureInfo(settings.sources) : [] });
       const result = await started;
       if (!result.ok) throw new Error(result.error || 'The recorder could not start.');
     } catch (err) {
@@ -274,6 +285,7 @@ class BuiltInRecorder extends EventEmitter {
       this.rectTimer = setInterval(() => { if (this.window && !this.window.isDestroyed()) this.window.webContents.send('screen-rects', this.getCaptureInfo(settings.sources)); }, 500);
     }
     (screenMode ? [] : sources).forEach((wc, index) => {
+      if (!wc) return;
       let busy = false;
       const timer = setInterval(async () => {
         if (busy || this.inFlight[index] >= 2 || this.state !== 'recording' || wc.isDestroyed() || !this.window || this.window.isDestroyed()) return;
@@ -356,7 +368,7 @@ class BuiltInRecorder extends EventEmitter {
     this.window = null;
     this.clearMarker();
     this.state = 'idle';
-    this.soundNote = ''; this.micNote = ''; // these notes belong to a running recording only
+    this.soundNote = ''; this.micNote = ''; this.captureNote = ''; // these notes belong to a running recording only
     this.startedAt = 0;
     this.warning = '';
     this.saveNote = '';

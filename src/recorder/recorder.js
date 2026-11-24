@@ -174,7 +174,7 @@ function idleBlur(c, wantCam) {
 
 ipcRenderer.on('warm', (_e, c) => {
   if (recording || enc) return;
-  const wantMic = c.audio && c.audio.mic.enabled; const wantCam = c.layout === 'corner' || c.layout === 'cam';
+  const wantMic = c.audio && c.audio.mic.enabled; const wantCam = ['corner', 'center', 'cam'].includes(c.layout);
   if (!wantMic || (warmDev.mic && warmDev.mic.key !== micKey(c.audio.mic))) dropWarm('mic');
   if (!wantCam || (warmDev.cam && warmDev.cam.key !== camKey(c.camera))) dropWarm('cam');
   if (c.camera && c.camera.background === 'blur' && wantCam) Segment.load().catch(() => {}); // the person finder is made ready too
@@ -218,6 +218,15 @@ async function openScreen(info, fps) {
   return new ScreenSource(video, stream, info);
 }
 let screenSources = [];
+// A picture from a file, as a canvas (kept at most 3840 wide).
+async function loadPicture(file) {
+  const img = new Image(); img.src = require('url').pathToFileURL(file).href;
+  await img.decode();
+  const k = Math.min(1, 3840 / img.naturalWidth);
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
 ipcRenderer.on('screen-rects', (_e, list) => { (list || []).forEach((info, i) => { if (screenSources[i] && info) screenSources[i].info = info; }); });
 
 const why = (err) => (err.name === 'NotAllowedError' ? 'macOS has not allowed it' : `${err.name}${err.message ? `: ${err.message}` : ''}`);
@@ -275,24 +284,29 @@ async function start(config) {
     }
   })());
   const wantMic = Boolean(config.audio && config.audio.mic.enabled);
-  const wantCam = cfg.layout === 'corner' || cfg.layout === 'cam';
+  const wantCam = ['corner', 'center', 'cam'].includes(cfg.layout);
   const micP = wantMic ? timed('microphone', takeDevice('mic', micKey(config.audio.mic), () => openMic(config.audio.mic))) : Promise.resolve(null);
   const camP = wantCam ? timed('webcam', takeDevice('cam', camKey(cfg.camera), () => openCam(cfg.camera))) : Promise.resolve(null);
   stopIdleBlur(); // recording finds the person itself from here
   screenSources = [];
-  const screenP = cfg.capture === 'screen' ? timed('screen capture', Promise.all((cfg.screens || []).map((info) => openScreen(info, cfg.fps)))) : Promise.resolve([]);
+  const screenP = cfg.capture === 'screen' ? timed('screen capture', Promise.all((cfg.screens || []).map((info) => (info ? openScreen(info, cfg.fps) : null)))) : Promise.resolve([]);
   const [encR, micR, camR, screenR] = await Promise.allSettled([encP, micP, camP, screenP]);
   if (encR.status === 'fulfilled') enc = encR.value;
   const closeOpened = () => {
     for (const r of [micR, camR]) if (r.status === 'fulfilled' && r.value) (r.value.stream || r.value).getTracks().forEach((t) => t.stop());
-    if (screenR.status === 'fulfilled') screenR.value.forEach((src) => src.stream.getTracks().forEach((t) => t.stop()));
+    if (screenR.status === 'fulfilled') screenR.value.forEach((src) => { if (src) src.stream.getTracks().forEach((t) => t.stop()); });
   };
   if (encR.status === 'rejected') { closeOpened(); throw encR.reason; }
   if (micR.status === 'rejected') { closeOpened(); throw new Error(`The microphone could not be opened (${why(micR.reason)}).`); }
   if (screenR.status === 'rejected') { closeOpened(); throw new Error(`A window could not be captured (${why(screenR.reason)}). Check that Showrunner is allowed to capture windows (macOS Screen Recording), and that the window is open and on screen.`); }
   screenSources = screenR.value || [];
-  if (cfg.capture === 'screen' && cfg.layout !== 'cam' && !screenSources.length) { closeOpened(); throw new Error('The window to record could not be found. Open it, and make sure it is on screen.'); }
-  screenSources.forEach((src, i) => { sources[i] = src; });
+  if (cfg.capture === 'screen' && cfg.layout !== 'cam' && (cfg.screens || []).some(Boolean) && !screenSources.some(Boolean)) { closeOpened(); throw new Error('The window to record could not be found. Open it, and make sure it is on screen.'); }
+  screenSources.forEach((src, i) => { if (src) sources[i] = src; });
+  // Pictures chosen for a place in the layout: loaded once, and drawn like any other source.
+  for (let i = 0; i < (cfg.images || []).length; i += 1) {
+    if (!cfg.images[i]) continue;
+    try { sources[i] = await loadPicture(cfg.images[i]); } catch (err) { closeOpened(); throw new Error(`A picture could not be loaded (${err.message}).`); }
+  }
   if (camR.status === 'rejected') { closeOpened(); throw new Error(`The webcam could not be opened (${why(camR.reason)}).`); }
   micStream = micR.value;
   if (micStream) {
@@ -420,7 +434,7 @@ async function stop() {
   clearInterval(timer); clearInterval(levelTimer); clearInterval(statsTimer); clearInterval(healthTimer); clearInterval(segTimer);
   if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo = null; }
-  screenSources.forEach((src) => { try { src.stream.getTracks().forEach((t) => t.stop()); } catch (err) { /* gone */ } }); screenSources = [];
+  screenSources.forEach((src) => { try { if (src) src.stream.getTracks().forEach((t) => t.stop()); } catch (err) { /* gone */ } }); screenSources = [];
   if (proc) { proc.port.onmessage = null; proc.disconnect(); proc = null; }
   if (enc) {
     // Closing both pipes tells ffmpeg the recording is over; it finishes the file and exits. Not waited for forever.

@@ -257,7 +257,7 @@
 
       <div class="card" id="rec-layout-card">
         <h2>Layout</h2>
-        <select id="rec-layout" hidden><option value="one">One window</option><option value="side">Two windows side by side</option><option value="corner">One window, webcam in a corner</option><option value="cam">Webcam only</option></select>
+        <select id="rec-layout" hidden><option value="center">Webcam in the middle</option><option value="one">One window</option><option value="side">Two windows side by side</option><option value="corner">One window, webcam in a corner</option><option value="cam">Webcam only</option></select>
         <div class="layout-picker" id="rec-layout-picker" role="radiogroup" aria-label="Layout">
           <button type="button" class="layout-thumb" role="radio" data-layout="one" title="One window fills the picture">
             <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-win" x="5" y="5" width="86" height="44" rx="2"/></svg><span>One window</span></button>
@@ -265,11 +265,13 @@
             <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-win" x="5" y="5" width="41" height="44" rx="2"/><rect class="t-win" x="50" y="5" width="41" height="44" rx="2"/></svg><span>Side by side</span></button>
           <button type="button" class="layout-thumb" role="radio" data-layout="corner" title="One window with your webcam in a corner">
             <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-win" x="5" y="5" width="86" height="44" rx="2"/><rect class="t-cam" x="67" y="30" width="22" height="17" rx="3"/></svg><span>Window + webcam</span></button>
+          <button type="button" class="layout-thumb" role="radio" data-layout="center" title="One window or picture, with your webcam in the middle of it">
+            <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-win" x="5" y="5" width="86" height="44" rx="2"/><rect class="t-cam" x="30" y="13" width="36" height="28" rx="3"/></svg><span>Webcam centred</span></button>
           <button type="button" class="layout-thumb" role="radio" data-layout="cam" title="Only your webcam">
             <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-cam" x="5" y="5" width="86" height="44" rx="2"/><circle class="t-person" cx="48" cy="22" r="7"/><path class="t-person" d="M33 49 q0-14 15-14 q15 0 15 14z"/></svg><span>Webcam only</span></button>
         </div>
         <div class="layout-stage" id="rec-stage" data-layout="one" data-corner="br" data-size="medium">
-          <div class="stage-slot stage-a"><span class="stage-label" id="rec-stage-label-a">Window</span><select id="rec-source-1" aria-label="Window"></select></div>
+          <div class="stage-slot stage-a"><span class="stage-label" id="rec-stage-label-a">Window or picture</span><select id="rec-source-1" aria-label="Window"></select></div>
           <div class="stage-slot stage-b"><span class="stage-label">Second window</span><select id="rec-source-2" aria-label="Second window"></select></div>
           <div class="stage-cam"><span>Webcam</span></div>
         </div>

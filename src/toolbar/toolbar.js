@@ -8,8 +8,9 @@ const mmss = (n) => `${Math.floor(n / 3600) ? `${Math.floor(n / 3600)}:` : ''}${
 
 function sources(s) {
   const list = [];
-  if (s.layout !== 'cam') list.push({ kind: 'w', i: 0, label: s.names[0] || 'Window', meter: 0 });
-  if (s.layout === 'side') list.push({ kind: 'w', i: 1, label: s.names[1] || 'Second window', meter: 1 });
+  // A picture has no sound, so only windows get a level and a meter.
+  if (s.layout !== 'cam' && !s.pictures[0]) list.push({ kind: 'w', i: 0, label: s.names[0] || 'Window', meter: 0 });
+  if (s.layout === 'side' && !s.pictures[1]) list.push({ kind: 'w', i: 1, label: s.names[1] || 'Second window', meter: 1 });
   if (s.audio.mic.enabled) list.push({ kind: 'm', label: 'Microphone', meter: 2 });
   return list;
 }
@@ -87,13 +88,24 @@ function render(s) {
   const shown = Boolean(s.preview) && !(live && s.hidePreviewOnRecord && !peekWhileRecording);
   $('previewBox').hidden = !shown;
   $('previewToggle').classList.toggle('on', shown);
-  syncCam(); syncMic();
+  syncPictures(); syncCam(); syncMic();
   window.recbar.size(Math.ceil(document.body.scrollHeight));
 }
 
 // ---- the live picture: each window's latest small picture, the webcam, laid out by the recorder's own code ----
 const canvas = $('preview'); const pen = canvas.getContext('2d');
 const winPics = [null, null];
+const pictureOf = [null, null]; const pictureKey = ['', ''];
+// Pictures chosen for a place in the layout come with the state (small), and are drawn like a window's picture.
+function syncPictures() {
+  for (let i = 0; i < 2; i += 1) {
+    const url = state && state.pictures ? state.pictures[i] : null;
+    if (!url) { pictureOf[i] = null; pictureKey[i] = ''; continue; }
+    if (pictureKey[i] === url) continue;
+    pictureKey[i] = url;
+    const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0); if (pictureKey[i] === url) pictureOf[i] = c; }; img.src = url;
+  }
+}
 const camEl = document.createElement('video'); camEl.muted = true; camEl.playsInline = true;
 let camStream = null; let camKey = '';
 
@@ -126,7 +138,7 @@ window.recbar.onMask(({ w, h, buf }) => {
 
 function stopCam() { if (camStream) camStream.getTracks().forEach((t) => t.stop()); camStream = null; camKey = ''; camEl.srcObject = null; }
 async function syncCam() {
-  const uses = state && state.preview && !isLive() && (state.layout === 'corner' || state.layout === 'cam');
+  const uses = state && state.preview && !isLive() && ['corner', 'center', 'cam'].includes(state.layout);
   if (!uses) { stopCam(); return; }
   const key = `${state.camera.device}|${state.camera.deviceLabel}`;
   if (key === camKey) return;
@@ -145,7 +157,7 @@ async function syncCam() {
 setInterval(() => {
   if (!state || !state.preview) return;
   if (isLive() && Date.now() - liveAt < 2000) { pen.drawImage(liveShot, 0, 0, canvas.width, canvas.height); return; }
-  const shown = [state.layout === 'cam' ? null : winPics[0], state.layout === 'side' ? winPics[1] : null];
+  const shown = [state.layout === 'cam' ? null : (pictureOf[0] || (state.pictures && state.pictures[0] ? null : winPics[0])), state.layout === 'side' ? (pictureOf[1] || (state.pictures && state.pictures[1] ? null : winPics[1])) : null];
   window.ShowrunnerLayout.compose(pen, canvas.width, canvas.height, { layout: state.layout, fit: state.fit, camera: state.camera, sources: shown, camVideo: camEl, camMask: Date.now() - maskAt < 1500 ? maskCanvas : null });
 }, 70);
 

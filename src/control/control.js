@@ -2207,7 +2207,8 @@ const recEls = {
 };
 
 function fillWindowSelect(select, chosen, optional) {
-  const want = [optional ? ['', '(none)'] : ['', 'Choose a window'], ...config.views.map((v) => [v.id, v.label || v.id])];
+  const pictures = config.recording.images || {};
+  const want = [optional ? ['', '(none)'] : ['', 'Choose a window'], ...config.views.map((v) => [v.id, v.label || v.id]), ...Object.entries(pictures).map(([id, name]) => [id, `Picture: ${name}`]), ['__image__', 'Picture from a file...']];
   if (select.options.length !== want.length || want.some(([value, label], i) => select.options[i].value !== value || select.options[i].textContent !== label)) {
     select.replaceChildren(...want.map(([value, label]) => { const o = document.createElement('option'); o.value = value; o.textContent = label; return o; }));
   }
@@ -2230,8 +2231,8 @@ function renderRecording() {
   if (builtinTab) builtinTab.hidden = !builtin;
   if (builtin && activeTab === 'obs') selectTab('builtin');
   if (!builtin && activeTab === 'builtin') selectTab('obs');
-  fillWindowSelect(recEls.s1, r.sources[0], false);
-  fillWindowSelect(recEls.s2, r.sources[1], true);
+  fillWindowSelect(recEls.s1, r.sources[0] || '', false);
+  fillWindowSelect(recEls.s2, r.sources[1] || '', true);
   recEls.layout.value = r.layout;
   recEls.size.value = `${r.width}x${r.height}`;
   recEls.fps.value = String(r.fps);
@@ -2263,10 +2264,11 @@ function renderRecording() {
   // layout uses is shown (a second window only for side by side, the webcam's place only when it is used).
   const stage = $('rec-stage');
   stage.dataset.layout = r.layout; stage.dataset.corner = r.camera.corner; stage.dataset.size = r.camera.size;
+  stage.style.setProperty('--cx', String(r.camera.cx)); stage.style.setProperty('--cy', String(r.camera.cy));
   for (const b of document.querySelectorAll('#rec-layout-picker .layout-thumb')) { const on = b.dataset.layout === r.layout; b.setAttribute('aria-checked', String(on)); b.classList.toggle('on', on); b.disabled = active; }
   for (const sel of [recEls.s1, recEls.s2]) sel.title = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '';
   $('rec-stage-label-a').textContent = r.layout === 'side' ? 'Left window' : 'Window';
-  $('rec-layout-hint').textContent = { one: 'Choose the window to record in the picture above.', side: 'Choose a window for each side.', corner: 'Choose the window to record. Click a corner of the picture to move the webcam there.', cam: 'Only the webcam is recorded. Sound from your windows is still recorded unless you mute it under Audio.' }[r.layout] || '';
+  $('rec-layout-hint').textContent = { one: 'Choose the window or picture to record in the picture above.', side: 'Choose a window for each side.', corner: 'Choose the window or picture to record. Click a corner of the picture to move the webcam there.', center: 'Choose the window or picture to record. Click in the picture to move the webcam there.', cam: 'Only the webcam is recorded. Sound from your windows is still recorded unless you mute it under Audio.' }[r.layout] || '';
   $('rec-capture-field').hidden = r.layout === 'cam';
   if (document.activeElement !== recEls.toolbarAuto) recEls.toolbarAuto.checked = r.toolbar.auto;
   if (document.activeElement !== recEls.toolbarAtStart) recEls.toolbarAtStart.checked = r.toolbar.atStart;
@@ -2281,9 +2283,9 @@ function readRecording() {
   config.recording = {
     ...config.recording,
     backend: recEls.backend.value,
-    sources: [recEls.layout.value === 'cam' ? '' : recEls.s1.value, recEls.layout.value === 'side' ? recEls.s2.value : ''].filter(Boolean),
+    sources: [recEls.layout.value === 'cam' ? '' : realSource(recEls.s1.value), recEls.layout.value === 'side' ? realSource(recEls.s2.value) : ''],
     layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), format: recEls.format.value, encoder: recEls.encoder.value, capture: recEls.capture.value, fit: recEls.fit.value, folder: recEls.folder.value,
-    camera: { device: recEls.camDevice.value, deviceLabel: recEls.camDevice.selectedOptions[0] ? recEls.camDevice.selectedOptions[0].textContent : '', corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked, background: recEls.camBg.value, keyColor: recEls.camKeyColor.value, keyTolerance: Number(recEls.camKeyTol.value), keySoftness: Number(recEls.camKeySoft.value), blur: Number(recEls.camBlur.value) },
+    camera: { device: recEls.camDevice.value, deviceLabel: recEls.camDevice.selectedOptions[0] ? recEls.camDevice.selectedOptions[0].textContent : '', corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked, background: recEls.camBg.value, keyColor: recEls.camKeyColor.value, keyTolerance: Number(recEls.camKeyTol.value), keySoftness: Number(recEls.camKeySoft.value), blur: Number(recEls.camBlur.value), cx: config.recording.camera.cx, cy: config.recording.camera.cy },
     toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked, atStart: recEls.toolbarAtStart.checked, hidePreviewOnRecord: recEls.toolbarHide.checked, keepReady: recEls.keepReady.checked },
   };
   scheduleSave();
@@ -2294,8 +2296,13 @@ recEls.folder.addEventListener('input', readRecording);
 // Clicking a corner of the picture moves the webcam there (when the layout has it in a corner).
 $('rec-stage').addEventListener('click', (e) => {
   const stage = $('rec-stage');
-  if (stage.dataset.layout !== 'corner' || e.target.closest('select') || recordingNow()) return;
+  if (!['corner', 'center'].includes(stage.dataset.layout) || e.target.closest('select') || recordingNow()) return;
   const box = stage.getBoundingClientRect();
+  if (stage.dataset.layout === 'center') {
+    config.recording.camera = { ...config.recording.camera, cx: Math.min(0.95, Math.max(0.05, (e.clientX - box.left) / box.width)), cy: Math.min(0.95, Math.max(0.05, (e.clientY - box.top) / box.height)) };
+    scheduleSave(); renderRecording();
+    return;
+  }
   const corner = `${e.clientY - box.top < box.height / 2 ? 't' : 'b'}${e.clientX - box.left < box.width / 2 ? 'l' : 'r'}`;
   if (recEls.camCorner.value !== corner) { recEls.camCorner.value = corner; readRecording(); }
 });
@@ -2390,11 +2397,11 @@ refreshCameras(); // the list is filled when the app opens, not only after a pre
 
 function renderCamera() {
   const r = config.recording;
-  const uses = r.layout === 'corner' || r.layout === 'cam';
+  const uses = ['corner', 'center', 'cam'].includes(r.layout);
   recEls.camCard.hidden = !uses;
   if (uses && recEls.camDevice.options.length === 0) refreshCameras();
   recEls.camCornerField.hidden = r.layout !== 'corner';
-  recEls.camSizeField.hidden = r.layout !== 'corner';
+  recEls.camSizeField.hidden = !['corner', 'center'].includes(r.layout);
   if (document.activeElement !== recEls.camDevice) recEls.camDevice.value = r.camera.device;
   recEls.camCorner.value = r.camera.corner;
   recEls.camSize.value = r.camera.size;
@@ -2434,6 +2441,22 @@ camCanvas.addEventListener('click', (e) => {
   recEls.camKeyColor.value = `#${hex(r)}${hex(g)}${hex(b)}`; recEls.camBg.value = 'key';
   readRecording();
 });
+// Choosing "Picture from a file..." opens the file chooser; the choice is kept with the profile.
+const realSource = (value) => (value === '__image__' ? '' : value);
+[recEls.s1, recEls.s2].forEach((sel, index) => {
+  sel.addEventListener('change', async (event) => {
+    if (sel.value !== '__image__') return;
+    event.stopImmediatePropagation(); // the choice is not made until a file is: cancelling leaves things as they were
+    sel.value = config.recording.sources[index] || '';
+    try {
+      const picked = await api.recording.chooseImage();
+      if (!picked) return;
+      config.recording.images = { ...(config.recording.images || {}), [picked.id]: picked.name };
+      fillWindowSelect(sel, picked.id, index === 1);
+      readRecording();
+    } catch (err) { reportError(err); }
+  }, true);
+});
 recEls.camPreviewBtn.addEventListener('click', () => { camPreviewWanted = !camPreviewWanted; renderCamera(); });
 recEls.camAllow.addEventListener('click', async () => {
   try {
@@ -2468,12 +2491,13 @@ function renderAudio() {
       row.name.textContent = label; row.name.title = label;
     }
   });
-  audioRows[0].row.hidden = r.layout === 'cam';
-  audioRows[1].row.hidden = r.layout !== 'side';
+  const isPicture = (id) => typeof id === 'string' && id.startsWith('image:');
+  audioRows[0].row.hidden = r.layout === 'cam' || isPicture(r.sources[0]); // a picture has no sound
+  audioRows[1].row.hidden = r.layout !== 'side' || isPicture(r.sources[1]);
   audioRows[0].row.classList.toggle('off', !r.sources[0]);
   audioRows[2].row.classList.toggle('off', !a.mic.enabled);
   micEls.on.checked = a.mic.enabled;
-  micEls.delayRow.hidden = !(r.layout === 'corner' || r.layout === 'cam');
+  micEls.delayRow.hidden = !['corner', 'center', 'cam'].includes(r.layout);
   if (document.activeElement !== micEls.delay) micEls.delay.value = String(a.mic.delayMs || 0);
   micEls.echo.checked = a.mic.echoCancel;
   micEls.device.disabled = !a.mic.enabled;

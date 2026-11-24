@@ -833,11 +833,11 @@ const builtInRecorder = new BuiltInRecorder({
   getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
   // For screen capture: each chosen window's id for the system, and where its page sits inside the window (the bar and frame are cropped away).
   getCaptureInfo: (ids) => ids.map((id) => {
-    const win = viewWindows.get(id); const page = pageViews.get(id);
+    const win = id && !String(id).startsWith('image:') ? viewWindows.get(id) : null; const page = pageViews.get(id);
     if (!win || win.isDestroyed() || !page) return null;
     const b = win.getBounds(); const c = win.getContentBounds(); const p = page.getBounds();
     return { sourceId: win.getMediaSourceId(), winW: b.width, winH: b.height, rect: { x: c.x - b.x + p.x, y: c.y - b.y + p.y, w: p.width, h: p.height } };
-  }).filter(Boolean),
+  }), // one for each place in the picture, null where there is no window
   folderFor: (folder) => folder || app.getPath('videos'),
   windowName: (id) => { const v = configStore.getView(id); return v ? (v.label || v.id) : id; },
   dataDir: app.getPath('userData'),
@@ -3544,8 +3544,8 @@ function updateFeed() {
     try {
       const sourceIds = configStore.get().recording.sources;
       builtInRecorder.monitor(sourceIds); // follows a change of window
-      const sources = builtInRecorder.getSources(sourceIds);
-      await Promise.all(sources.map(async (wc, i) => { try { sendPreviewFrame(i, await wc.capturePage()); } catch (err) { /* closing or reloading */ } }));
+      const sources = builtInRecorder.windowsAt(sourceIds);
+      await Promise.all(sources.map(async (wc, i) => { if (!wc) return; try { sendPreviewFrame(i, await wc.capturePage()); } catch (err) { /* closing or reloading */ } }));
     } finally { previewBusy = false; }
   }, 250);
 }
@@ -3560,11 +3560,23 @@ builtInRecorder.on('composite', (picture) => { if (isAlive(toolbarWindow)) toolb
 let toolbarWindow = null;
 let toolbarAudioTimer = null;
 
+// A picture chosen for the recorder, small enough to send to the toolbar for its preview (looked up once and kept).
+const pictureCache = new Map();
+function pictureForToolbar(id) {
+  const file = path.join(app.getPath('userData'), 'recording-images', String(id).slice(6));
+  try {
+    const stamp = `${file}:${fs.statSync(file).mtimeMs}`;
+    if (!pictureCache.has(stamp)) { const img = nativeImage.createFromPath(file); pictureCache.set(stamp, img.isEmpty() ? null : img.resize({ width: Math.min(960, img.getSize().width) }).toDataURL()); }
+    return pictureCache.get(stamp);
+  } catch (err) { return null; }
+}
+
 function toolbarState() {
   const cfg = configStore.get();
   const r = cfg.recording;
-  const label = (id) => { const v = cfg.views.find((x) => x.id === id); return v ? (v.label || v.id) : ''; };
-  return { ...builtInRecorder.status(), layout: r.layout, fit: r.fit, camera: r.camera, preview: r.toolbar.preview, hidePreviewOnRecord: r.toolbar.hidePreviewOnRecord, names: [label(r.sources[0]), label(r.sources[1])], audio: r.audio };
+  const isImage = (id) => typeof id === 'string' && id.startsWith('image:');
+  const label = (id) => { if (isImage(id)) return (r.images && r.images[id]) || 'Picture'; const v = cfg.views.find((x) => x.id === id); return v ? (v.label || v.id) : ''; };
+  return { ...builtInRecorder.status(), layout: r.layout, fit: r.fit, camera: r.camera, preview: r.toolbar.preview, hidePreviewOnRecord: r.toolbar.hidePreviewOnRecord, names: [label(r.sources[0]), label(r.sources[1])], pictures: [0, 1].map((i) => (isImage(r.sources[i]) ? pictureForToolbar(r.sources[i]) : null)), audio: r.audio };
 }
 
 // While the toolbar is open the recorder is kept ready (its window, microphone and webcam), so Record starts at once. It is made ready
@@ -3666,6 +3678,18 @@ function registerIpc() {
   ipcMain.handle('recording:askCamera', () => askMediaAccess('camera'));
   ipcMain.handle('recording:reveal', (_event, file) => { const f = file || builtInRecorder.file || (builtInRecorder.interrupted && builtInRecorder.interrupted.file); if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
   ipcMain.handle('activity:clear', () => { activityLog = []; try { fs.writeFileSync(path.join(app.getPath('userData'), 'recorder.log'), ''); } catch (err) { /* nothing to clear */ } broadcastStatus(); });
+  // Choose a picture for the recorder: it is copied into the app's data folder, so moving or deleting the original changes nothing.
+  ipcMain.handle('recording:chooseImage', async () => {
+    const result = await dialog.showOpenDialog(controlWindow && !controlWindow.isDestroyed() ? controlWindow : undefined, { title: 'Choose a picture', properties: ['openFile'], filters: [{ name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'webp'] }] });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const from = result.filePaths[0];
+    const ext = path.extname(from).toLowerCase().replace('jpeg', 'jpg');
+    const name = `${require('crypto').randomBytes(6).toString('hex')}${ext}`;
+    const dir = path.join(app.getPath('userData'), 'recording-images');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(from, path.join(dir, name));
+    return { id: `image:${name}`, name: path.basename(from) };
+  });
   ipcMain.handle('recording:openPrivacy', (_event, kind) => shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'camera' ? 'Camera' : 'Microphone'}`));
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also

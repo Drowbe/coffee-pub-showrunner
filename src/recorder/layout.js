@@ -4,7 +4,8 @@
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(); else root.ShowrunnerLayout = factory();
 }(typeof self !== 'undefined' ? self : this, () => {
-  const CAM_WIDTH = { small: 0.18, medium: 0.26, large: 0.36 }; // the webcam's width in a corner layout, as a share of the picture
+  const CAM_WIDTH = { small: 0.18, medium: 0.26, large: 0.36 };
+  const CENTER_WIDTH = { small: 0.3, medium: 0.45, large: 0.6 }; // in the 'center' layout the webcam is bigger // the webcam's width in a corner layout, as a share of the picture
 
   // Removes a backdrop of one colour (a green screen) from a picture: how far each pixel's colour (not its brightness) is from the key
   // colour decides how see-through it becomes, with a soft edge. Done on a reduced-size copy, since it touches every pixel.
@@ -110,7 +111,13 @@
       }
     });
     if (layout === 'cam') drawCamera(g, camVideo, 0, 0, W, H, 0, camera.flip, fit !== 'fill', keyOf(camera, camMask));
-    else if (layout === 'corner' && camVideo && camVideo.videoWidth) {
+    else if (layout === 'center' && camVideo && camVideo.videoWidth) {
+      const w = Math.round(W * (CENTER_WIDTH[camera.size] || CENTER_WIDTH.medium));
+      const h = Math.round(w * camVideo.videoHeight / camVideo.videoWidth);
+      const x = Math.round(Math.min(W - w, Math.max(0, (camera.cx === undefined ? 0.5 : camera.cx) * W - w / 2)));
+      const y = Math.round(Math.min(H - h, Math.max(0, (camera.cy === undefined ? 0.5 : camera.cy) * H - h / 2)));
+      drawCamera(g, camVideo, x, y, w, h, Math.round(W * 0.012), camera.flip, false, keyOf(camera, camMask));
+    } else if (layout === 'corner' && camVideo && camVideo.videoWidth) {
       const w = Math.round(W * (CAM_WIDTH[camera.size] || CAM_WIDTH.medium));
       const h = Math.round(w * camVideo.videoHeight / camVideo.videoWidth);
       const margin = Math.round(W * 0.02);
