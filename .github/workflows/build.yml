@@ -53,6 +53,11 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
+      # Signed ad hoc (no certificate), so macOS can recognise the app as one app and remember its camera, microphone and Screen Recording answers.
+      - name: Sign the unsigned app ad hoc
+        if: ${{ env.HAS_APPLE_KEY != 'true' }}
+        run: scripts/adhoc-sign-mac.sh dist
+
       # With them, it is signed and notarized.
       - name: Build app (signed and notarized)
         if: ${{ env.HAS_APPLE_KEY == 'true' }}

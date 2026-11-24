@@ -4806,7 +4806,7 @@ function configureSession(partition = PARTITION) {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => createControlWindow());
+  app.on('second-instance', () => { if (app.isReady()) createControlWindow(); }); // an activation before the app is ready would fail on the screen module
 
   app.whenReady().then(() => {
     app.setAboutPanelOptions({
@@ -4866,7 +4866,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     callback(false);
   });
-  app.on('activate', () => createControlWindow());
+  app.on('activate', () => { if (app.isReady()) createControlWindow(); });
   let quitStopping = false;
   app.on('before-quit', (event) => {
     // Quitting in the middle of a recording finishes the file first, so it closes properly rather than being cut off.
