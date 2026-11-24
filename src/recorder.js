@@ -144,11 +144,9 @@ class BuiltInRecorder extends EventEmitter {
     this.runSeconds += 1;
     // Is anything reaching the file? And is the recorder still alive? Either failing is said out loud, with the recorder's own state.
     if (this.runSeconds === 10) { try { this.bytesWritten = fs.statSync(this.file).size; } catch (err) { this.bytesWritten = 0; } }
-    if (this.runSeconds === 10 && this.bytesWritten < 1000) {
-      this.saveNote = 'Nothing has been saved to the file after 10 seconds. Stop and try again; the activity log has details.';
-      this.emit('diag', `Nothing written after 10 s (${this.bytesWritten} bytes).`);
-      if (this.window && !this.window.isDestroyed()) this.window.webContents.send('stats');
-    }
+    // The file stays tiny for a long time even when all is well (fragments are written as it goes), so its size is only noted, not judged:
+    // a stuck encoder is caught by the recorder itself (pictures piling up, or ffmpeg stopping).
+    if (this.runSeconds === 10) this.emit('diag', `File size at 10 s: ${this.bytesWritten} bytes.`);
     // The warning is only true while nothing is reaching the file: once the file starts to grow, it goes away by itself.
     if (this.saveNote.startsWith('Nothing has been saved') && this.runSeconds > 10) {
       let size = 0; try { size = fs.statSync(this.file).size; } catch (err) { size = 0; }

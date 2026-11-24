@@ -27,8 +27,9 @@ function buildArgs({ width, height, fps, format, codec, out, offsetMs = 0 }) {
     : ['-movflags', '+frag_keyframe+empty_moov+default_base_moof', '-f', 'mp4']; // both play after a crash: they are written as they go
   return [
     '-hide_banner', '-loglevel', 'error', '-nostats', '-y',
-    '-thread_queue_size', '1024', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${width}x${height}`, '-framerate', String(fps), '-i', 'pipe:0',
-    '-thread_queue_size', '1024', '-f', 'f32le', '-ar', '48000', '-ac', '2', '-itsoffset', (offsetMs / 1000).toFixed(3), '-i', 'pipe:3',
+    // Both inputs are raw, so their format is known: no probing (ffmpeg 7 otherwise waits about five seconds on them before it starts reading).
+    '-probesize', '32', '-analyzeduration', '0', '-thread_queue_size', '1024', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${width}x${height}`, '-framerate', String(fps), '-i', 'pipe:0',
+    '-probesize', '32', '-analyzeduration', '0', '-thread_queue_size', '1024', '-f', 'f32le', '-ar', '48000', '-ac', '2', '-itsoffset', (offsetMs / 1000).toFixed(3), '-i', 'pipe:3',
     '-map', '0:v', '-map', '1:a',
     ...video, '-pix_fmt', 'yuv420p',
     '-c:a', 'aac', '-b:a', '160k',

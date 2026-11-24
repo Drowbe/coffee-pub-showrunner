@@ -83,14 +83,17 @@ function draw() {
   if (failure || paused || !recording || !enc) return;
   const drawStart = performance.now();
   const { width: W, height: H } = canvas;
-  Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo, fit: cfg.fit, camMask: maskCanvas });
-  const px = g.getImageData(0, 0, W, H);
-  lastFrame = Buffer.from(px.data.buffer, px.data.byteOffset, px.data.byteLength);
+  // If ffmpeg is behind (a second of pictures waiting), no new picture is made: the last one is repeated. A repeated picture costs almost
+  // no memory (it is the same data) and keeps the video in step with the sound; a dropped picture would shorten the video for good.
+  const behind = lastFrame ? enc.video.writableLength / lastFrame.length : 0;
+  if (!lastFrame || behind <= cfg.fps) {
+    Layout.compose(g, W, H, { layout: cfg.layout, camera: cfg.camera, sources, camVideo, fit: cfg.fit, camMask: maskCanvas });
+    const px = g.getImageData(0, 0, W, H);
+    lastFrame = Buffer.from(px.data.buffer, px.data.byteOffset, px.data.byteLength);
+  }
   const due = Math.floor((clockMs() / 1000) * cfg.fps) + 1;
   while (framesSent < due) {
-    // ffmpeg takes about a second to start taking pictures, so a few dozen may queue at first. Only if it is badly behind (about two
-    // seconds of pictures waiting) are pictures dropped, which shortens the video against the sound, so it is reported.
-    if (enc.video.writableLength > lastFrame.length * cfg.fps * 2) { framesDropped += due - framesSent; framesSent = due; break; }
+    if (behind > cfg.fps * 20) { fail(new Error('The video encoder (ffmpeg) is far behind and not catching up. The recording was stopped; what was saved is kept.')); return; }
     enc.video.write(lastFrame);
     framesSent += 1;
   }
@@ -411,8 +414,9 @@ async function start(config) {
     healthSeconds += 1;
     if (healthSeconds > 10 || failure || !enc || enc.codec !== 'videotoolbox' || cfg.encoder !== 'auto' || switching || paused) return;
     if (healthSeconds < 4) return;
-    let size = 0; try { size = fs.statSync(cfg.file).size; } catch (err) { size = 0; }
-    if (size < 4096 || enc.video.writableLength > frameBytes() * 10) switchToSoftware();
+    // Only a pipe that is not being emptied means a stuck encoder (three seconds of pictures waiting): the file's size says nothing, since
+    // the file stays tiny for a long time even when everything is well.
+    if (enc.video.writableLength > frameBytes() * cfg.fps * 3) switchToSoftware();
   }, 1000);
   let statSeconds = 0;
   statsTimer = setInterval(() => {
