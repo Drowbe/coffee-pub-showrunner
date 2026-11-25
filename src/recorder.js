@@ -235,6 +235,7 @@ class BuiltInRecorder extends EventEmitter {
   async start(settings) {
     if (this.state !== 'idle') throw new Error('The built-in recorder is already recording.');
     this.error = ''; this.warning = ''; this.interrupted = null;
+    this.silentRun = Boolean(settings.calibration); // a calibration recording is private: no "recording finished" event, no toolbar
     const sources = this.windowsAt(settings.sources); // one for each place in the picture, null where it holds a picture or nothing
     const images = (settings.sources || []).map((id) => (id && String(id).startsWith('image:') ? path.join(this.dataDir, 'recording-images', String(id).slice(6)) : null));
     for (const file of images) if (file && !fs.existsSync(file)) throw new Error(`A picture chosen for the recording is missing (${path.basename(file)}). Choose it again on the recorder page.`);
@@ -360,7 +361,7 @@ class BuiltInRecorder extends EventEmitter {
     }
     this.levels = []; this.emit('levels', []);
     if (this.monitorIds.length) this.monitor(this.monitorIds); // the meters carry on after the recording
-    this.emit('recording', file); // the same event OBS raises, so "upload the recording" finds this file
+    if (!this.silentRun) this.emit('recording', file); // the same event OBS raises, so "upload the recording" finds this file
     this.emit('status');
     return file;
   }

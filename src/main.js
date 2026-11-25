@@ -3,6 +3,8 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const os = require('os');
+const { findFfmpeg } = require('./ffmpeg');
 const { renderScript, MAX_SCRIPT_BYTES } = require('./prompter');
 const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification, systemPreferences } = require('electron');
 const backups = require('./backup');
@@ -865,7 +867,7 @@ let lastRecorderState = 'idle';
 builtInRecorder.on('status', () => {
   const now = builtInRecorder.state;
   // The toolbar opens by itself when a recording starts (unless switched off on the recorder page), without taking focus.
-  if (now === 'recording' && lastRecorderState !== 'recording' && lastRecorderState !== 'paused' && configStore.get().recording.toolbar.auto) openToolbar({ focus: false });
+  if (now === 'recording' && lastRecorderState !== 'recording' && lastRecorderState !== 'paused' && configStore.get().recording.toolbar.auto && !builtInRecorder.silentRun) openToolbar({ focus: false });
   if (now === 'idle' && lastRecorderState !== 'idle') scheduleWarm(); // ready again for the next recording
   lastRecorderState = now;
   broadcastStatus();
@@ -3705,6 +3707,37 @@ function registerIpc() {
     notices: 'https://github.com/Drowbe/coffee-pub-showrunner/blob/main/THIRD-PARTY-NOTICES.md',
   };
   ipcMain.handle('app:openLink', (_event, key) => { if (NOTICE_LINKS[key]) return shell.openExternal(NOTICE_LINKS[key]); return null; });
+  // Calibrate: a short private recording of the webcam and microphone while the person claps, measured to set Match voice to webcam.
+  ipcMain.handle('recording:calibrate', async (event) => {
+    const say = (text) => { if (!event.sender.isDestroyed()) event.sender.send('recording:calibrateProgress', text); };
+    const cfg = configStore.get().recording;
+    if (builtInRecorder.active) throw new Error('Stop the recording first.');
+    if (!cfg.audio.mic.enabled || !['corner', 'center', 'cam'].includes(cfg.layout)) throw new Error('Calibrating needs the microphone on and a layout with the webcam.');
+    const ffmpeg = findFfmpeg(app.getPath('userData'));
+    if (!ffmpeg) throw new Error('The video encoder (ffmpeg) is missing.');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'showrunner-calibrate-'));
+    try {
+      say('Starting the camera and microphone...');
+      await builtInRecorder.start({ ...cfg, calibration: true, layout: 'cam', sources: [], folder: dir, capture: 'pictures', format: 'mp4', fps: 30, width: 1280, height: 720,
+        camera: { ...cfg.camera, background: 'none' }, audio: { ...cfg.audio, mic: { ...cfg.audio.mic, delayMs: 0, muted: false, level: 1 } } });
+      say('Clap your hands in front of the camera, about once a second, five times.');
+      await new Promise((resolve) => setTimeout(resolve, 11000));
+      say('Measuring...');
+      const file = await builtInRecorder.stop();
+      const { measure } = require('./calibrate');
+      const result = await measure(ffmpeg, file);
+      if (result.medianMs === null) throw new Error(`Could not tell the claps from the picture (heard ${result.claps}, matched ${result.offsetsMs.length}). Clap clearly with both hands in view, in good light, and try again.`);
+      const delayMs = Math.min(500, Math.max(0, result.medianMs));
+      const cur = configStore.get().recording;
+      saveRecordingPatch({ audio: { ...cur.audio, mic: { ...cur.audio.mic, delayMs } } });
+      return { delayMs, measuredMs: result.medianMs, claps: result.offsetsMs.length };
+    } finally {
+      if (builtInRecorder.active) await builtInRecorder.stop().catch(() => {});
+      builtInRecorder.file = '';
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (err) { /* temporary files */ }
+      builtInRecorder.emit('status');
+    }
+  });
   ipcMain.handle('recording:openPrivacy', (_event, kind) => shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'camera' ? 'Camera' : 'Microphone'}`));
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also

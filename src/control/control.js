@@ -2471,7 +2471,7 @@ const audioRows = [
   { name: $('rec-aw-1-name'), level: $('rec-aw-1-level'), pct: $('rec-aw-1-pct'), mute: $('rec-aw-1-mute'), row: $('rec-aw-1') },
   { name: null, level: $('rec-am-level'), pct: $('rec-am-pct'), mute: $('rec-am-mute'), row: $('rec-am') },
 ];
-const micEls = { delay: $('rec-mic-delay'), delayRow: $('rec-mic-delay-row'), on: $('rec-mic-on'), device: $('rec-mic-device'), echo: $('rec-mic-echo'), hint: $('rec-mic-hint'), allow: $('rec-mic-allow') };
+const micEls = { calibrate: $('rec-calibrate'), calibrateNote: $('rec-calibrate-note'), delay: $('rec-mic-delay'), delayRow: $('rec-mic-delay-row'), on: $('rec-mic-on'), device: $('rec-mic-device'), echo: $('rec-mic-echo'), hint: $('rec-mic-hint'), allow: $('rec-mic-allow') };
 
 function audioOf(r) { return r.audio || { windows: [{ level: 1, muted: false }, { level: 1, muted: false }], mic: { enabled: false, device: '', level: 1, muted: false, echoCancel: false } }; }
 
@@ -5745,6 +5745,17 @@ fitTabLabels();
 new MutationObserver(fitTabLabels).observe($('tabs'), { childList: true, subtree: true, characterData: true });
 
 $('activity-clear').addEventListener('click', () => { window.coffeePub.recording.clearLogs(); });
+
+// Calibrate: clap in front of the camera; the app measures the webcam's delay against the microphone and sets the number.
+api.recording.onCalibrateProgress((text) => { micEls.calibrateNote.textContent = text; });
+micEls.calibrate.addEventListener('click', async () => {
+  micEls.calibrate.disabled = true; micEls.calibrateNote.textContent = 'Starting...';
+  try {
+    const r = await api.recording.calibrate();
+    config = await api.getConfig(); renderRecording(); // the new delay
+    micEls.calibrateNote.textContent = `Done: the webcam is ${r.measuredMs} ms behind the sound (${r.claps} claps measured). Delay set to ${r.delayMs} ms.`;
+  } catch (err) { micEls.calibrateNote.textContent = String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); } finally { micEls.calibrate.disabled = false; }
+});
 
 // The licence links in About.
 for (const a of document.querySelectorAll('[data-link]')) a.addEventListener('click', (event) => { event.preventDefault(); api.recording.openLink(a.dataset.link).catch(() => {}); });

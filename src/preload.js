@@ -71,6 +71,8 @@ contextBridge.exposeInMainWorld('coffeePub', {
     clearLogs: () => ipcRenderer.invoke('activity:clear'),
     chooseImage: () => ipcRenderer.invoke('recording:chooseImage'),
     openLink: (key) => ipcRenderer.invoke('app:openLink', key),
+    calibrate: () => ipcRenderer.invoke('recording:calibrate'),
+    onCalibrateProgress: (callback) => { const listener = (_event, text) => callback(text); ipcRenderer.on('recording:calibrateProgress', listener); return () => ipcRenderer.removeListener('recording:calibrateProgress', listener); },
     onIdleLevels: (callback) => {
       const listener = (_event, peaks) => callback(peaks);
       ipcRenderer.on('recording:idleLevels', listener);
