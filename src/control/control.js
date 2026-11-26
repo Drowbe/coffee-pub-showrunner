@@ -5762,7 +5762,7 @@ micEls.calibrate.addEventListener('click', async () => {
     const r = await api.recording.calibrate();
     config = await api.getConfig(); renderRecording(); // the new delay
     calibrateBeat.hidden = true;
-    micEls.calibrateNote.textContent = `Done: the webcam picture was ${Math.abs(r.measuredMs)} ms ${r.measuredMs >= 0 ? 'later' : 'earlier'} than the sound (${r.claps} claps measured). Delay set to ${r.delayMs} ms.`;
+    micEls.calibrateNote.textContent = `Done: the webcam picture was ${Math.abs(r.measuredMs)} ms ${r.measuredMs >= 0 ? 'later' : 'earlier'} than the sound (${r.claps} of 6 claps measured, from ${r.minMs} to ${r.maxMs} ms${r.maxMs - r.minMs > 80 ? ' -- they varied a lot, so run it again' : ''}). Delay set to ${r.delayMs} ms.`;
   } catch (err) { calibrateBeat.hidden = true; micEls.calibrateNote.textContent = String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); } finally { micEls.calibrate.disabled = false; }
 });
 

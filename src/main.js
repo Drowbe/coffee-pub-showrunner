@@ -3751,17 +3751,20 @@ function registerIpc() {
       await builtInRecorder.start({ ...cfg, calibration: true, screenLead, layout: 'cam', sources: [], folder: dir, capture: 'pictures', format: 'mp4', fps: 30, width: 1280, height: 720,
         camera: { ...cfg.camera, background: 'none' }, audio: { ...cfg.audio, mic: { ...cfg.audio.mic, delayMs: 0, muted: false, level: 1 } } });
       for (let n = 3; n >= 1; n--) { say(`Get ready... ${n}`, 'ready', n); await wait(1000); }
-      for (let n = 1; n <= 5; n++) { say(`Clap now! (${n} of 5)`, 'clap', n); await wait(1000); }
+      for (let n = 1; n <= 6; n++) { say(`Clap now! (${n} of 6)`, 'clap', n); await wait(1000); }
       await wait(600);
       say('Measuring...');
       const file = await builtInRecorder.stop();
       const { measure } = require('./calibrate');
       const result = await measure(ffmpeg, file);
-      if (result.medianMs === null) throw new Error(`Could not tell the claps from the picture (heard ${result.claps}, matched ${result.offsetsMs.length}). Clap clearly with both hands in view, in good light, and try again.`);
+      // Keep the last test recording (small, private, overwritten each time) and log every clap's reading so a odd result can be checked.
+      try { fs.copyFileSync(file, path.join(app.getPath('userData'), 'calibration-last.mp4')); } catch (err) { /* only a diagnostic */ }
+      logActivity('Recorder', `Calibrate: heard ${result.claps} claps, matched ${result.offsetsMs.length} (${result.offsetsMs.join(', ')} ms), window alignment ${screenLead ? 'screen' : 'pictures'}.`, 'info');
+      if (result.medianMs === null || result.offsetsMs.length < 4) throw new Error(`Could not tell enough of the claps from the picture (heard ${result.claps}, matched ${result.offsetsMs.length}; at least 4 are needed). Clap clearly with both hands in view, in good light, and try again.`);
       const delayMs = Math.min(500, Math.max(0, result.medianMs));
       const cur = configStore.get().recording;
       saveRecordingPatch({ audio: { ...cur.audio, mic: { ...cur.audio.mic, delayMs } } });
-      return { delayMs, measuredMs: result.medianMs, claps: result.offsetsMs.length };
+      return { delayMs, measuredMs: result.medianMs, claps: result.offsetsMs.length, minMs: Math.min(...result.offsetsMs), maxMs: Math.max(...result.offsetsMs) };
     } finally {
       if (builtInRecorder.active) await builtInRecorder.stop().catch(() => {});
       builtInRecorder.file = '';
