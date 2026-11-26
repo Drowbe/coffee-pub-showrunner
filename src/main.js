@@ -232,7 +232,19 @@ const OBS_SECRET_PATH = path.join(app.getPath('userData'), 'obs-secret.bin');
 const TAVERN_SECRET_PATH = path.join(app.getPath('userData'), 'tavern-secret.bin');
 const TAVERN_TRUST_PATH = path.join(app.getPath('userData'), 'tavern-trust.bin');
 
+// The first read of an encrypted secret makes macOS ask the keychain for the
+// app's key. On a build macOS has not seen before that is a dialog, and while
+// it is open the whole main process waits -- which at launch meant black,
+// unpainted windows. So nothing touches the keychain until the windows are
+// up (see unlockKeychain); until then secrets read as empty.
+let keychainReady = false;
+
+function hasSecret(file) {
+  try { return fs.statSync(file).size > 0; } catch (err) { return false; }
+}
+
 function readSecret(file) {
+  if (!keychainReady) return '';
   try {
     const raw = fs.readFileSync(file);
     if (raw.length === 0) return '';
@@ -2029,9 +2041,9 @@ function fullStatus() {
     prompter: { open: prompterOpen(), script: prompterT().script, startUp: configStore.get().teleprompter.script },
     displays: screen.getAllDisplays().map(displaySummary),
     config: configStore.get(),
-    obs: { ...obs.status(), hasPassword: readObsPassword() !== '' },
+    obs: { ...obs.status(), hasPassword: hasSecret(OBS_SECRET_PATH) },
     recording: { active: recordingBackends.active.id, backends: recordingBackends.list(), builtIn: { ...builtInRecorder.status(), toolbarOpen: isAlive(toolbarWindow) } },
-    tavern: { ...tavern.status(), hasPassword: readSecret(TAVERN_SECRET_PATH) !== '', sync: tavernSync },
+    tavern: { ...tavern.status(), hasPassword: hasSecret(TAVERN_SECRET_PATH), sync: tavernSync },
     automations: {
       ...automations.status(),
       runningRuleSetIds: [...ruleSetRunState.keys()],
@@ -4888,9 +4900,18 @@ if (!app.requestSingleInstanceLock()) {
     scheduleWarm();
     if (configStore.get().teleprompter.enabled) openPrompter();
     startupMark('recorder warm scheduled');
-    obs.start().catch(() => {});
-    tavern.start().catch(() => {});
-    syncAutomationsServer().catch(() => {});
+    // Windows first; then the keychain (it may ask), then everything that needs a saved password.
+    setTimeout(() => {
+      startupMark('reading the keychain');
+      keychainReady = true;
+      try { safeStorage.isEncryptionAvailable(); } catch { /* ignore */ }
+      readSecret(OBS_SECRET_PATH); // the first read is the one that asks
+      startupMark('keychain answered');
+      obs.start().catch(() => {});
+      tavern.start().catch(() => {});
+      syncAutomationsServer().catch(() => {});
+      broadcastStatus();
+    }, 1500);
 
     const onDisplays = () => {
       layoutDock();
