@@ -3749,7 +3749,7 @@ function registerIpc() {
       // otherwise the measured delay would only be right for a recording nobody makes.
       const wantsScreen = cfg.capture === 'screen' && process.platform === 'darwin';
       const screenLead = wantsScreen && systemPreferences.getMediaAccessStatus('screen') === 'granted';
-      if (wantsScreen && !screenLead) throw new Error('Screen recording is not allowed for Showrunner yet, so recordings would use Built-in snapshots and a delay measured now would not fit them. Allow Showrunner under System Settings > Privacy & Security > Screen Recording (then restart it), or choose Built-in snapshots, and run Calibrate again.');
+      if (wantsScreen && !screenLead) throw new Error('Screen recording is not allowed for Showrunner yet, so recordings would use Built-in snapshots and a delay measured now would not fit them. Allow Showrunner under System Settings > Privacy & Security > Screen Recording (then restart it), or choose Built-in snapshots, and run Calibrate again. If the switch there already shows on, it belongs to an older copy of the app: remove Showrunner from that list with the minus button, restart Showrunner, press Record once and choose Allow.');
       await builtInRecorder.start({ ...cfg, calibration: true, screenLead, layout: 'cam', sources: [], folder: dir, capture: 'pictures', format: 'mp4', fps: 30, width: 1280, height: 720,
         camera: { ...cfg.camera, background: 'none' }, audio: { ...cfg.audio, mic: { ...cfg.audio.mic, delayMs: 0, muted: false, level: 1 } } });
       for (let n = 3; n >= 1; n--) { say(`Get ready... ${n}`, 'ready', n); await wait(1000); }
