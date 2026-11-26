@@ -2271,8 +2271,9 @@ function renderRecording() {
   $('rec-layout-hint').textContent = { one: 'Choose the window or picture to record in the picture above.', side: 'Choose a window for each side.', corner: 'Choose the window or picture to record. Click a corner of the picture to move the webcam there.', center: 'Choose the window or picture to record. Click in the picture to move the webcam there.', cam: 'Only the webcam is recorded. Sound from your windows is still recorded unless you mute it under Audio.' }[r.layout] || '';
   $('rec-capture-field').hidden = r.layout === 'cam';
   $('rec-capture-hint').hidden = r.layout === 'cam';
+  const isMac = /Mac/i.test(navigator.platform || navigator.userAgent);
   $('rec-capture-hint').textContent = r.capture === 'screen'
-    ? 'Screen recording: macOS records the window you chose (nothing else on your screen). Smoothest while the window is busy. Needs the Screen Recording permission, and the window must be on screen.'
+    ? `Screen recording: ${isMac ? 'macOS' : 'the system'} records the window you chose (nothing else on your screen). Smoothest while the window is busy.${isMac ? ' Needs the Screen Recording permission, and the window must be on screen.' : ' The window must be on screen.'}`
     : 'Built-in snapshots: Showrunner takes pictures of the window itself. Needs no permission, but can stutter while the window is busy.';
   if (document.activeElement !== recEls.toolbarAuto) recEls.toolbarAuto.checked = r.toolbar.auto;
   if (document.activeElement !== recEls.toolbarAtStart) recEls.toolbarAtStart.checked = r.toolbar.atStart;

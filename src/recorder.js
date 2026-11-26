@@ -253,7 +253,8 @@ class BuiltInRecorder extends EventEmitter {
     if (screenMode && process.platform === 'darwin' && systemPreferences.getMediaAccessStatus('screen') !== 'granted') {
       // Asking for the list of windows is what makes macOS show its Screen Recording prompt (and list Showrunner under that setting).
       // This recording carries on the other way, so the first one is never lost to a permission question.
-      try { await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } }); } catch (err) { /* only to raise the prompt */ }
+      // Once per run: asking on every Record made the dialog pop up again each time while it was still not allowed.
+      if (!this.askedScreen) { this.askedScreen = true; try { await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } }); } catch (err) { /* only to raise the prompt */ } }
       screenMode = false;
       this.captureNote = 'Recorded by copying the window, because macOS has not allowed Showrunner to capture windows (it calls this Screen Recording; only the window you chose is recorded, never your whole screen). Allow it in System Settings, Privacy & Security, Screen & System Audio Recording, then quit and reopen Showrunner for smoother recording.';
       this.emit('diag', this.captureNote);
