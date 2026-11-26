@@ -418,11 +418,16 @@ async function start(config) {
     // the file stays tiny for a long time even when everything is well.
     if (enc.video.writableLength > frameBytes() * cfg.fps * 3) switchToSoftware();
   }, 1000);
-  let statSeconds = 0;
+  let statSeconds = 0; let minuteDrawMax = 0; let minuteMicPeak = 0;
   statsTimer = setInterval(() => {
     statSeconds += 5;
-    if (statSeconds > 60 || failure) return;
-    ipcRenderer.send('recorder:note', `t=${statSeconds}s pictures sent ${framesSent} (dropped ${framesDropped}), slowest picture ${Math.round(drawMsMax)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}, encoder ${enc ? enc.codec : '-'}${micGain ? `, microphone loudest ${micPeakSeen.toFixed(3)}` : ''}${segCount ? `, blur ${(segMsTotal / segCount).toFixed(1)} ms each (${segCount})` : ''}`);
+    minuteDrawMax = Math.max(minuteDrawMax, drawMsMax); minuteMicPeak = Math.max(minuteMicPeak, micPeakSeen);
+    // Every five seconds for the first minute, then one line a minute for as long as it records (a long recording needs to be checkable too).
+    const everyMinute = statSeconds > 60;
+    if (failure || (everyMinute && statSeconds % 60 !== 0)) { if (!failure) { segMsTotal = 0; segCount = 0; drawMsMax = 0; micPeakSeen = 0; } return; }
+    const slow = everyMinute ? minuteDrawMax : drawMsMax; const loud = everyMinute ? minuteMicPeak : micPeakSeen;
+    minuteDrawMax = 0; minuteMicPeak = 0;
+    ipcRenderer.send('recorder:note', `t=${statSeconds}s pictures sent ${framesSent} (dropped ${framesDropped}), slowest picture ${Math.round(slow)} ms, window pictures ${winFrames}, webcam pictures ${camFrames}, encoder ${enc ? enc.codec : '-'}${micGain ? `, microphone loudest ${loud.toFixed(3)}` : ''}${segCount ? `, blur ${(segMsTotal / segCount).toFixed(1)} ms each (${segCount})` : ''}`);
     segMsTotal = 0; segCount = 0;
     drawMsMax = 0; micPeakSeen = 0;
   }, 5000);

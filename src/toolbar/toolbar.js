@@ -88,6 +88,7 @@ function render(s) {
   const shown = Boolean(s.preview) && !(live && s.hidePreviewOnRecord && !peekWhileRecording);
   $('previewBox').hidden = !shown;
   $('previewToggle').classList.toggle('on', shown);
+  $('previewToggle').hidden = live && Boolean(s.hidePreviewOnRecord); // nothing to show or hide while it is kept out of the way
   syncPictures(); syncCam(); syncMic();
   window.recbar.size(Math.ceil(document.body.scrollHeight));
 }
