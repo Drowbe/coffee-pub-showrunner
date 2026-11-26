@@ -2442,3 +2442,11 @@ select option { background: var(--bg-card); color: var(--text); }
 .layout-stage[data-layout="corner"][data-corner="tr"] .stage-cam { right: 3%; top: 4%; }
 .layout-stage[data-layout="corner"][data-corner="tl"] .stage-cam { left: 3%; top: 4%; }
 .rec-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Calibrate: a countdown, then a flash on every clap. */
+.calibrate-beat { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; font-size: 22px; font-weight: 700; background: var(--panel-2, #1b2a44); border: 2px solid var(--border, #33466a); }
+.calibrate-beat[hidden] { display: none; }
+.calibrate-beat.ready { color: #f2c14e; border-color: #f2c14e; }
+.calibrate-beat.clap { background: #2fbf71; border-color: #2fbf71; color: #fff; }
+.calibrate-beat.pulse { animation: calibrate-pulse 0.5s ease-out; }
+@keyframes calibrate-pulse { from { transform: scale(1.5); } to { transform: scale(1); } }

@@ -272,7 +272,7 @@ async function switchToSoftware() {
 async function start(config) {
   cfg = config;
   sources[0] = sources[1] = null; nextAt.clear(); failure = ''; ticks = 0; pausedTotal = 0; paused = false; recording = false;
-  audioLead = cfg.capture === 'screen' ? Math.round(((VIDEO_DELAY_MS - SCREEN_LATENCY_MS) / 1000) * RATE) : 0; audioSkip = audioLead;
+  audioLead = (cfg.capture === 'screen' || cfg.screenLead) ? Math.round(((VIDEO_DELAY_MS - SCREEN_LATENCY_MS) / 1000) * RATE) : 0; audioSkip = audioLead;
   framesSent = 0; framesDropped = 0; audioWritten = 0; lastFrame = null; drawMsMax = 0; winFrames = 0; camFrames = 0;
   canvas = document.createElement('canvas'); canvas.width = cfg.width; canvas.height = cfg.height; g = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
   previewCanvas = document.createElement('canvas'); previewCanvas.width = 320; previewCanvas.height = 180; previewPen = previewCanvas.getContext('2d', { willReadFrequently: true });

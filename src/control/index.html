@@ -334,7 +334,7 @@
         <div class="row" id="rec-mic-delay-row" hidden>
           <label class="field field-inline" title="Webcams show your picture a little late. Delay the microphone by this much so your voice matches your lips."><span>Match voice to webcam (ms)</span><input id="rec-mic-delay" type="number" min="0" max="500" step="10" style="width:80px"></label>
           <button class="btn btn-small" id="rec-calibrate" type="button" title="Measures how late your webcam is against your microphone: you clap about five times in front of the camera, and the delay is set for you. It uses a short private recording that is deleted afterwards.">Calibrate</button>
-          <span class="hint" id="rec-calibrate-note"></span>
+          <span class="calibrate-beat" id="rec-calibrate-beat" hidden aria-hidden="true"></span><span class="hint" id="rec-calibrate-note"></span>
         </div>
         <div class="row"><button class="btn btn-small" id="rec-mic-allow" type="button" hidden>Allow the microphone</button></div>
       </div>

@@ -5747,14 +5747,23 @@ new MutationObserver(fitTabLabels).observe($('tabs'), { childList: true, subtree
 $('activity-clear').addEventListener('click', () => { window.coffeePub.recording.clearLogs(); });
 
 // Calibrate: clap in front of the camera; the app measures the webcam's delay against the microphone and sets the number.
-api.recording.onCalibrateProgress((text) => { micEls.calibrateNote.textContent = text; });
+const calibrateBeat = $('rec-calibrate-beat');
+api.recording.onCalibrateProgress((msg) => {
+  const { text, beat, n } = typeof msg === 'string' ? { text: msg } : msg;
+  micEls.calibrateNote.textContent = text;
+  calibrateBeat.hidden = !beat;
+  calibrateBeat.className = `calibrate-beat ${beat || ''}`;
+  calibrateBeat.textContent = beat === 'clap' ? '\u{1F44F}' : (n || '');
+  if (beat === 'clap') { calibrateBeat.classList.remove('pulse'); void calibrateBeat.offsetWidth; calibrateBeat.classList.add('pulse'); }
+});
 micEls.calibrate.addEventListener('click', async () => {
   micEls.calibrate.disabled = true; micEls.calibrateNote.textContent = 'Starting...';
   try {
     const r = await api.recording.calibrate();
     config = await api.getConfig(); renderRecording(); // the new delay
-    micEls.calibrateNote.textContent = `Done: the webcam is ${r.measuredMs} ms behind the sound (${r.claps} claps measured). Delay set to ${r.delayMs} ms.`;
-  } catch (err) { micEls.calibrateNote.textContent = String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); } finally { micEls.calibrate.disabled = false; }
+    calibrateBeat.hidden = true;
+    micEls.calibrateNote.textContent = `Done: the webcam picture was ${Math.abs(r.measuredMs)} ms ${r.measuredMs >= 0 ? 'later' : 'earlier'} than the sound (${r.claps} claps measured). Delay set to ${r.delayMs} ms.`;
+  } catch (err) { calibrateBeat.hidden = true; micEls.calibrateNote.textContent = String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); } finally { micEls.calibrate.disabled = false; }
 });
 
 // The licence links in About.

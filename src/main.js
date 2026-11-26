@@ -3735,7 +3735,8 @@ function registerIpc() {
   ipcMain.handle('app:openLink', (_event, key) => { if (NOTICE_LINKS[key]) return shell.openExternal(NOTICE_LINKS[key]); return null; });
   // Calibrate: a short private recording of the webcam and microphone while the person claps, measured to set Match voice to webcam.
   ipcMain.handle('recording:calibrate', async (event) => {
-    const say = (text) => { if (!event.sender.isDestroyed()) event.sender.send('recording:calibrateProgress', text); };
+    const say = (text, beat, n) => { if (!event.sender.isDestroyed()) event.sender.send('recording:calibrateProgress', { text, beat, n }); };
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const cfg = configStore.get().recording;
     if (builtInRecorder.active) throw new Error('Stop the recording first.');
     if (!cfg.audio.mic.enabled || !['corner', 'center', 'cam'].includes(cfg.layout)) throw new Error('Calibrating needs the microphone on and a layout with the webcam.');
@@ -3744,10 +3745,14 @@ function registerIpc() {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'showrunner-calibrate-'));
     try {
       say('Starting the camera and microphone...');
-      await builtInRecorder.start({ ...cfg, calibration: true, layout: 'cam', sources: [], folder: dir, capture: 'pictures', format: 'mp4', fps: 30, width: 1280, height: 720,
+      // Record the way a real recording will: with the sound lined up for window capture when that is what the person uses,
+      // otherwise the measured delay would only be right for a recording nobody makes.
+      const screenLead = cfg.capture === 'screen' && process.platform === 'darwin' && systemPreferences.getMediaAccessStatus('screen') === 'granted';
+      await builtInRecorder.start({ ...cfg, calibration: true, screenLead, layout: 'cam', sources: [], folder: dir, capture: 'pictures', format: 'mp4', fps: 30, width: 1280, height: 720,
         camera: { ...cfg.camera, background: 'none' }, audio: { ...cfg.audio, mic: { ...cfg.audio.mic, delayMs: 0, muted: false, level: 1 } } });
-      say('Clap your hands in front of the camera, about once a second, five times.');
-      await new Promise((resolve) => setTimeout(resolve, 11000));
+      for (let n = 3; n >= 1; n--) { say(`Get ready... ${n}`, 'ready', n); await wait(1000); }
+      for (let n = 1; n <= 5; n++) { say(`Clap now! (${n} of 5)`, 'clap', n); await wait(1000); }
+      await wait(600);
       say('Measuring...');
       const file = await builtInRecorder.stop();
       const { measure } = require('./calibrate');

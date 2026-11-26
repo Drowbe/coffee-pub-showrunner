@@ -266,7 +266,7 @@ class BuiltInRecorder extends EventEmitter {
       this.writeMarker();
       await this.ensureWindow();
       const started = new Promise((resolve) => ipcMain.once('recorder:started', (_e, v) => resolve(v)));
-      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format, encoder: settings.encoder, fit: settings.fit, images, capture: screenMode ? 'screen' : 'pictures', screens: screenMode ? this.getCaptureInfo(settings.sources) : [] });
+      this.window.webContents.send('start', { layout: settings.layout, width: settings.width, height: settings.height, fps: settings.fps, audio: settings.audio, camera: settings.camera, ffmpeg, file: this.file, format, encoder: settings.encoder, fit: settings.fit, images, capture: screenMode ? 'screen' : 'pictures', screenLead: Boolean(settings.screenLead), screens: screenMode ? this.getCaptureInfo(settings.sources) : [] });
       const result = await started;
       if (!result.ok) throw new Error(result.error || 'The recorder could not start.');
     } catch (err) {
