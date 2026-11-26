@@ -9,6 +9,62 @@ in use at the time, except where noted.
 
 Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
+## Unreleased
+
+- **Calibrate the webcam against the microphone.** A **Calibrate** button beside **Match voice to webcam** records a short private clip
+  while you clap about five times in front of the camera, measures how late the picture is against the sound, sets the delay and
+  deletes the clip. **Recorder fixes:** the bundled ffmpeg no longer waits five seconds to probe its inputs (that left pictures unread,
+  then dropped them and put the video out of step with the sound); a late encoder now repeats the last picture instead of dropping
+  any; a stuck encoder is detected by pictures piling up, not by the file's size; and the Mac app is signed ad hoc so macOS remembers
+  its camera, microphone and Screen Recording permissions.
+- **Pictures and a centred webcam.** Any place in the recorder's layout can hold a picture (PNG, JPEG or WebP, copied into the app's
+  data folder) instead of a window, and a new **Webcam centred** layout puts the webcam in the middle of the window or picture; click
+  the layout picture to move it. Capture the window is now the default method on Mac, and a recording falls back to copying the window
+  (with a note) if macOS has not yet allowed Screen Recording.
+- **Dock and menu bar, tidied.** The dock panel has one big Start/Stop recording button (for the Showrunner Recorder or OBS) with a
+  ... menu, Windows and OBS menus instead of a grid of buttons, and a right-click menu on each window. The menu bar icon stays our
+  mark and gains a red badge (orange when paused or starting) and the time while recording. The recorder's log lines are grey unless
+  they report trouble; a microphone that stops is shown as a warning, and a ready microphone or webcam that has stopped is reopened.
+- **Recording from the menu bar.** With the Showrunner Recorder, the menu bar icon turns into a red dot with the time while
+  recording (orange when paused), and its menu has Start/Stop, Pause/Resume and Show/Hide Recording Toolbar. **Show the toolbar** sits
+  beside Start recording. The toolbar hides its picture while recording (switch off on the recorder page); click Preview to see it.
+- **Webcam background.** Remove a green screen (pick the backdrop colour by clicking the preview, with strength and soft edge), or blur
+  everything behind you (MediaPipe selfie segmentation, Apache 2.0, bundled in `src/vendor/mediapipe` with its licence and notice).
+- **Showrunner Recorder: smoother and clearer.** The recorder keeps its microphone and webcam ready while the toolbar is open, so
+  Record starts almost at once, with a tone when it really begins. Sound is captured on the audio thread, so a busy game cannot make
+  gaps in it. A new **Capture method** can take each window straight from the system, as OBS's window capture does (it asks for the
+  Screen Recording permission, and records only the chosen window), which keeps up much better while the window is busy. The recorder
+  page is reorganised: Record first, then Layout (pictures to choose from, the window choosers inside the layout, webcam corner and
+  size, and **Window shape**: fit or fill), Webcam, Audio and Capture. Status page: **Copy logs** and **Clear logs**.
+- **Built-in recorder (Mac).** A new Recordings page chooses what records for the profile: OBS, or Showrunner itself, which saves
+  one window, or two side by side, with their sound to an MP4 (H.264 and AAC, 1080p or 720p, up to 60 fps), with pause. The Start,
+  Pause, Resume and Stop recording steps work with either. The file is written as it records. See
+  `documentation/userguides/userguide-recorder.md`.
+- **Showrunner Recorder audio.** Record the microphone with the windows' sound. Each window and the microphone has its own level
+  and mute, which you can change while recording, with live meters. Recordings are named from the Session filename format.
+  **Webcam:** two new layouts, a window with the webcam in a corner (any corner, three sizes) and the webcam filling the picture
+  (no window needed), with a live preview and a camera picker.
+  **Recording toolbar:** a small window that floats above everything with Record, Pause, Stop, the time, and a level, mute and
+  meter for each sound source. It opens when a recording starts (switch off on the recorder page) and is never in the recording.
+  **Live preview in the toolbar:** the toolbar shows the picture as it will be recorded (windows and webcam in their places), drawn by
+  the same code the recorder uses, with a button to hide it. The toolbar and the meters work before recording, and the toolbar can
+  open when Showrunner starts. A recording that fails to start no longer leaves an empty file, and a microphone or webcam whose id
+  changed is found again by name.
+  **Safety:** the recorder will not start with under 1 GB free, warns below 3 GB (with minutes left), and stops cleanly, keeping the
+  file, before the disk is full. Quitting during a recording finishes the file first. If the app is ever killed mid-recording, the
+  file still plays and the next launch says where it is. **Show in Finder** on the recorder page and the toolbar.
+  The left rail scrolls when it is long, and long names show "..." with the full name on hover.
+- **Teleprompter hold cue.** `<!-- hold: Name -->` in a script stops auto-scroll at that point until you continue (Space, the
+  Continue button or Play), for scripts that are notes about several screens. It also fires the event `teleprompter:hold:<name>`.
+  The editor has **Insert hold**.
+- **Webcam flip.** Mirror the webcam left to right, in the preview and the recording.
+- **The Showrunner Recorder now encodes through ffmpeg.** The recorder hands its pictures and sound to an ffmpeg program running on
+  its own (the Mac's hardware encoder, or x264), instead of encoding inside the app, because a busy Foundry scene can starve the app's
+  graphics process and freeze the video. New **File type** choice: MP4 or MKV. Pausing cuts the paused time out of the file. A **Video encoder** choice (Automatic, Hardware, Software): Automatic uses the Mac's own encoder and switches to the software encoder, restarting the file, if the hardware one stalls in the first seconds. ffmpeg is
+  not bundled yet (see `documentation/plans/plan-recording.md`).
+- **No OBS polling without OBS.** A profile that records with the Showrunner Recorder no longer connects to OBS or retries every ten seconds; switching back to the OBS Recorder reconnects.
+- Recording and streaming actions now go through a recording backend (`src/recording.js`); OBS is the first backend.
+
 ## 0.4.9 -- 2026-11-20
 
 ### Fixed

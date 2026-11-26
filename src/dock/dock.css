@@ -315,7 +315,7 @@ body.expanded .panel {
 
 .tools {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 6px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -341,3 +341,22 @@ body.expanded .panel {
   opacity: 0.45;
   cursor: default;
 }
+
+.tool.live { background: rgba(229, 72, 77, 0.45); border-color: rgba(229, 72, 77, 0.7); }
+
+/* The one big action, and the menus. */
+.primary { display: flex; gap: 6px; }
+.primary-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 8px; border-radius: 8px; border: 1px solid rgba(92, 200, 207, 0.5); background: rgba(92, 200, 207, 0.22); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.primary-btn:hover:not(:disabled) { background: rgba(92, 200, 207, 0.38); }
+.primary-btn:disabled { opacity: 0.5; cursor: default; }
+.primary-btn.live { background: rgba(229, 72, 77, 0.5); border-color: rgba(229, 72, 77, 0.8); }
+.rec-glyph { width: 10px; height: 10px; border-radius: 50%; background: var(--rec, #e5484d); flex: none; }
+.primary-btn.live .rec-glyph { border-radius: 2px; background: #fff; }
+.tool.more { width: 38px; font-size: 16px; line-height: 1; padding: 4px; }
+.panel { position: relative; }
+.menu { position: absolute; z-index: 10; min-width: 170px; padding: 4px; border-radius: 8px; background: #15202e; border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; }
+.menu[hidden] { display: none; }
+.menu-item { text-align: left; padding: 6px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.menu-item:hover:not(:disabled) { background: rgba(92, 200, 207, 0.25); }
+.menu-item:disabled { opacity: 0.5; cursor: default; }
+.menu-sep { height: 1px; margin: 4px 2px; background: rgba(255, 255, 255, 0.12); }

@@ -3,13 +3,18 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const os = require('os');
+const { findFfmpeg } = require('./ffmpeg');
 const { renderScript, MAX_SCRIPT_BYTES } = require('./prompter');
-const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, screen, shell, Menu, Tray, nativeImage, session, dialog, safeStorage, Notification, systemPreferences } = require('electron');
 const backups = require('./backup');
 const { calibrateInputs } = require('./leveling');
 const { AutoLevelService } = require('./autolevel');
 const { ConfigStore, LIMITS, REGION_LIMITS, DEFAULT_GROUP, AUTOMATIONS_ACTION_SCHEMA, STUDIO_ACTION_SCHEMA, SOURCE_SUFFIX, upgradeSourceName } = require('./config');
 const { ObsBridge, parseWindowChoice } = require('./obs');
+const { nameFromTemplate, defaultName } = require('./filename');
+const { ObsBackend, BuiltInBackend, RecordingBackends } = require('./recording');
+const { BuiltInRecorder } = require('./recorder');
 const { TavernBridge } = require('./tavern');
 const { AutomationsServer } = require('./automations');
 const { YouTubeUploader } = require('./youtube');
@@ -72,12 +77,25 @@ function selectorCandidates(text) {
 
 app.setName(DATA_NAME);
 
+// Startup timing, written to <userData>/startup.log so a stall at launch shows
+// up with a name even in a packaged app (which has no console).
+const STARTUP_T0 = Date.now();
+const startupLines = [];
+function startupMark(label) {
+  const line = `${String(Date.now() - STARTUP_T0).padStart(6)} ms  ${label}`;
+  startupLines.push(line);
+  console.log(`[startup] ${line}`);
+  try { fs.writeFileSync(path.join(app.getPath('userData'), 'startup.log'), `${new Date(STARTUP_T0).toISOString()}\n${startupLines.join('\n')}\n`); } catch { /* ignore */ }
+}
+
 // Keep the view windows rendering at full rate even when they are not focused
 // or are behind other windows. OBS captures whatever the window paints, so
 // throttled rendering would show up as a stuttering source.
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
-app.commandLine.appendSwitch('disable-background-timer-throttling');
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+if (!process.env.SHOWRUNNER_NO_UNTHROTTLE) {
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-background-timer-throttling');
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+}
 // Let Foundry play audio without a click first.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // Play audio from the app's own process rather than Chromium's audio helper
@@ -107,6 +125,8 @@ function migrateLegacyUserData() {
 migrateLegacyUserData();
 
 const configStore = new ConfigStore(path.join(app.getPath('userData'), 'config.json'));
+// Whatever saves the settings (the control panel, the toolbar), the toolbar shows the new values straight away.
+{ const save = configStore.save.bind(configStore); configStore.save = (next) => { const saved = save(next); setImmediate(() => { try { sendToolbarState(); scheduleWarm(); } catch (err) { /* toolbar not ready yet */ } }); return saved; }; }
 
 // OBS sources this app made used to end in " (CP Studio)" and now end in
 // " (CPS)". Everything that remembers one by name has to follow, or a source
@@ -212,7 +232,19 @@ const OBS_SECRET_PATH = path.join(app.getPath('userData'), 'obs-secret.bin');
 const TAVERN_SECRET_PATH = path.join(app.getPath('userData'), 'tavern-secret.bin');
 const TAVERN_TRUST_PATH = path.join(app.getPath('userData'), 'tavern-trust.bin');
 
+// The first read of an encrypted secret makes macOS ask the keychain for the
+// app's key. On a build macOS has not seen before that is a dialog, and while
+// it is open the whole main process waits -- which at launch meant black,
+// unpainted windows. So nothing touches the keychain until the windows are
+// up (see unlockKeychain); until then secrets read as empty.
+let keychainReady = false;
+
+function hasSecret(file) {
+  try { return fs.statSync(file).size > 0; } catch (err) { return false; }
+}
+
 function readSecret(file) {
+  if (!keychainReady) return '';
   try {
     const raw = fs.readFileSync(file);
     if (raw.length === 0) return '';
@@ -321,12 +353,16 @@ let activityLog = []; // newest first: {at, source, event, level}
 
 function logActivity(source, event, level = 'info') {
   activityLog.unshift({ at: Date.now(), source, event, level });
+  // The recorder's lines are also kept in a file, so they survive a restart and can be sent along when a recording goes wrong.
+  if (source === 'Recorder') { try { fs.appendFileSync(path.join(app.getPath('userData'), 'recorder.log'), `${new Date().toISOString()} ${event}\n`); } catch (err) { /* logging is best effort */ } }
   activityLog.length = Math.min(activityLog.length, ACTIVITY_LOG_LIMIT);
   broadcastStatus();
 }
 
+// OBS is only connected to (and only retried) when the profile records with OBS. The connection details are shared by every profile,
+// so this is where the profile's choice of recorder switches it off.
 const obs = new ObsBridge({
-  getSettings: () => configStore.get().obs,
+  getSettings: () => { const c = configStore.get(); return c.recording.backend === 'obs' ? c.obs : { ...c.obs, autoConnect: false }; },
   getPassword: readObsPassword,
 });
 obs.lastRecordingPath = recordings.last ? recordings.last.path : '';
@@ -819,6 +855,66 @@ automations.on('event', (entry) => {
   });
 });
 
+// The built-in recorder reads the pages of the windows the profile chose (the page inside each window, without its bar).
+const builtInRecorder = new BuiltInRecorder({
+  mediaAccess: (kind) => askMediaAccess(kind),
+  getSources: (ids) => ids.map((id) => pageViews.get(id)).filter((page) => page && !page.webContents.isDestroyed()).map((page) => page.webContents),
+  // For screen capture: each chosen window's id for the system, and where its page sits inside the window (the bar and frame are cropped away).
+  getCaptureInfo: (ids) => ids.map((id) => {
+    const win = id && !String(id).startsWith('image:') ? viewWindows.get(id) : null; const page = pageViews.get(id);
+    if (!win || win.isDestroyed() || !page) return null;
+    const b = win.getBounds(); const c = win.getContentBounds(); const p = page.getBounds();
+    return { sourceId: win.getMediaSourceId(), winW: b.width, winH: b.height, rect: { x: c.x - b.x + p.x, y: c.y - b.y + p.y, w: p.width, h: p.height } };
+  }), // one for each place in the picture, null where there is no window
+  folderFor: (folder) => folder || app.getPath('videos'),
+  windowName: (id) => { const v = configStore.getView(id); return v ? (v.label || v.id) : id; },
+  dataDir: app.getPath('userData'),
+  markerFile: path.join(app.getPath('userData'), 'recording-in-progress.json'), // left behind only if the app closes mid-recording
+  // The session filename format names the file, the same one OBS uses; blank falls back to "Showrunner <date> <time>".
+  nameFor: () => {
+    const format = configStore.get().session.filenameFormat;
+    return format ? nameFromTemplate(formatSessionTemplate(format, undefined, undefined, sanitizeFilenameValue)) : defaultName();
+  },
+});
+builtInRecorder.on('recording', noteRecording);
+// Most of what the recorder reports is information; only trouble is shown in red.
+builtInRecorder.on('diag', (text) => logActivity('Recorder', text, /ended|stopped|not available|could not|nothing written|nothing has been|failed|muted it|not responding/i.test(text) ? 'error' : 'info'));
+const tapInfoSeen = new Set();
+builtInRecorder.on('tapinfo', (senderId, text) => {
+  const entry = [...pageViews.entries()].find(([, page]) => !page.webContents.isDestroyed() && page.webContents.id === senderId);
+  const v = entry && configStore.getView(entry[0]);
+  const key = `${senderId}:${text}`;
+  if (tapInfoSeen.has(key)) return;
+  tapInfoSeen.add(key);
+  logActivity('Recorder', `${v ? (v.label || v.id) : 'A window'}: ${text}`, 'info');
+});
+let lastRecorderState = 'idle';
+builtInRecorder.on('status', () => {
+  const now = builtInRecorder.state;
+  // The toolbar opens by itself when a recording starts (unless switched off on the recorder page), without taking focus.
+  if (now === 'recording' && lastRecorderState !== 'recording' && lastRecorderState !== 'paused' && configStore.get().recording.toolbar.auto && !builtInRecorder.silentRun) openToolbar({ focus: false });
+  if (now === 'idle' && lastRecorderState !== 'idle') scheduleWarm(); // ready again for the next recording
+  lastRecorderState = now;
+  broadcastStatus();
+  sendToolbarState();
+});
+builtInRecorder.on('idle', (peaks) => {
+  if (isAlive(controlWindow)) controlWindow.webContents.send('recording:idleLevels', peaks);
+  if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:idle', peaks);
+});
+builtInRecorder.on('mask', (mask) => {
+  if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:mask', mask);
+  if (isAlive(controlWindow) && camPreviewOn) controlWindow.webContents.send('recording:mask', mask);
+});
+builtInRecorder.on('levels', (levels) => {
+  if (isAlive(controlWindow)) controlWindow.webContents.send('recording:levels', levels);
+  if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:levels', levels);
+});
+const recordingBackends = new RecordingBackends(
+  [new ObsBackend(obs), new BuiltInBackend(builtInRecorder, () => configStore.get().recording)],
+  () => configStore.get().recording.backend,
+);
+
 function requireObs() {
   if (!obs.connected) throw new Error('OBS is not connected.');
 }
@@ -1273,24 +1369,9 @@ async function runAutomationAction(action, param, eventData, stepContext, chain 
       if (!Number.isFinite(db)) throw new Error(`setVolume needs a level in dB, such as -6 (got "${raw}").`);
       return obs.setInputVolumeDb(param, db);
     }
-    case 'startRecording':
-      requireObs();
-      return obs.startRecording();
-    case 'pauseRecording':
-      requireObs();
-      return obs.pauseRecording();
-    case 'resumeRecording':
-      requireObs();
-      return obs.resumeRecording();
-    case 'stopRecording':
-      requireObs();
-      return obs.stopRecording();
-    case 'startStreaming':
-      requireObs();
-      return obs.startStreaming();
-    case 'stopStreaming':
-      requireObs();
-      return obs.stopStreaming();
+    case 'startRecording': case 'pauseRecording': case 'resumeRecording': case 'stopRecording':
+    case 'startStreaming': case 'stopStreaming':
+      return recordingBackends.run(action); // the active backend (OBS today): see src/recording.js
     case 'prompterPlay': case 'prompterPause': case 'prompterToggle': case 'prompterFaster': case 'prompterSlower':
     case 'prompterNext': case 'prompterPrev': case 'prompterTop': {
       if (!prompterOpen() || !prompterPage || prompterPage.webContents.isDestroyed()) {
@@ -1478,7 +1559,7 @@ async function runYouTubeUpload(step, eventData, ruleSetId) {
   const y = configStore.get().youtube;
   if (!y.enabled) throw new Error('YouTube upload is off -- enable it on the Automations tab first.');
 
-  const filePath = step.filePath || obs.lastRecordingPath;
+  const filePath = step.filePath || (recordings.last && recordings.last.path) || obs.lastRecordingPath;
   if (!filePath) throw new Error('No recording to upload -- record something first, or set a file on this step.');
   if (!fs.existsSync(filePath)) throw new Error(`Recording file not found: ${filePath}`);
   // Only the *default* file is guarded: running "upload the last recording"
@@ -1960,8 +2041,9 @@ function fullStatus() {
     prompter: { open: prompterOpen(), script: prompterT().script, startUp: configStore.get().teleprompter.script },
     displays: screen.getAllDisplays().map(displaySummary),
     config: configStore.get(),
-    obs: { ...obs.status(), hasPassword: readObsPassword() !== '' },
-    tavern: { ...tavern.status(), hasPassword: readSecret(TAVERN_SECRET_PATH) !== '', sync: tavernSync },
+    obs: { ...obs.status(), hasPassword: hasSecret(OBS_SECRET_PATH) },
+    recording: { active: recordingBackends.active.id, backends: recordingBackends.list(), builtIn: { ...builtInRecorder.status(), toolbarOpen: isAlive(toolbarWindow) } },
+    tavern: { ...tavern.status(), hasPassword: hasSecret(TAVERN_SECRET_PATH), sync: tavernSync },
     automations: {
       ...automations.status(),
       runningRuleSetIds: [...ruleSetRunState.keys()],
@@ -2222,6 +2304,17 @@ async function syncObs() {
   return report;
 }
 
+// Brings the OBS connection in line with the profile's recorder: dropped (and no longer retried) when it records without OBS,
+// and reconnected, if auto-connect is on, when it records with OBS.
+async function syncObsConnection() {
+  const c = configStore.get();
+  if (c.recording.backend !== 'obs') {
+    if (obs.state !== 'disconnected') await obs.stop().catch(() => {});
+  } else if (c.obs.autoConnect && !obs.connected) {
+    obs.connect().catch(() => {});
+  }
+}
+
 function scheduleObsSync() {
   clearTimeout(obsSyncTimer);
   obsSyncTimer = setTimeout(() => syncObs().catch((err) => console.warn(`[obs] sync failed: ${err.message}`)), 800);
@@ -2274,6 +2367,7 @@ function createViewWindow(view) {
   configureSession(partitionFor(view));
   const page = new WebContentsView({
     webPreferences: {
+      preload: path.join(__dirname, 'recorder', 'tap-preload.js'), // a copy of the page's sound for the built-in recorder; idle otherwise
       partition: partitionFor(view),
       contextIsolation: true,
       nodeIntegration: false,
@@ -2532,10 +2626,12 @@ async function switchProfile(id) {
     if (saved.tavern.enabled && saved.tavern.autoConnect && !tavern.connected && saved.tavern.url) await tavern.connect().catch(() => {});
     await syncAutomationsServer();
     openLaunchViews();
+    { const rc = configStore.get().recording; if (rc.backend === 'builtin' && rc.toolbar.atStart) openToolbar({ focus: false }); }
     if (configStore.get().teleprompter.enabled) openPrompter();
     setupTray();
     setupDock();
     buildMenu();
+    syncObsConnection().catch(() => {});
     scheduleObsSync();
     syncTavern().catch(() => {});
     syncAutoLevel().catch(() => {});
@@ -2708,7 +2804,7 @@ function expandViews() {
 function dockSize(expanded) {
   const n = configStore.get().views.length;
   if (!expanded) return { width: DOCK_WIDTH, height: 92 + n * 16 };
-  return { width: DOCK_EXPANDED, height: 200 + n * 182 };
+  return { width: DOCK_EXPANDED, height: 150 + n * 182 };
 }
 
 function dockBounds(display) {
@@ -2739,6 +2835,8 @@ function dockState() {
     collapsed: dockSize(false),
     obsConnected: obs.connected,
     outputs: obs.status().outputs,
+    backend: configStore.get().recording.backend,
+    recorder: configStore.get().recording.backend === 'builtin' ? { state: builtInRecorder.state, seconds: builtInRecorder.seconds(), toolbarOpen: isAlive(toolbarWindow) } : null, // the Showrunner Recorder, when the profile uses it
     windows: configStore.get().views.map((view) => {
       const win = viewWindows.get(view.id);
       const open = isAlive(win);
@@ -3182,11 +3280,13 @@ function createControlWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      autoplayPolicy: 'no-user-gesture-required', // the microphone meter on the recorder page starts without a click
       spellcheck: false,
     },
   });
   controlWindow.loadFile(path.join(__dirname, 'control', 'index.html'));
-  controlWindow.once('ready-to-show', () => controlWindow.show());
+  controlWindow.once('ready-to-show', () => { startupMark('control window ready to show'); controlWindow.show(); });
+  controlWindow.webContents.once('did-finish-load', () => startupMark('control window page loaded'));
   // Closing the panel hides it; the app keeps running so OBS keeps its sources.
   controlWindow.on('close', (event) => {
     if (!quitting) {
@@ -3313,6 +3413,7 @@ function trayMenuTemplate() {
     { type: 'separator' },
     { label: 'Show Control Panel', click: () => createControlWindow() },
     { type: 'separator' },
+    ...recordingMenuItems(),
     ...views.map((view) => {
       const open = isAlive(viewWindows.get(view.id));
       return {
@@ -3351,7 +3452,56 @@ function trayMenuTemplate() {
   ];
 }
 
+// Recording from the menu bar: start or stop, pause or resume, and show or hide the toolbar (the Showrunner Recorder only).
+function recordingMenuItems() {
+  if (configStore.get().recording.backend !== 'builtin') return [];
+  const st = builtInRecorder.status();
+  const live = st.state === 'recording' || st.state === 'paused';
+  const busy = st.state === 'starting' || st.state === 'stopping';
+  const time = `${Math.floor(st.seconds / 60)}:${String(st.seconds % 60).padStart(2, '0')}`;
+  const run = (action) => () => { recordingBackends.run(action).catch((err) => logActivity('Recorder', err.message, 'error')); };
+  return [
+    { label: live ? `Stop Recording (${time})` : busy ? 'Recording...' : 'Start Recording', enabled: !busy, click: run(live ? 'stopRecording' : 'startRecording') },
+    ...(live ? [{ label: st.state === 'paused' ? 'Resume Recording' : 'Pause Recording', click: run(st.state === 'paused' ? 'resumeRecording' : 'pauseRecording') }] : []),
+    { label: isAlive(toolbarWindow) ? 'Hide Recording Toolbar' : 'Show Recording Toolbar', click: () => toggleToolbar() },
+    { type: 'separator' },
+  ];
+}
+
+// While recording, the menu bar icon is still our mark, with a red badge and the time (orange badge when paused or starting).
+let trayIcons = { normal: null };
+function recordingDot(color) {
+  // Our own mark in colour (not a template image, so it keeps its colours in light and dark), with a badge in the corner: red while recording.
+  const size = 44;
+  const mark = nativeImage.createFromPath(path.join(__dirname, 'assets', 'mark-color.png')).resize({ width: size, height: size, quality: 'best' });
+  const buf = Buffer.from(mark.toBitmap()); // BGRA
+  const [r, g, b] = color; const cx = size - 8.5; const cy = size - 8.5;
+  for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
+    const d = Math.hypot(x - cx, y - cy);
+    const ring = Math.max(0, Math.min(1, 9 - d)); const dot = Math.max(0, Math.min(1, 6.5 - d));
+    const i = (y * size + x) * 4;
+    if (ring > 0) { // a white ring, then the coloured disc, over the mark
+      const mix = (from, to, t) => Math.round(from * (1 - t) + to * t);
+      buf[i] = mix(buf[i], 255, ring); buf[i + 1] = mix(buf[i + 1], 255, ring); buf[i + 2] = mix(buf[i + 2], 255, ring); buf[i + 3] = Math.max(buf[i + 3], Math.round(ring * 255));
+      if (dot > 0) { buf[i] = mix(buf[i], b, dot); buf[i + 1] = mix(buf[i + 1], g, dot); buf[i + 2] = mix(buf[i + 2], r, dot); }
+    }
+  }
+  return nativeImage.createFromBitmap(buf, { width: size, height: size, scaleFactor: 2 });
+}
+function updateTrayRecording() {
+  if (!tray || tray.isDestroyed()) return;
+  const st = builtInRecorder.status();
+  const live = configStore.get().recording.backend === 'builtin' && (st.state === 'recording' || st.state === 'paused');
+  if (!trayIcons.rec) { trayIcons.rec = recordingDot([229, 72, 77]); trayIcons.paused = recordingDot([230, 162, 60]); }
+  const starting = configStore.get().recording.backend === 'builtin' && st.state === 'starting';
+  tray.setImage(live ? (st.state === 'paused' ? trayIcons.paused : trayIcons.rec) : starting ? trayIcons.paused : trayIcons.normal);
+  if (process.platform === 'darwin' && starting) tray.setTitle(' starting...');
+  else if (process.platform === 'darwin') tray.setTitle(live ? ` ${Math.floor(st.seconds / 60)}:${String(st.seconds % 60).padStart(2, '0')}${st.state === 'paused' ? ' paused' : ''}` : '');
+  tray.setToolTip(live ? `${APP_NAME} - ${st.state === 'paused' ? 'paused' : 'recording'}` : APP_NAME);
+}
+
 function refreshTrayMenu() {
+  updateTrayRecording();
   if (tray && !tray.isDestroyed()) tray.setContextMenu(Menu.buildFromTemplate(trayMenuTemplate()));
 }
 
@@ -3373,6 +3523,7 @@ function setupTray() {
       : nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayWin.png'));
     if (process.platform === 'darwin') icon.setTemplateImage(true);
     tray = new Tray(icon);
+    trayIcons = { normal: icon };
     tray.setToolTip(APP_NAME);
     tray.on('double-click', () => createControlWindow());
     refreshTrayMenu();
@@ -3390,10 +3541,241 @@ function setupTray() {
 // IPC
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Live preview and meters. The toolbar shows a small live copy of the picture (each chosen window; the toolbar adds the webcam and
+// lays it out with the same code the recorder uses). The meters watch how loud each window is, for the toolbar and for the recorder
+// page while it is open. While recording, the pictures come from the recorder's own captures.
+// ---------------------------------------------------------------------------
+let previewTimer = null;
+let previewBusy = false;
+let previewLast = [0, 0];
+let feedControl = false; // the recorder page is open
+let camPreviewOn = false; // its webcam preview is showing
+
+function sendPreviewFrame(index, image) {
+  if (!isAlive(toolbarWindow)) return;
+  const small = image.resize({ width: 480 });
+  const { width, height } = small.getSize();
+  if (width && height) toolbarWindow.webContents.send('toolbar:frame', { i: index, w: width, h: height, buf: small.toBitmap() });
+}
+
+// Decides what to watch from who is looking: pictures only for a toolbar showing its preview, loudness for the toolbar or the page.
+function updateFeed() {
+  clearInterval(previewTimer); previewTimer = null;
+  const cfg = configStore.get().recording;
+  const toolbarOpen = isAlive(toolbarWindow);
+  builtInRecorder.monitor(feedControl || toolbarOpen ? cfg.sources : null);
+  if (!(toolbarOpen && cfg.toolbar.preview)) return;
+  previewTimer = setInterval(async () => {
+    if (builtInRecorder.active) return;
+    if (previewBusy) return;
+    previewBusy = true;
+    try {
+      const sourceIds = configStore.get().recording.sources;
+      builtInRecorder.monitor(sourceIds); // follows a change of window
+      const sources = builtInRecorder.windowsAt(sourceIds);
+      await Promise.all(sources.map(async (wc, i) => { if (!wc) return; try { sendPreviewFrame(i, await wc.capturePage()); } catch (err) { /* closing or reloading */ } }));
+    } finally { previewBusy = false; }
+  }, 250);
+}
+ipcMain.on('recording:previewFeed', (_event, on) => { feedControl = Boolean(on); updateFeed(); });
+ipcMain.on('recording:camPreview', (_event, on) => { camPreviewOn = Boolean(on); scheduleWarm(); });
+builtInRecorder.on('composite', (picture) => { if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:composite', picture); });
+
+// ---------------------------------------------------------------------------
+// Recording toolbar: a small window that floats above everything with record, pause, stop, the time, and a level and mute for each
+// sound source. It is its own window, so it is never part of a recording (the recorder reads only the windows it was told to).
+// ---------------------------------------------------------------------------
+let toolbarWindow = null;
+let toolbarAudioTimer = null;
+
+// A picture chosen for the recorder, small enough to send to the toolbar for its preview (looked up once and kept).
+const pictureCache = new Map();
+function pictureForToolbar(id) {
+  const file = path.join(app.getPath('userData'), 'recording-images', String(id).slice(6));
+  try {
+    const stamp = `${file}:${fs.statSync(file).mtimeMs}`;
+    if (!pictureCache.has(stamp)) { const img = nativeImage.createFromPath(file); pictureCache.set(stamp, img.isEmpty() ? null : img.resize({ width: Math.min(960, img.getSize().width) }).toDataURL()); }
+    return pictureCache.get(stamp);
+  } catch (err) { return null; }
+}
+
+function toolbarState() {
+  const cfg = configStore.get();
+  const r = cfg.recording;
+  const isImage = (id) => typeof id === 'string' && id.startsWith('image:');
+  const label = (id) => { if (isImage(id)) return (r.images && r.images[id]) || 'Picture'; const v = cfg.views.find((x) => x.id === id); return v ? (v.label || v.id) : ''; };
+  return { ...builtInRecorder.status(), layout: r.layout, fit: r.fit, camera: r.camera, preview: r.toolbar.preview, hidePreviewOnRecord: r.toolbar.hidePreviewOnRecord, names: [label(r.sources[0]), label(r.sources[1])], pictures: [0, 1].map((i) => (isImage(r.sources[i]) ? pictureForToolbar(r.sources[i]) : null)), audio: r.audio };
+}
+
+// While the toolbar is open the recorder is kept ready (its window, microphone and webcam), so Record starts at once. It is made ready
+// again a moment after any setting changes, and let go when the toolbar closes.
+let warmTimer = null;
+function scheduleWarm() {
+  clearTimeout(warmTimer);
+  warmTimer = setTimeout(() => {
+    const r = configStore.get().recording;
+    if ((isAlive(toolbarWindow) || camPreviewOn || r.toolbar.keepReady) && r.backend === 'builtin') builtInRecorder.warm({ layout: r.layout, camera: r.camera, audio: r.audio });
+    else builtInRecorder.unwarm();
+  }, 700);
+}
+
+function sendToolbarState() {
+  if (isAlive(toolbarWindow)) toolbarWindow.webContents.send('toolbar:state', toolbarState());
+}
+
+// Saves a change to the recording settings the way the control panel does, without touching anything else.
+function saveRecordingPatch(patch) {
+  const cur = configStore.get();
+  configStore.save({ ...cur, recording: { ...cur.recording, ...patch } });
+  broadcastStatus();
+}
+
+function openToolbar({ focus = true } = {}) {
+  if (isAlive(toolbarWindow)) { if (focus) toolbarWindow.show(); else toolbarWindow.showInactive(); return; }
+  const t = configStore.get().recording.toolbar;
+  const options = {
+    title: `${APP_NAME} - Recording`,
+    width: 480, height: 150, useContentSize: true,
+    frame: false, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    alwaysOnTop: true, skipTaskbar: true, hasShadow: true, backgroundColor: '#0E1A2B', show: false,
+    webPreferences: { preload: path.join(__dirname, 'toolbar-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
+  };
+  if (t.x !== null && t.y !== null && screen.getAllDisplays().some((d) => t.x >= d.bounds.x && t.x < d.bounds.x + d.bounds.width && t.y >= d.bounds.y && t.y < d.bounds.y + d.bounds.height)) {
+    options.x = t.x; options.y = t.y;
+  }
+  const win = new BrowserWindow(options);
+  toolbarWindow = win;
+  win.setAlwaysOnTop(true, 'floating');
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  win.loadFile(path.join(__dirname, 'toolbar', 'index.html'));
+  win.once('ready-to-show', () => { if (focus) win.show(); else win.showInactive(); });
+  win.on('page-title-updated', (event) => event.preventDefault());
+  win.on('moved', () => {
+    if (!isAlive(win)) return;
+    const [x, y] = win.getPosition();
+    saveRecordingPatch({ toolbar: { ...configStore.get().recording.toolbar, x, y } });
+  });
+  win.on('closed', () => { if (toolbarWindow === win) toolbarWindow = null; updateFeed(); scheduleWarm(); broadcastStatus(); });
+  updateFeed();
+  scheduleWarm();
+  broadcastStatus();
+}
+
+// One button to show or hide the toolbar (the control panel and the menu bar icon both use it).
+function toggleToolbar() {
+  if (isAlive(toolbarWindow)) toolbarWindow.close(); else openToolbar();
+}
+
+function registerToolbarIpc() {
+  ipcMain.handle('toolbar:init', () => toolbarState());
+  ipcMain.handle('toolbar:action', async (_event, name) => {
+    const action = { start: 'startRecording', stop: 'stopRecording', pause: 'pauseRecording', resume: 'resumeRecording' }[name];
+    if (!action) return { error: 'Unknown action.' };
+    try { await recordingBackends.run(action); return {}; } catch (err) { return { error: err.message }; }
+  });
+  // Levels apply at once; saving to disk waits until the slider rests.
+  ipcMain.on('toolbar:setAudio', (_event, audio) => {
+    builtInRecorder.setAudio(audio);
+    clearTimeout(toolbarAudioTimer);
+    toolbarAudioTimer = setTimeout(() => saveRecordingPatch({ audio }), 400);
+  });
+  ipcMain.on('toolbar:size', (_event, height) => {
+    if (isAlive(toolbarWindow) && Number.isFinite(height) && height > 40 && height < 600) toolbarWindow.setContentSize(480, Math.round(height));
+  });
+  ipcMain.handle('toolbar:reveal', () => { const f = builtInRecorder.file; if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
+  ipcMain.on('toolbar:close', () => { if (isAlive(toolbarWindow)) toolbarWindow.close(); });
+  ipcMain.handle('toolbar:show', () => { toggleToolbar(); });
+  ipcMain.on('toolbar:setPreview', (_event, on) => { saveRecordingPatch({ toolbar: { ...configStore.get().recording.toolbar, preview: Boolean(on) } }); updateFeed(); sendToolbarState(); });
+}
+
 let calibrating = false;
+
+// macOS shows its question once, and keeps it up until it is answered. Everyone who needs the camera or microphone shares this one
+// question: asking again while it is open would only stack up more identical questions.
+const mediaAsks = new Map();
+function askMediaAccess(kind) {
+  if (process.platform !== 'darwin') return Promise.resolve('granted');
+  const status = systemPreferences.getMediaAccessStatus(kind);
+  if (status !== 'not-determined') return Promise.resolve(status);
+  if (!mediaAsks.has(kind)) mediaAsks.set(kind, systemPreferences.askForMediaAccess(kind).then((ok) => (ok ? 'granted' : 'denied')).finally(() => mediaAsks.delete(kind)));
+  return mediaAsks.get(kind);
+}
 
 function registerIpc() {
   ipcMain.handle('config:get', () => configStore.get());
+  // The recorder's levels and mutes, applied at once while recording (the saved settings follow with the next save).
+  ipcMain.handle('recording:setAudio', (_event, audio) => { builtInRecorder.setAudio(audio); });
+  // Lets the person allow the microphone from the Recorder page before the first recording.
+  ipcMain.handle('toolbar:askMedia', (_event, kind) => askMediaAccess(kind === 'camera' ? 'camera' : 'microphone'));
+  ipcMain.handle('recording:askMicrophone', () => askMediaAccess('microphone'));
+  ipcMain.handle('recording:askCamera', () => askMediaAccess('camera'));
+  ipcMain.handle('recording:reveal', (_event, file) => { const f = file || builtInRecorder.file || (builtInRecorder.interrupted && builtInRecorder.interrupted.file); if (f && fs.existsSync(f)) shell.showItemInFolder(f); });
+  ipcMain.handle('activity:clear', () => { activityLog = []; try { fs.writeFileSync(path.join(app.getPath('userData'), 'recorder.log'), ''); } catch (err) { /* nothing to clear */ } broadcastStatus(); });
+  // Choose a picture for the recorder: it is copied into the app's data folder, so moving or deleting the original changes nothing.
+  ipcMain.handle('recording:chooseImage', async () => {
+    const result = await dialog.showOpenDialog(controlWindow && !controlWindow.isDestroyed() ? controlWindow : undefined, { title: 'Choose a picture', properties: ['openFile'], filters: [{ name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'webp'] }] });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const from = result.filePaths[0];
+    const ext = path.extname(from).toLowerCase().replace('jpeg', 'jpg');
+    const name = `${require('crypto').randomBytes(6).toString('hex')}${ext}`;
+    const dir = path.join(app.getPath('userData'), 'recording-images');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(from, path.join(dir, name));
+    return { id: `image:${name}`, name: path.basename(from) };
+  });
+  // The few fixed links in About (licences and where to get the source of the software we ship); nothing else can be opened this way.
+  const NOTICE_LINKS = {
+    'ffmpeg-source': 'https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz',
+    'x264-source': 'https://code.videolan.org/videolan/x264/-/tree/b35605ace3ddf7c1a5d67a2eb553f034aef41d55',
+    'build-scripts': 'https://github.com/Drowbe/coffee-pub-showrunner/tree/main/scripts/ffmpeg',
+    mediapipe: 'https://github.com/google-ai-edge/mediapipe',
+    notices: 'https://github.com/Drowbe/coffee-pub-showrunner/blob/main/THIRD-PARTY-NOTICES.md',
+  };
+  ipcMain.handle('app:openLink', (_event, key) => { if (NOTICE_LINKS[key]) return shell.openExternal(NOTICE_LINKS[key]); return null; });
+  // Calibrate: a short private recording of the webcam and microphone while the person claps, measured to set Match voice to webcam.
+  ipcMain.handle('recording:calibrate', async (event) => {
+    const say = (text, beat, n) => { if (!event.sender.isDestroyed()) event.sender.send('recording:calibrateProgress', { text, beat, n }); };
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const cfg = configStore.get().recording;
+    if (builtInRecorder.active) throw new Error('Stop the recording first.');
+    if (!cfg.audio.mic.enabled || !['corner', 'center', 'cam'].includes(cfg.layout)) throw new Error('Calibrating needs the microphone on and a layout with the webcam.');
+    const ffmpeg = findFfmpeg(app.getPath('userData'));
+    if (!ffmpeg) throw new Error('The video encoder (ffmpeg) is missing.');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'showrunner-calibrate-'));
+    try {
+      say('Starting the camera and microphone...');
+      // Record the way a real recording will: with the sound lined up for window capture when that is what the person uses,
+      // otherwise the measured delay would only be right for a recording nobody makes.
+      const wantsScreen = cfg.capture === 'screen' && process.platform === 'darwin';
+      const screenLead = wantsScreen && systemPreferences.getMediaAccessStatus('screen') === 'granted';
+      if (wantsScreen && !screenLead) await builtInRecorder.askScreenAccess(); // raises the macOS prompt, so this is not a dead end
+      if (wantsScreen && !screenLead) throw new Error('Screen recording is not allowed for Showrunner yet (macOS has just been asked: choose Allow if it shows a question), so recordings would use Built-in snapshots and a delay measured now would not fit them. Allow Showrunner under System Settings > Privacy & Security > Screen Recording (then restart it), or choose Built-in snapshots, and run Calibrate again. If the switch there already shows on, it belongs to an older copy of the app: remove Showrunner from that list with the minus button, restart Showrunner, press Record once and choose Allow.');
+      await builtInRecorder.start({ ...cfg, calibration: true, screenLead, layout: 'cam', sources: [], folder: dir, capture: 'pictures', format: 'mp4', fps: 30, width: 1280, height: 720,
+        camera: { ...cfg.camera, background: 'none' }, audio: { ...cfg.audio, mic: { ...cfg.audio.mic, delayMs: 0, muted: false, level: 1 } } });
+      for (let n = 3; n >= 1; n--) { say(`Get ready... ${n}`, 'ready', n); await wait(1000); }
+      for (let n = 1; n <= 6; n++) { say(`Clap now! (${n} of 6)`, 'clap', n); await wait(1000); }
+      await wait(600);
+      say('Measuring...');
+      const file = await builtInRecorder.stop();
+      const { measure } = require('./calibrate');
+      const result = await measure(ffmpeg, file);
+      // Keep the last test recording (small, private, overwritten each time) and log every clap's reading so a odd result can be checked.
+      try { fs.copyFileSync(file, path.join(app.getPath('userData'), 'calibration-last.mp4')); } catch (err) { /* only a diagnostic */ }
+      logActivity('Recorder', `Calibrate: heard ${result.claps} claps, matched ${result.offsetsMs.length} (${result.offsetsMs.join(', ')} ms), window alignment ${screenLead ? 'screen' : 'pictures'}.`, 'info');
+      if (result.medianMs === null || result.offsetsMs.length < 4) throw new Error(`Could not tell enough of the claps from the picture (heard ${result.claps}, matched ${result.offsetsMs.length}; at least 4 are needed). Clap clearly with both hands in view, in good light, and try again.`);
+      const delayMs = Math.min(500, Math.max(0, result.medianMs));
+      const cur = configStore.get().recording;
+      saveRecordingPatch({ audio: { ...cur.audio, mic: { ...cur.audio.mic, delayMs } } });
+      return { delayMs, measuredMs: result.medianMs, claps: result.offsetsMs.length, minMs: Math.min(...result.offsetsMs), maxMs: Math.max(...result.offsetsMs) };
+    } finally {
+      if (builtInRecorder.active) await builtInRecorder.stop().catch(() => {});
+      builtInRecorder.file = '';
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (err) { /* temporary files */ }
+      builtInRecorder.emit('status');
+    }
+  });
+  ipcMain.handle('recording:openPrivacy', (_event, kind) => shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'camera' ? 'Camera' : 'Microphone'}`));
   ipcMain.handle('config:save', (_event, next) => {
     // The window source has its own channel (windowSource:set) that also
     // renames the source in OBS; a stale copy from the panel must not undo that.
@@ -3411,7 +3793,9 @@ function registerIpc() {
     setupTray();
     setupDock();
     buildMenu();
+    syncObsConnection().catch(() => {});
     scheduleObsSync();
+    updateFeed();
     broadcastStatus();
     return saved;
   });
@@ -3753,7 +4137,7 @@ function registerIpc() {
   ipcMain.on('prompter:cue', (event, cue) => {
     if (!prompterPage || event.sender !== prompterPage.webContents) return;
     if (!cue || typeof cue.event !== 'string' || !cue.event.startsWith('teleprompter:')) return;
-    automations.recordEvent(cue.event.slice(0, 60), { cue: String(cue.label || '').slice(0, 80), kind: cue.kind === 'heading' ? 'heading' : 'cue' });
+    automations.recordEvent(cue.event.slice(0, 60), { cue: String(cue.label || '').slice(0, 80), kind: cue.kind === 'heading' ? 'heading' : cue.kind === 'hold' ? 'hold' : 'cue' });
   });
   // Speed, text size and mirroring changed from the page's own controls or keys.
   ipcMain.on('prompter:save', (event, patch) => {
@@ -3778,6 +4162,16 @@ function registerIpc() {
     else if (isAlive(viewWindows.get(id))) parkView(id);
     else createViewWindow(getView(id));
   });
+  // The right-click menu on one window in the dock.
+  ipcMain.on('dock:card', (_event, id, what) => {
+    if (!configStore.getView(id)) return;
+    if (what === 'toggle') { if (parked.has(id)) restoreView(id); else if (isAlive(viewWindows.get(id))) parkView(id); }
+    else if (what === 'start') { if (!isAlive(viewWindows.get(id))) createViewWindow(getView(id)); }
+    else if (what === 'stop') closeView(id);
+    else if (what === 'reload') reloadView(id);
+    else if (what === 'wake') { if (wakeAudio(id)) wakeWhenReady(id, 5000); setTimeout(broadcastStatus, 800); }
+    else if (what === 'reset') resetView(id);
+  });
   ipcMain.on('dock:parkAll', () => collapseViews());
   ipcMain.on('dock:restoreAll', () => expandViews());
   ipcMain.on('dock:action', (_event, name) => {
@@ -3785,6 +4179,14 @@ function registerIpc() {
     else if (name === 'stopAll') closeAllViews();
     else if (name === 'sync') syncObs().catch(() => {});
     else if (name === 'panel') createControlWindow();
+    else if (name === 'recToggle' || name === 'recPause') {
+      const builtin = configStore.get().recording.backend === 'builtin';
+      const outputs = obs.status().outputs || {};
+      const live = builtin ? ['recording', 'paused'].includes(builtInRecorder.state) : Boolean(outputs.recording);
+      const paused = builtin ? builtInRecorder.state === 'paused' : Boolean(outputs.recordingPaused);
+      const action = name === 'recToggle' ? (live ? 'stopRecording' : 'startRecording') : (paused ? 'resumeRecording' : 'pauseRecording');
+      recordingBackends.run(action).catch((err) => logActivity('Recorder', err.message, 'error'));
+    } else if (name === 'toolbar') toggleToolbar();
     else if (name === 'wakeAudio') {
       for (const id of viewWindows.keys()) {
         if (wakeAudio(id)) wakeWhenReady(id, 5000);
@@ -3819,12 +4221,16 @@ function registerIpc() {
   ipcMain.handle('obs:listScenes', () => obs.listScenes());
   ipcMain.handle('obs:listSources', () => obs.listSourceNames());
   ipcMain.handle('obs:setScene', (_event, sceneName) => obs.setCurrentScene(sceneName));
-  ipcMain.handle('obs:startRecording', () => obs.startRecording());
-  ipcMain.handle('obs:pauseRecording', () => obs.pauseRecording());
-  ipcMain.handle('obs:resumeRecording', () => obs.resumeRecording());
-  ipcMain.handle('obs:stopRecording', () => obs.stopRecording());
-  ipcMain.handle('obs:startStreaming', () => obs.startStreaming());
-  ipcMain.handle('obs:stopStreaming', () => obs.stopStreaming());
+  ipcMain.handle('recording:chooseFolder', async () => {
+    const result = await dialog.showOpenDialog(controlWindow && !controlWindow.isDestroyed() ? controlWindow : undefined, { properties: ['openDirectory', 'createDirectory'], defaultPath: configStore.get().recording.folder || app.getPath('videos') });
+    return result.canceled || !result.filePaths[0] ? '' : result.filePaths[0];
+  });
+  ipcMain.handle('obs:startRecording', () => recordingBackends.run('startRecording'));
+  ipcMain.handle('obs:pauseRecording', () => recordingBackends.run('pauseRecording'));
+  ipcMain.handle('obs:resumeRecording', () => recordingBackends.run('resumeRecording'));
+  ipcMain.handle('obs:stopRecording', () => recordingBackends.run('stopRecording'));
+  ipcMain.handle('obs:startStreaming', () => recordingBackends.run('startStreaming'));
+  ipcMain.handle('obs:stopStreaming', () => recordingBackends.run('stopStreaming'));
   // --- The whole window as an OBS source ---
   // Saves the switch and the name. Switching off hides the source in OBS
   // and stops maintaining it; renaming while the source exists in OBS renames
@@ -4470,7 +4876,7 @@ function configureSession(partition = PARTITION) {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => createControlWindow());
+  app.on('second-instance', () => { if (app.isReady()) createControlWindow(); }); // an activation before the app is ready would fail on the screen module
 
   app.whenReady().then(() => {
     app.setAboutPanelOptions({
@@ -4478,17 +4884,45 @@ if (!app.requestSingleInstanceLock()) {
       applicationVersion: app.getVersion(),
       credits: 'Two fixed-size Chromium windows for capturing FoundryVTT in OBS.',
     });
+    startupMark('app ready');
     configureSession();
     registerIpc();
+    startupMark('session + ipc set up');
+    registerToolbarIpc();
     buildMenu();
     setupTray();
+    startupMark('tray + dock set up');
     setupDock();
     createControlWindow();
+    startupMark('control window created');
+    // If the app closed in the middle of a recording last time, say where the file is (it is still playable).
+    const interrupted = builtInRecorder.takeInterrupted();
+    if (interrupted) {
+      const message = `Showrunner closed while it was recording. The recording so far was kept: ${path.basename(interrupted.file)}`;
+      if (Notification.isSupported()) new Notification({ title: APP_NAME, body: message }).show();
+      logActivity('Recorder', message, 'error');
+      setTimeout(() => { if (isAlive(controlWindow)) controlWindow.webContents.send('toast', message); broadcastStatus(); }, 3000);
+    }
+    startupMark('about to open Foundry windows');
     openLaunchViews();
+    startupMark('Foundry windows requested');
+    { const rc = configStore.get().recording; if (rc.backend === 'builtin' && rc.toolbar.atStart) openToolbar({ focus: false }); }
+    startupMark('toolbar + views opened');
+    scheduleWarm();
     if (configStore.get().teleprompter.enabled) openPrompter();
-    obs.start().catch(() => {});
-    tavern.start().catch(() => {});
-    syncAutomationsServer().catch(() => {});
+    startupMark('recorder warm scheduled');
+    // Windows first; then the keychain (it may ask), then everything that needs a saved password.
+    setTimeout(() => {
+      startupMark('reading the keychain');
+      keychainReady = true;
+      try { safeStorage.isEncryptionAvailable(); } catch { /* ignore */ }
+      readSecret(OBS_SECRET_PATH); // the first read is the one that asks
+      startupMark('keychain answered');
+      obs.start().catch(() => {});
+      tavern.start().catch(() => {});
+      syncAutomationsServer().catch(() => {});
+      broadcastStatus();
+    }, 1500);
 
     const onDisplays = () => {
       layoutDock();
@@ -4519,8 +4953,16 @@ if (!app.requestSingleInstanceLock()) {
     }
     callback(false);
   });
-  app.on('activate', () => createControlWindow());
-  app.on('before-quit', () => {
+  app.on('activate', () => { if (app.isReady()) createControlWindow(); });
+  let quitStopping = false;
+  app.on('before-quit', (event) => {
+    // Quitting in the middle of a recording finishes the file first, so it closes properly rather than being cut off.
+    if (builtInRecorder.active && !quitStopping) {
+      event.preventDefault();
+      quitStopping = true;
+      builtInRecorder.stop().catch(() => {}).finally(() => app.quit());
+      return;
+    }
     quitting = true;
     autoLevel.stop().catch(() => {});
     obs.stop().catch(() => {});

@@ -57,6 +57,42 @@ contextBridge.exposeInMainWorld('coffeePub', {
   renameProfile: (id, name) => ipcRenderer.invoke('profiles:rename', id, name),
   deleteProfile: (id) => ipcRenderer.invoke('profiles:delete', id),
   addView: () => ipcRenderer.invoke('views:add'),
+  recording: {
+    start: () => ipcRenderer.invoke('obs:startRecording'),
+    stop: () => ipcRenderer.invoke('obs:stopRecording'),
+    pause: () => ipcRenderer.invoke('obs:pauseRecording'),
+    resume: () => ipcRenderer.invoke('obs:resumeRecording'),
+    chooseFolder: () => ipcRenderer.invoke('recording:chooseFolder'),
+    setAudio: (audio) => ipcRenderer.invoke('recording:setAudio', audio),
+    askMicrophone: () => ipcRenderer.invoke('recording:askMicrophone'),
+    askCamera: () => ipcRenderer.invoke('recording:askCamera'),
+    reveal: (file) => ipcRenderer.invoke('recording:reveal', file),
+    openPrivacy: (kind) => ipcRenderer.invoke('recording:openPrivacy', kind),
+    clearLogs: () => ipcRenderer.invoke('activity:clear'),
+    chooseImage: () => ipcRenderer.invoke('recording:chooseImage'),
+    openLink: (key) => ipcRenderer.invoke('app:openLink', key),
+    calibrate: () => ipcRenderer.invoke('recording:calibrate'),
+    onCalibrateProgress: (callback) => { const listener = (_event, text) => callback(text); ipcRenderer.on('recording:calibrateProgress', listener); return () => ipcRenderer.removeListener('recording:calibrateProgress', listener); },
+    onIdleLevels: (callback) => {
+      const listener = (_event, peaks) => callback(peaks);
+      ipcRenderer.on('recording:idleLevels', listener);
+      return () => ipcRenderer.removeListener('recording:idleLevels', listener);
+    },
+    previewFeed: (on) => ipcRenderer.send('recording:previewFeed', Boolean(on)),
+    camPreview: (on) => ipcRenderer.send('recording:camPreview', Boolean(on)),
+    onMask: (callback) => { const listener = (_event, mask) => callback(mask); ipcRenderer.on('recording:mask', listener); return () => ipcRenderer.removeListener('recording:mask', listener); },
+    onPreviewFrame: (callback) => {
+      const listener = (_event, frame) => callback(frame);
+      ipcRenderer.on('recording:previewFrame', listener);
+      return () => ipcRenderer.removeListener('recording:previewFrame', listener);
+    },
+    showToolbar: () => ipcRenderer.invoke('toolbar:show'),
+    onLevels: (callback) => {
+      const listener = (_event, levels) => callback(levels);
+      ipcRenderer.on('recording:levels', listener);
+      return () => ipcRenderer.removeListener('recording:levels', listener);
+    },
+  },
   toggleTeleprompter: () => ipcRenderer.invoke('prompter:toggle'),
   addScript: () => ipcRenderer.invoke('prompter:addScript'),
   useScript: (file) => ipcRenderer.invoke('prompter:useScript', file),

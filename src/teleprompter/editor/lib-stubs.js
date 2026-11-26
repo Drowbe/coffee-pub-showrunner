@@ -36,12 +36,12 @@ function dlEditorPagesPlugin(PM, env) {
 }
 
 // Put a new cue above the block the caret is in and select its name so typing replaces it. Returns true if it was inserted.
-function dlInsertCue(PM, view, name) {
+function dlInsertCue(PM, view, name, hold) {
   if (!view) return false;
   const state = view.state;
   const { $from } = state.selection;
   const at = $from.depth >= 1 ? $from.before(1) : 0;
-  const cue = state.schema.nodes.cue.create(null, state.schema.text(name));
+  const cue = state.schema.nodes.cue.create({ hold: Boolean(hold) }, state.schema.text(name));
   const tr = state.tr.insert(at, cue);
   tr.setSelection(PM.TextSelection.create(tr.doc, at + 1, at + 1 + name.length));
   view.dispatch(tr.scrollIntoView());

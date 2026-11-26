@@ -36,7 +36,9 @@
     </div>
     <div class="nav-group">
       <div class="nav-heading">Recording</div>
-      <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS</button>
+      <button class="tab" data-tab="recording" type="button"><i class="fa-solid fa-circle-dot tab-icon" aria-hidden="true"></i>Recordings</button>
+      <button class="tab" data-tab="obs" type="button"><span class="dot" id="obs-dot" title="OBS connection"></span>OBS Recorder</button>
+      <button class="tab" data-tab="builtin" type="button" hidden><span class="dot" id="recording-dot" title="Recording"></span>Showrunner Recorder</button>
       <button class="tab" data-tab="metadata" type="button"><span class="dot" id="session-dot" title="Session fields"></span>Session</button>
       <div class="tab-row">
         <button class="tab" data-tab="teleprompter" type="button"><span class="dot" id="prompter-dot" title="Teleprompter window"></span>Teleprompter</button>
@@ -120,11 +122,11 @@
 
       <div class="card">
         <h2>Recording Filename</h2>
-        <p class="hint">The Studio Control action <strong>Apply the session filename format to OBS</strong> writes the format below into OBS's own Filename Formatting setting whenever a rule set (or a direct API call) runs it -- add it as a step wherever you want it applied. <code>{title}</code>/<code>{campaign}</code> come from whatever triggered the rule set, any Metadata field on the Session tab works too by its own data field key (<code>{sessionCampaign}</code>, <code>{sessionDaysLeft}</code>, ...), and OBS's own <code>%</code>-style macros pass through untouched.</p>
+        <p class="hint">Names your recordings. With the <strong>Showrunner Recorder</strong> the format is used every time a recording starts, and OBS's date codes (<code>%CCYY-%MM-%DD</code>, <code>%hh-%mm-%ss</code>) work too. With the <strong>OBS Recorder</strong>, add the Studio Control step <strong>Apply the session filename format to OBS</strong> wherever you want it applied. Any Metadata field works by its data field key (<code>{sessionTitle}</code>, <code>{sessionEpisode}</code>, ...). Leave it blank for "Showrunner" plus the date and time. A file is never overwritten: a second recording with the same name gets " 2" added.</p>
         <div class="row">
           <label class="field field-inline field-wide">
             <span>Filename format</span>
-            <input id="session-filename-format" type="text" spellcheck="false" placeholder="{sessionCampaign} - {campaign} - %CCYY-%MM-%DD">
+            <input id="session-filename-format" type="text" spellcheck="false" placeholder="{sessionTitle} - %CCYY-%MM-%DD">
           </label>
           <button id="session-filename-fields-toggle" class="btn btn-small btn-icon" type="button" title="Insert a Data Field" aria-label="Insert a Data Field"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>
         </div>
@@ -184,6 +186,7 @@
             <span class="connection-state hint"></span>
           </div>
         </div>
+        <div class="activity-log-tools"><button type="button" class="btn" id="activity-clear" title="Empty the activity log, so the next recording starts with a clean one">Clear logs</button> <button type="button" class="btn" id="activity-copy" title="Copy the whole activity log to the clipboard, to paste into a message">Copy logs</button></div>
         <div class="activity-log-box">
           <div id="connections-activity" class="activity-log"></div>
           <p class="hint" id="connections-activity-empty">No activity yet.</p>
@@ -206,6 +209,156 @@
           <dt>Chromium</dt>
           <dd id="about-chromium"></dd>
         </dl>
+        <details class="about-notices">
+          <summary>Third-party software</summary>
+          <p class="hint"><strong>FFmpeg 7.1.5 and x264</strong> save the Showrunner Recorder's video. They run as a separate program, built unmodified from the official sources, and are licensed under the GNU General Public License. Get the source: <a href="#" data-link="ffmpeg-source">FFmpeg</a>, <a href="#" data-link="x264-source">x264</a>, <a href="#" data-link="build-scripts">how it is built</a>.</p>
+          <p class="hint"><strong>MediaPipe</strong> (Google) finds you in the webcam picture for the background blur, under the Apache License 2.0. <a href="#" data-link="mediapipe">MediaPipe on GitHub</a>.</p>
+          <p class="hint">Full notices: <a href="#" data-link="notices">THIRD-PARTY-NOTICES.md</a>.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-recording" hidden>
+      <div class="card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Recordings</h2>
+          </div>
+        </div>
+        <p class="hint">What records for this profile: OBS, or the Showrunner Recorder, which saves Showrunner's own windows to an MP4 with no OBS. The Start, Pause and Stop recording steps in Automations use whichever you choose here. The one you choose gets its own page just below.</p>
+        <label class="field">
+          <span>Records with</span>
+          <select id="rec-backend">
+            <option value="obs">OBS Recorder</option>
+            <option value="builtin">Showrunner Recorder</option>
+          </select>
+        </label>
+      </div>
+
+    </section>
+
+    <section class="tab-panel" id="tab-builtin" hidden>
+      <div class="card" id="rec-builtin-card">
+        <div class="view-head">
+          <div class="view-head-left">
+            <h2>Showrunner Recorder</h2>
+            <span class="tag" id="rec-tag" hidden>RECORDING</span>
+          </div>
+        </div>
+        <p class="hint">Records the windows you choose below, as they are on your screen, with your webcam and sound mixed into one track. The windows must be open (docked windows record too). Mac for now.</p>
+        <div class="row">
+          <button class="btn btn-primary" id="rec-start" type="button">Start recording</button>
+          <button class="btn" id="rec-pause" type="button" hidden>Pause</button>
+          <button class="btn" id="rec-toolbar-show" type="button" title="The toolbar has the live picture, the meters and the Record button. You can also record from the menu bar icon.">Show the toolbar</button>
+          <span class="hint rec-status" id="rec-status"></span>
+          <button class="btn btn-small" id="rec-reveal" type="button" hidden>Show in Finder</button>
+        </div>
+        <div class="row">
+          <label class="field field-inline"><input id="rec-toolbar-atstart" type="checkbox"><span>Open the toolbar when Showrunner starts</span></label>
+          <label class="field field-inline"><input id="rec-toolbar-auto" type="checkbox"><span>Open it when recording starts</span></label>
+          <label class="field field-inline" title="Keeps the webcam and microphone open while Showrunner runs, so Record starts at once even from the menu bar icon or the dock, with the toolbar hidden. Your webcam light stays on while it is on."><input id="rec-keep-ready" type="checkbox"><span>Keep the webcam and microphone ready</span></label>
+          <label class="field field-inline" title="The toolbar stays, but its picture is hidden while recording, to keep it small. Click Preview in the toolbar to see it again."><input id="rec-toolbar-hide" type="checkbox"><span>Hide the preview while recording</span></label>
+        </div>
+      </div>
+
+      <div class="card" id="rec-layout-card">
+        <h2>Layout</h2>
+        <select id="rec-layout" hidden><option value="center">Webcam in the middle</option><option value="one">One window</option><option value="side">Two windows side by side</option><option value="corner">One window, webcam in a corner</option><option value="cam">Webcam only</option></select>
+        <div class="layout-picker" id="rec-layout-picker" role="radiogroup" aria-label="Layout">
+          <button type="button" class="layout-thumb" role="radio" data-layout="one" title="One window fills the picture">
+            <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-win" x="5" y="5" width="86" height="44" rx="2"/></svg><span>One window</span></button>
+          <button type="button" class="layout-thumb" role="radio" data-layout="side" title="Two windows side by side">
+            <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-win" x="5" y="5" width="41" height="44" rx="2"/><rect class="t-win" x="50" y="5" width="41" height="44" rx="2"/></svg><span>Side by side</span></button>
+          <button type="button" class="layout-thumb" role="radio" data-layout="corner" title="One window with your webcam in a corner">
+            <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-win" x="5" y="5" width="86" height="44" rx="2"/><rect class="t-cam" x="67" y="30" width="22" height="17" rx="3"/></svg><span>Window + webcam</span></button>
+          <button type="button" class="layout-thumb" role="radio" data-layout="center" title="One window or picture, with your webcam in the middle of it">
+            <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-win" x="5" y="5" width="86" height="44" rx="2"/><rect class="t-cam" x="30" y="13" width="36" height="28" rx="3"/></svg><span>Webcam centred</span></button>
+          <button type="button" class="layout-thumb" role="radio" data-layout="cam" title="Only your webcam">
+            <svg viewBox="0 0 96 54" aria-hidden="true"><rect class="t-bg" width="96" height="54" rx="4"/><rect class="t-cam" x="5" y="5" width="86" height="44" rx="2"/><circle class="t-person" cx="48" cy="22" r="7"/><path class="t-person" d="M33 49 q0-14 15-14 q15 0 15 14z"/></svg><span>Webcam only</span></button>
+        </div>
+        <div class="layout-stage" id="rec-stage" data-layout="one" data-corner="br" data-size="medium">
+          <div class="stage-slot stage-a"><span class="stage-label" id="rec-stage-label-a">Window or picture</span><select id="rec-source-1" aria-label="Window"></select></div>
+          <div class="stage-slot stage-b"><span class="stage-label">Second window</span><select id="rec-source-2" aria-label="Second window"></select></div>
+          <div class="stage-cam"><span>Webcam</span></div>
+        </div>
+        <div class="row">
+          <label class="field field-inline" id="rec-cam-corner-field"><span>Webcam corner</span>
+            <select id="rec-cam-corner"><option value="br">Bottom right</option><option value="bl">Bottom left</option><option value="tr">Top right</option><option value="tl">Top left</option></select></label>
+          <label class="field field-inline" id="rec-cam-size-field"><span>Webcam size</span>
+            <select id="rec-cam-size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></label>
+        </div>
+        <div class="row">
+          <label class="field field-inline" title="When a window is not the same shape as its place in the picture. Fit shows all of the window, with bars at the sides or top. Fill covers the whole place and crops the window's edges."><span>Window shape</span>
+            <select id="rec-fit"><option value="fit">Fit (show all of it, with bars)</option><option value="fill">Fill (cover the place, crop the edges)</option></select></label>
+        </div>
+        <p class="hint" id="rec-layout-hint"></p>
+      </div>
+
+      <div class="card" id="rec-camera-card" hidden>
+        <h2>Webcam</h2>
+        <div class="row">
+          <label class="field field-inline field-grow"><span>Camera</span><select id="rec-cam-device"></select></label>
+        </div>
+        <div class="row"><label class="field field-inline" title="Mirror the webcam left to right, as a mirror shows you. Useful when you point at things, or when the picture should match what you see."><input id="rec-cam-flip" type="checkbox"><span>Flip the webcam (mirror)</span></label></div>
+        <div class="row">
+          <label class="field field-inline" title="Remove a plain coloured backdrop behind you (a green screen), so the window shows through instead. It works best with an evenly lit green or blue sheet."><span>Background</span>
+            <select id="rec-cam-bg"><option value="none">Keep as it is</option><option value="blur">Blur the background</option><option value="key">Remove a green screen</option></select></label>
+        </div>
+        <div class="row" id="rec-cam-blur-row" hidden>
+          <label class="field field-inline" title="How strongly the background behind you is blurred."><span>Blur strength</span><input id="rec-cam-blur" type="range" min="0" max="100" step="1"></label>
+          <span class="hint">Finds you in the picture and blurs the rest. It uses a little of the processor while the toolbar is open and while recording. The toolbar's picture shows the result.</span>
+        </div>
+        <div class="row" id="rec-cam-key-row" hidden>
+          <label class="field field-inline" title="The colour of the backdrop. Or click the webcam preview below, on the backdrop, to pick it."><span>Backdrop colour</span><input id="rec-cam-key-color" type="color"></label>
+          <label class="field field-inline" title="How far a colour can be from the backdrop and still be removed. Raise it if parts of the backdrop are left; lower it if you start to disappear."><span>Strength</span><input id="rec-cam-key-tol" type="range" min="0" max="100" step="1"></label>
+          <label class="field field-inline" title="How soft the edge is where you meet the backdrop."><span>Soft edge</span><input id="rec-cam-key-soft" type="range" min="0" max="100" step="1"></label>
+          <span class="hint">The toolbar's picture shows the result. To pick the colour, show the preview and click the backdrop.</span>
+        </div>
+        <div class="row"><button class="btn btn-small" id="rec-cam-preview-btn" type="button">Show webcam preview</button><span class="hint">The toolbar shows the live picture; this is only for choosing and framing the camera.</span></div>
+        <div class="cam-preview" id="rec-cam-preview-box" hidden><video id="rec-cam-preview" autoplay muted playsinline></video><canvas id="rec-cam-preview-canvas" width="480" height="270" title="Click the backdrop to pick the colour to remove"></canvas><span class="hint" id="rec-cam-hint"></span></div>
+        <div class="row"><button class="btn btn-small" id="rec-cam-allow" type="button" hidden>Allow the webcam</button></div>
+      </div>
+
+      <div class="card" id="rec-audio-card">
+        <h2>Audio</h2>
+        <p class="hint">Everything is mixed into one sound track. Set a level for each source (100% is as it is) and mute any of them, even while recording. The bars show what is going into the recording.</p>
+        <div class="audio-row" id="rec-aw-0"><span class="audio-name" id="rec-aw-0-name"></span><input type="range" min="0" max="150" step="1" id="rec-aw-0-level" aria-label="Window level"><span class="audio-pct" id="rec-aw-0-pct"></span><button class="btn btn-small audio-mute" id="rec-aw-0-mute" type="button">Mute</button><div class="meter"><i></i></div></div>
+        <div class="audio-row" id="rec-aw-1"><span class="audio-name" id="rec-aw-1-name"></span><input type="range" min="0" max="150" step="1" id="rec-aw-1-level" aria-label="Second window level"><span class="audio-pct" id="rec-aw-1-pct"></span><button class="btn btn-small audio-mute" id="rec-aw-1-mute" type="button">Mute</button><div class="meter"><i></i></div></div>
+        <div class="audio-row" id="rec-am"><span class="audio-name">Microphone</span><input type="range" min="0" max="150" step="1" id="rec-am-level" aria-label="Microphone level"><span class="audio-pct" id="rec-am-pct"></span><button class="btn btn-small audio-mute" id="rec-am-mute" type="button">Mute</button><div class="meter"><i></i></div></div>
+        <div class="row">
+          <label class="field field-inline"><input id="rec-mic-on" type="checkbox"><span>Record the microphone</span></label>
+          <label class="field field-inline field-grow"><span>Microphone</span><select id="rec-mic-device"></select></label>
+          <label class="field field-inline" title="Removes the sound of your speakers from the microphone. Headphones work better."><input id="rec-mic-echo" type="checkbox"><span>Echo cancel</span></label>
+        </div>
+        <p class="hint" id="rec-mic-hint">Wear headphones when you record the microphone, or your speakers will be heard on it too (an echo).</p>
+        <div class="row" id="rec-mic-delay-row" hidden>
+          <label class="field field-inline" title="Webcams show your picture a little late. Delay the microphone by this much so your voice matches your lips."><span>Match voice to webcam (ms)</span><input id="rec-mic-delay" type="number" min="0" max="500" step="1" style="width:80px"></label>
+          <button class="btn btn-small" id="rec-calibrate" type="button" title="Measures how late your webcam is against your microphone: you clap six times in front of the camera, on the green flashes, and the delay is set for you. It uses a short private recording that is deleted afterwards.">Calibrate</button>
+          <span class="calibrate-beat" id="rec-calibrate-beat" hidden aria-hidden="true"></span><span class="hint" id="rec-calibrate-note"></span>
+        </div>
+        <div class="row"><button class="btn btn-small" id="rec-mic-allow" type="button" hidden>Allow the microphone</button></div>
+      </div>
+
+      <div class="card" id="rec-capture-card">
+        <h2>Capture</h2>
+        <div class="row">
+          <label class="field field-inline"><span>Size</span>
+            <select id="rec-size"><option value="1920x1080">1920 x 1080</option><option value="1280x720">1280 x 720</option></select></label>
+          <label class="field field-inline"><span>Frames per second</span>
+            <select id="rec-fps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
+          <label class="field field-inline" id="rec-capture-field" title="How Showrunner gets the picture of the window you chose. Only that window is recorded, never your whole screen."><span>Window picture</span>
+            <select id="rec-capture"><option value="screen">Screen recording</option><option value="pictures">Built-in snapshots</option></select></label>
+          <label class="field field-inline" title="Automatic uses the Mac's own encoder, which is light on the processor, and switches to software if it stalls. Software always works but uses more of the processor."><span>Video encoder</span>
+            <select id="rec-encoder"><option value="auto">Automatic</option><option value="hardware">Hardware</option><option value="software">Software</option></select></label>
+        </div>
+        <p class="hint" id="rec-capture-hint"></p>
+        <div class="row">
+          <label class="field field-inline field-grow"><span>Save to</span><input id="rec-folder" type="text" placeholder="Your Movies folder"></label>
+          <button class="btn" id="rec-browse" type="button">Browse...</button>
+          <label class="field field-inline" title="Both are written as they go, so both survive a crash. MKV is the more common choice for streamers; many editors need MP4."><span>File type</span>
+            <select id="rec-format"><option value="mp4">MP4</option><option value="mkv">MKV</option></select></label>
+        </div>
+        <p class="hint">The file is named by the session filename on the Session page.</p>
       </div>
     </section>
 
@@ -213,7 +366,7 @@
       <div class="card obs">
         <div class="view-head">
           <div class="view-head-left">
-            <h2>OBS</h2>
+            <h2>OBS Recorder</h2>
             <span class="tag" id="obs-tag" hidden>CONNECTED</span>
           </div>
           <div class="view-actions">
@@ -1082,6 +1235,7 @@
     </div>
   </div>
 
+  <script src="../recorder/layout.js"></script>
   <script src="control.js"></script>
 </body>
 </html>

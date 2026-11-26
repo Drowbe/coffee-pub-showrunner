@@ -18,6 +18,8 @@ jobs:
   build:
     name: Build universal dmg
     runs-on: macos-latest
+    env:
+      HAS_APPLE_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -34,10 +36,50 @@ jobs:
       - name: Syntax check
         run: npm run check
 
+      # The ffmpeg program the Showrunner Recorder uses, built by the Build ffmpeg workflow and checked against its recorded checksum.
+      - name: Get ffmpeg
+        run: node scripts/fetch-ffmpeg.js mac
+
+      - name: Write notarization API key
+        if: ${{ env.HAS_APPLE_KEY == 'true' }}
+        run: echo "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+
+      # Without the Apple secrets the app is built unsigned (no signing, no notarization), as it always was.
       - name: Build app (unsigned)
-        run: npm run build-info && npx electron-builder --mac --publish never
+        if: ${{ env.HAS_APPLE_KEY != 'true' }}
+        run: npm run build-info && npx electron-builder --mac --publish never -c.mac.identity=null -c.mac.hardenedRuntime=false -c.mac.notarize=false
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # Signed ad hoc (no certificate), so macOS can recognise the app as one app and remember its camera, microphone and Screen Recording answers.
+      - name: Sign the unsigned app ad hoc
+        if: ${{ env.HAS_APPLE_KEY != 'true' }}
+        run: scripts/adhoc-sign-mac.sh dist
+
+      # With them, it is signed and notarized.
+      - name: Build app (signed and notarized)
+        if: ${{ env.HAS_APPLE_KEY == 'true' }}
+        run: npm run build-info && npx electron-builder --mac --publish never
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_API_KEY: ${{ runner.temp }}/AuthKey.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+      # The installer must really contain a working, universal ffmpeg.
+      - name: Check ffmpeg is in the app
+        run: |
+          APP=$(ls -d dist/mac-universal/*.app | head -1)
+          FF="$APP/Contents/Resources/ffmpeg/ffmpeg"
+          test -x "$FF"
+          lipo -info "$FF"
+          "$FF" -hide_banner -version | head -1
+          "$FF" -hide_banner -encoders 2>/dev/null | grep -E "h264_videotoolbox|libx264 "
+          test -f "$APP/Contents/Resources/ffmpeg/COPYING.GPLv3"
+          test -f "$APP/Contents/Resources/THIRD-PARTY-NOTICES.md"
 
       - name: Upload installer
         uses: actions/upload-artifact@v7
@@ -61,6 +103,8 @@ jobs:
   build-windows:
     name: Build Windows installer
     runs-on: windows-latest
+    env:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -78,7 +122,20 @@ jobs:
         run: npm run check
 
       - name: Build app (unsigned)
+        if: ${{ env.AZURE_TENANT_ID == '' }}
         run: npm run build-info && npx electron-builder --win --publish never
+
+      # Azure Trusted Signing: set the secrets + vars below to enable.
+      - name: Build app (signed)
+        if: ${{ env.AZURE_TENANT_ID != '' }}
+        run: >
+          npm run build-info && npx electron-builder --win --publish never
+          -c.win.azureSignOptions.endpoint=${{ vars.AZURE_SIGN_ENDPOINT }}
+          -c.win.azureSignOptions.codeSigningAccountName=${{ vars.AZURE_SIGN_ACCOUNT }}
+          -c.win.azureSignOptions.certificateProfileName=${{ vars.AZURE_SIGN_PROFILE }}
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Upload installer
         uses: actions/upload-artifact@v7

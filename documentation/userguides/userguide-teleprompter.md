@@ -55,11 +55,15 @@ links are shown as their text and images are left out.
 
 ## Cues
 
-A cue tells Showrunner that you have reached a point in the script. There are two kinds:
+A cue tells Showrunner that you have reached a point in the script. There are three kinds:
 
 - **A heading** is a cue on its own. Reaching `## Act two` is an event.
 - **A cue line** is a line by itself in the form `<!-- cue: Be Right Back -->`. It is not shown as text; in the window it
   appears as a small, dim chip so you can see it coming.
+- **A hold** is a cue that also **stops the scrolling** until you say so: `<!-- hold: Switch to the second screen -->`. It shows as a
+  filled chip. When the reading line reaches it, auto-scroll stops and a **HOLD** banner with a **Continue** button appears, however
+  long you take. Press **Space** (or Continue, or the Play control) to carry on. It is for scripts that are really notes, such as a
+  list of what to show on each screen. In the editor, use **Insert hold**.
 
 When the reading line crosses a cue, the window fires an **Automations event**, the same kind of event a Foundry module can send. The name
 comes from the cue's text:
@@ -67,6 +71,7 @@ comes from the cue's text:
 | In the script | Event |
 | --- | --- |
 | `<!-- cue: Be Right Back -->` | `teleprompter:be-right-back` |
+| `<!-- hold: Show the map -->` | `teleprompter:hold:show-the-map` |
 | `## Act Two` | `teleprompter:heading:act-two` |
 
 Two ways to make a rule set for a cue:

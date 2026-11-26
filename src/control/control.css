@@ -919,7 +919,7 @@ input[type="checkbox"].switch:disabled {
 }
 
 .sidebar {
-  width: 188px;
+  width: 220px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -928,6 +928,14 @@ input[type="checkbox"].switch:disabled {
   border-right: 1px solid var(--border);
   background: #0B1626;
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+/* Nothing in the rail squashes to fit: when it is taller than the window, the rail itself scrolls. */
+.sidebar > *,
+.nav-group > * {
+  flex-shrink: 0;
 }
 
 .nav-group {
@@ -2378,3 +2386,67 @@ select option { background: var(--bg-card); color: var(--text); }
 /* The status dot must not give way when a long window name and the two rail icons crowd the row. */
 .tab .dot { flex: none; }
 .tab .tab-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Audio rows on the Showrunner Recorder page: name, level, percent, mute, meter. */
+.audio-row { display: grid; grid-template-columns: 130px minmax(120px, 1fr) 44px 64px 120px; align-items: center; gap: 10px; padding: 6px 0; }
+.audio-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.audio-pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.audio-mute.on { background: var(--danger, #C0392B); border-color: transparent; color: #fff; }
+.audio-row.off { opacity: 0.45; }
+.meter { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 90ms linear; }
+.meter i.hot { background: #E6A23C; }
+.meter i.clip { background: #E5484D; }
+
+.cam-preview { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+.cam-preview video { position: absolute; width: 2px; height: 2px; opacity: 0; pointer-events: none; } /* only the source for the canvas next to it */
+.cam-preview canvas { width: 240px; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; }
+
+.layout-preview { margin: 8px 0 12px; }
+.layout-preview canvas { width: 480px; max-width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--border); border-radius: 6px; display: block; }
+
+.cam-preview video.flip { transform: scaleX(-1); }
+
+.activity-log-tools { display: flex; justify-content: flex-end; gap: 8px; margin: 0 0 6px; }
+
+/* The Showrunner Recorder's layout: pictures to choose from, then the chosen layout drawn large with a window chooser in each place. */
+.layout-picker { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 14px; }
+.layout-thumb { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 118px; padding: 8px 8px 6px; background: var(--bg-input); border: 2px solid var(--border); border-radius: 8px; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; }
+.layout-thumb svg { width: 100%; height: auto; display: block; }
+.layout-thumb:hover:not(:disabled) { border-color: var(--text-dim); }
+.layout-thumb.on { border-color: var(--accent); color: var(--text); }
+.layout-thumb:disabled { opacity: 0.55; cursor: default; }
+.t-bg { fill: var(--bg); } .t-win { fill: var(--border); } .t-cam { fill: var(--accent); opacity: 0.85; } .t-person { fill: var(--bg); opacity: 0.7; }
+.layout-thumb.on .t-win { fill: var(--text-dim); }
+
+.layout-stage { position: relative; width: 100%; max-width: 560px; aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.stage-slot { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 8px; background: var(--bg-input); border: 2px dashed var(--border); border-radius: 6px; min-width: 0; }
+.stage-slot select { max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+.stage-label { font-size: 11px; color: var(--text-dim); }
+.stage-a { inset: 6px; }
+.stage-b { display: none; }
+.stage-cam { display: none; position: absolute; align-items: center; justify-content: center; background: var(--accent); color: #07202A; font-size: 11px; font-weight: 600; border-radius: 8px; opacity: 0.9; }
+.layout-stage[data-layout="side"] .stage-a { inset: 6px 50% 6px 6px; margin-right: 3px; }
+.layout-stage[data-layout="side"] .stage-b { display: flex; inset: 6px 6px 6px 50%; margin-left: 3px; }
+.layout-stage[data-layout="corner"] .stage-cam, .layout-stage[data-layout="cam"] .stage-cam { display: flex; }
+.layout-stage[data-layout="cam"] .stage-a { display: none; }
+.layout-stage[data-layout="center"] .stage-cam { display: flex; width: 45%; aspect-ratio: 4 / 3; left: calc(var(--cx, 0.5) * 100%); top: calc(var(--cy, 0.5) * 100%); transform: translate(-50%, -50%); }
+.layout-stage[data-layout="center"][data-size="small"] .stage-cam { width: 30%; }
+.layout-stage[data-layout="center"][data-size="large"] .stage-cam { width: 60%; }
+.layout-stage[data-layout="cam"] .stage-cam { inset: 6px; }
+.layout-stage[data-layout="corner"] .stage-cam { width: 18%; aspect-ratio: 4 / 3; }
+.layout-stage[data-layout="corner"][data-size="medium"] .stage-cam { width: 26%; }
+.layout-stage[data-layout="corner"][data-size="large"] .stage-cam { width: 36%; }
+.layout-stage[data-layout="corner"][data-corner="br"] .stage-cam { right: 3%; bottom: 4%; }
+.layout-stage[data-layout="corner"][data-corner="bl"] .stage-cam { left: 3%; bottom: 4%; }
+.layout-stage[data-layout="corner"][data-corner="tr"] .stage-cam { right: 3%; top: 4%; }
+.layout-stage[data-layout="corner"][data-corner="tl"] .stage-cam { left: 3%; top: 4%; }
+.rec-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Calibrate: a countdown, then a flash on every clap. */
+.calibrate-beat { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; font-size: 22px; font-weight: 700; background: var(--panel-2, #1b2a44); border: 2px solid var(--border, #33466a); }
+.calibrate-beat[hidden] { display: none; }
+.calibrate-beat.ready { color: #f2c14e; border-color: #f2c14e; }
+.calibrate-beat.clap { background: #2fbf71; border-color: #2fbf71; color: #fff; }
+.calibrate-beat.pulse { animation: calibrate-pulse 0.5s ease-out; }
+@keyframes calibrate-pulse { from { transform: scale(1.5); } to { transform: scale(1); } }

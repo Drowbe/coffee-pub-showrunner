@@ -43,9 +43,15 @@
     "mac": {
       "category": "public.app-category.utilities",
       "icon": "build/AppIcon.icon",
-      "identity": null,
-      "hardenedRuntime": false,
+      "extraResources": [
+        { "from": "build/ffmpeg", "to": "ffmpeg", "filter": ["ffmpeg", "COPYING.GPLv3", "FFMPEG-LICENSE.md", "SOURCE.txt"] },
+        { "from": "THIRD-PARTY-NOTICES.md", "to": "THIRD-PARTY-NOTICES.md" }
+      ],
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true,
       "target": [
         {
           "target": "dmg",
@@ -61,8 +67,8 @@
         }
       ],
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Coffee Pub Showrunner needs the microphone if you use FoundryVTT audio/video chat inside the Game window.",
-        "NSCameraUsageDescription": "Coffee Pub Showrunner needs the camera if you use FoundryVTT audio/video chat inside the Game window."
+        "NSMicrophoneUsageDescription": "Coffee Pub Showrunner needs the microphone if you use FoundryVTT audio/video chat inside the Game window, or record your voice or webcam with the Showrunner Recorder.",
+        "NSCameraUsageDescription": "Coffee Pub Showrunner needs the camera if you use FoundryVTT audio/video chat inside the Game window, or record your voice or webcam with the Showrunner Recorder."
       }
     },
     "dmg": {

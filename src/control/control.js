@@ -727,7 +727,7 @@ function recallTab() {
 }
 
 // Every page that has a tab-<key> panel; windows have cards of their own.
-const PANEL_KEYS = ['metadata', 'profiles', 'status', 'obs', 'preferences', 'teleprompter', 'tavern', 'automations', 'youtube'];
+const PANEL_KEYS = ['recording', 'builtin', 'metadata', 'profiles', 'status', 'obs', 'preferences', 'teleprompter', 'tavern', 'automations', 'youtube'];
 
 function selectTab(name) {
   if (name === 'general' || name === 'configuration' || name === 'about') name = 'status';
@@ -736,6 +736,7 @@ function selectTab(name) {
   if (name === 'youtube' && !config.youtube.enabled) name = 'status';
   if (name.startsWith('app:') && !(config.appWindows || []).some((a) => `app:${a.id}` === name)) name = 'status';
   activeTab = name;
+  if (config.recording && typeof renderCamera === 'function') { renderCamera(); syncMicMeter(); } // starts or stops the webcam preview and the microphone meter
   if (name !== 'profiles') rememberTab(name);
   for (const tab of document.querySelectorAll('.tab')) {
     tab.classList.toggle('active', tab.dataset.tab === name);
@@ -1503,7 +1504,9 @@ function renderConnectionsBoard() {
 // The Connections card's log: state changes and errors from OBS, Tavern,
 // and Automations, plus every automation event received -- one shared feed
 // for troubleshooting a bad connection, fed by src/main.js's logActivity().
+let activityEvents = [];
 function renderActivityLog(events) {
+  activityEvents = events;
   const list = $('connections-activity');
   const empty = $('connections-activity-empty');
   list.textContent = '';
@@ -2191,6 +2194,428 @@ function renderPrompterScripts(open) {
   }
 }
 
+
+// ---- Recorder page: which backend records, and the built-in recorder's settings ----
+const recEls = {
+  dot: $('recording-dot'), tag: $('rec-tag'), backend: $('rec-backend'), card: $('rec-builtin-card'),
+  s1: $('rec-source-1'), s2: $('rec-source-2'), layout: $('rec-layout'), size: $('rec-size'), fps: $('rec-fps'), format: $('rec-format'), encoder: $('rec-encoder'), capture: $('rec-capture'), fit: $('rec-fit'),
+  camCard: $('rec-camera-card'), camDevice: $('rec-cam-device'), camCorner: $('rec-cam-corner'), camSize: $('rec-cam-size'), camFlip: $('rec-cam-flip'), camCornerField: $('rec-cam-corner-field'), camSizeField: $('rec-cam-size-field'),
+  camBg: $('rec-cam-bg'), camKeyRow: $('rec-cam-key-row'), camBlurRow: $('rec-cam-blur-row'), camBlur: $('rec-cam-blur'), camKeyColor: $('rec-cam-key-color'), camKeyTol: $('rec-cam-key-tol'), camKeySoft: $('rec-cam-key-soft'),
+  camPreview: $('rec-cam-preview'), camPreviewBtn: $('rec-cam-preview-btn'), camPreviewBox: $('rec-cam-preview-box'), camHint: $('rec-cam-hint'), camAllow: $('rec-cam-allow'),
+  reveal: $('rec-reveal'), toolbarShow: $('rec-toolbar-show'), toolbarAuto: $('rec-toolbar-auto'), toolbarAtStart: $('rec-toolbar-atstart'), toolbarHide: $('rec-toolbar-hide'), keepReady: $('rec-keep-ready'),
+  folder: $('rec-folder'), browse: $('rec-browse'), start: $('rec-start'), pause: $('rec-pause'), status: $('rec-status'),
+};
+
+function fillWindowSelect(select, chosen, optional) {
+  const pictures = config.recording.images || {};
+  const want = [optional ? ['', '(none)'] : ['', 'Choose a window'], ...config.views.map((v) => [v.id, v.label || v.id]), ...Object.entries(pictures).map(([id, name]) => [id, `Picture: ${name}`]), ['__image__', 'Picture from a file...']];
+  if (select.options.length !== want.length || want.some(([value, label], i) => select.options[i].value !== value || select.options[i].textContent !== label)) {
+    select.replaceChildren(...want.map(([value, label]) => { const o = document.createElement('option'); o.value = value; o.textContent = label; return o; }));
+  }
+  select.value = chosen || '';
+}
+
+let lastRecordingBackend = null;
+function renderRecording() {
+  if (!config || !config.recording) return;
+  const r = config.recording;
+  // The step menus list only what the chosen recorder can do, so they are redrawn when the choice changes.
+  if (lastRecordingBackend && lastRecordingBackend !== r.backend && config.automations) renderAutomationsRuleSets();
+  lastRecordingBackend = r.backend;
+  const st = (status && status.recording && status.recording.builtIn) || { state: 'idle', seconds: 0, file: '', error: '' };
+  const builtin = r.backend === 'builtin';
+  recEls.backend.value = r.backend;
+  const obsTab = document.querySelector('.tab[data-tab="obs"]');
+  const builtinTab = document.querySelector('.tab[data-tab="builtin"]');
+  if (obsTab) obsTab.hidden = builtin;
+  if (builtinTab) builtinTab.hidden = !builtin;
+  if (builtin && activeTab === 'obs') selectTab('builtin');
+  if (!builtin && activeTab === 'builtin') selectTab('obs');
+  fillWindowSelect(recEls.s1, r.sources[0] || '', false);
+  fillWindowSelect(recEls.s2, r.sources[1] || '', true);
+  recEls.layout.value = r.layout;
+  recEls.size.value = `${r.width}x${r.height}`;
+  recEls.fps.value = String(r.fps);
+  recEls.format.value = r.format;
+  recEls.encoder.value = r.encoder;
+  recEls.capture.value = r.capture;
+  recEls.fit.value = r.fit;
+  if (document.activeElement !== recEls.folder) recEls.folder.value = r.folder;
+  const active = st.state === 'recording' || st.state === 'paused';
+  recEls.tag.hidden = !(builtin && active);
+  recEls.tag.textContent = st.state === 'paused' ? 'PAUSED' : 'RECORDING';
+  recEls.dot.classList.toggle('on', builtin && active);
+  recEls.start.textContent = active ? 'Stop recording' : 'Start recording';
+  recEls.start.classList.toggle('btn-primary', !active);
+  recEls.start.classList.toggle('btn-danger', active);
+  recEls.start.disabled = st.state === 'starting' || st.state === 'stopping';
+  recEls.pause.hidden = !active;
+  recEls.toolbarShow.textContent = st.toolbarOpen ? 'Hide the toolbar' : 'Show the toolbar';
+  recEls.pause.textContent = st.state === 'paused' ? 'Resume' : 'Pause';
+  const mm = (n) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+  const note = st.warning ? `${st.warning}  ` : '';
+  recEls.status.textContent = st.error ? st.error : st.interrupted && !active ? `Showrunner closed while recording. The recording so far was kept: ${st.interrupted.file.split(/[\\/]/).pop()}` : note + (active ? `${mm(st.seconds)}  ${st.file.split(/[\\/]/).pop()}` : st.file ? `Last recording: ${st.file.split(/[\\/]/).pop()}` : '');
+  recEls.status.title = recEls.status.textContent;
+  const revealable = !active && (st.file || (st.interrupted && st.interrupted.file));
+  recEls.reveal.hidden = !revealable;
+  for (const el of [recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.folder, recEls.browse]) el.disabled = active;
+  if (!active) recEls.s2.disabled = r.layout !== 'side';
+  // The layout pictures, and the stage: the chosen layout drawn large with a window chooser inside each window's place. Only what the
+  // layout uses is shown (a second window only for side by side, the webcam's place only when it is used).
+  const stage = $('rec-stage');
+  stage.dataset.layout = r.layout; stage.dataset.corner = r.camera.corner; stage.dataset.size = r.camera.size;
+  stage.style.setProperty('--cx', String(r.camera.cx)); stage.style.setProperty('--cy', String(r.camera.cy));
+  for (const b of document.querySelectorAll('#rec-layout-picker .layout-thumb')) { const on = b.dataset.layout === r.layout; b.setAttribute('aria-checked', String(on)); b.classList.toggle('on', on); b.disabled = active; }
+  for (const sel of [recEls.s1, recEls.s2]) sel.title = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '';
+  $('rec-stage-label-a').textContent = r.layout === 'side' ? 'Left window' : 'Window';
+  $('rec-layout-hint').textContent = { one: 'Choose the window or picture to record in the picture above.', side: 'Choose a window for each side.', corner: 'Choose the window or picture to record. Click a corner of the picture to move the webcam there.', center: 'Choose the window or picture to record. Click in the picture to move the webcam there.', cam: 'Only the webcam is recorded. Sound from your windows is still recorded unless you mute it under Audio.' }[r.layout] || '';
+  $('rec-capture-field').hidden = r.layout === 'cam';
+  $('rec-capture-hint').hidden = r.layout === 'cam';
+  const isMac = /Mac/i.test(navigator.platform || navigator.userAgent);
+  $('rec-capture-hint').textContent = r.capture === 'screen'
+    ? `Screen recording: ${isMac ? 'macOS' : 'the system'} records the window you chose (nothing else on your screen). Smoothest while the window is busy.${isMac ? ' Needs the Screen Recording permission, and the window must be on screen.' : ' The window must be on screen.'}`
+    : 'Built-in snapshots: Showrunner takes pictures of the window itself. Needs no permission, but can stutter while the window is busy.';
+  if (document.activeElement !== recEls.toolbarAuto) recEls.toolbarAuto.checked = r.toolbar.auto;
+  if (document.activeElement !== recEls.toolbarAtStart) recEls.toolbarAtStart.checked = r.toolbar.atStart;
+  recEls.toolbarHide.checked = r.toolbar.hidePreviewOnRecord;
+  recEls.keepReady.checked = r.toolbar.keepReady;
+  renderCamera();
+  renderAudio();
+}
+
+function readRecording() {
+  const [w, h] = recEls.size.value.split('x').map(Number);
+  config.recording = {
+    ...config.recording,
+    backend: recEls.backend.value,
+    sources: [recEls.layout.value === 'cam' ? '' : realSource(recEls.s1.value), recEls.layout.value === 'side' ? realSource(recEls.s2.value) : ''],
+    layout: recEls.layout.value, width: w, height: h, fps: Number(recEls.fps.value), format: recEls.format.value, encoder: recEls.encoder.value, capture: recEls.capture.value, fit: recEls.fit.value, folder: recEls.folder.value,
+    camera: { device: recEls.camDevice.value, deviceLabel: recEls.camDevice.selectedOptions[0] ? recEls.camDevice.selectedOptions[0].textContent : '', corner: recEls.camCorner.value, size: recEls.camSize.value, flip: recEls.camFlip.checked, background: recEls.camBg.value, keyColor: recEls.camKeyColor.value, keyTolerance: Number(recEls.camKeyTol.value), keySoftness: Number(recEls.camKeySoft.value), blur: Number(recEls.camBlur.value), cx: config.recording.camera.cx, cy: config.recording.camera.cy },
+    toolbar: { ...config.recording.toolbar, auto: recEls.toolbarAuto.checked, atStart: recEls.toolbarAtStart.checked, hidePreviewOnRecord: recEls.toolbarHide.checked, keepReady: recEls.keepReady.checked },
+  };
+  scheduleSave();
+  renderRecording();
+}
+for (const el of [recEls.keepReady, recEls.toolbarHide, recEls.camBlur, recEls.camBg, recEls.camKeyColor, recEls.camKeyTol, recEls.camKeySoft, recEls.camFlip, recEls.toolbarAtStart, recEls.toolbarAuto, recEls.camDevice, recEls.camCorner, recEls.camSize, recEls.backend, recEls.s1, recEls.s2, recEls.layout, recEls.size, recEls.fps, recEls.format, recEls.encoder, recEls.capture, recEls.fit, recEls.folder]) { el.addEventListener('change', readRecording); }
+recEls.folder.addEventListener('input', readRecording);
+// Clicking a corner of the picture moves the webcam there (when the layout has it in a corner).
+$('rec-stage').addEventListener('click', (e) => {
+  const stage = $('rec-stage');
+  if (!['corner', 'center'].includes(stage.dataset.layout) || e.target.closest('select') || recordingNow()) return;
+  const box = stage.getBoundingClientRect();
+  if (stage.dataset.layout === 'center') {
+    config.recording.camera = { ...config.recording.camera, cx: Math.min(0.95, Math.max(0.05, (e.clientX - box.left) / box.width)), cy: Math.min(0.95, Math.max(0.05, (e.clientY - box.top) / box.height)) };
+    scheduleSave(); renderRecording();
+    return;
+  }
+  const corner = `${e.clientY - box.top < box.height / 2 ? 't' : 'b'}${e.clientX - box.left < box.width / 2 ? 'l' : 'r'}`;
+  if (recEls.camCorner.value !== corner) { recEls.camCorner.value = corner; readRecording(); }
+});
+for (const b of document.querySelectorAll('#rec-layout-picker .layout-thumb')) {
+  b.addEventListener('click', () => { if (recEls.layout.value === b.dataset.layout) return; recEls.layout.value = b.dataset.layout; readRecording(); });
+}
+recEls.reveal.addEventListener('click', () => api.recording.reveal().catch(reportError));
+recEls.toolbarShow.addEventListener('click', () => api.recording.showToolbar().catch(reportError));
+recEls.browse.addEventListener('click', async () => { try { const dir = await api.recording.chooseFolder(); if (dir) { recEls.folder.value = dir; readRecording(); } } catch (err) { reportError(err); } });
+recEls.start.addEventListener('click', async () => {
+  try {
+    const st = status && status.recording && status.recording.builtIn;
+    if (st && (st.state === 'recording' || st.state === 'paused')) await api.recording.stop(); else await api.recording.start();
+  } catch (err) { reportError(err); }
+});
+recEls.pause.addEventListener('click', async () => {
+  try {
+    const st = status && status.recording && status.recording.builtIn;
+    if (st && st.state === 'paused') await api.recording.resume(); else await api.recording.pause();
+  } catch (err) { reportError(err); }
+});
+
+// ---- Showrunner Recorder: while this page is open the app watches how loud each window is, for the meters below ----
+let previewFeedOn = false;
+function setPreviewFeed(on) {
+  if (on === previewFeedOn) return;
+  previewFeedOn = on;
+  api.recording.previewFeed(on);
+}
+
+// ---- Showrunner Recorder webcam: the picker and a live preview, shown only for the layouts that use it ----
+let camPreviewWanted = false; // the webcam preview here runs only when asked for
+let camPreviewReported = false;
+let camMaskCanvas = null; let camMaskAt = 0;
+api.recording.onMask(({ w, h, buf }) => {
+  if (!camMaskCanvas || camMaskCanvas.width !== w || camMaskCanvas.height !== h) { camMaskCanvas = document.createElement('canvas'); camMaskCanvas.width = w; camMaskCanvas.height = h; }
+  const img = new ImageData(w, h);
+  for (let i = 0; i < buf.length; i += 1) img.data[i * 4 + 3] = buf[i];
+  camMaskCanvas.getContext('2d').putImageData(img, 0, 0);
+  camMaskAt = Date.now();
+});
+// The preview is drawn by the same code as the recording, so it shows the green screen and the blur as they will be recorded.
+const camCanvas = $('rec-cam-preview-canvas'); const camPen = camCanvas.getContext('2d');
+setInterval(() => {
+  if (recEls.camPreviewBox.hidden || !recEls.camPreview.videoWidth || !window.ShowrunnerLayout) return;
+  window.ShowrunnerLayout.compose(camPen, camCanvas.width, camCanvas.height, { layout: 'cam', camera: config.recording.camera, sources: [], camVideo: recEls.camPreview, fit: 'fit', camMask: Date.now() - camMaskAt < 1500 ? camMaskCanvas : null });
+}, 70);
+let camPreviewStream = null; let camPreviewDevice = null; let camPreviewFailed = null; // the device that failed, so a status update does not retry it every second
+
+function stopCamPreview() {
+  if (camPreviewStream) camPreviewStream.getTracks().forEach((t) => t.stop());
+  camPreviewStream = null; camPreviewDevice = null; recEls.camPreview.srcObject = null;
+}
+
+async function startCamPreview(device) {
+  if ((camPreviewStream && camPreviewDevice === device) || camPreviewFailed === device) return;
+  stopCamPreview();
+  try {
+    // Ask macOS first: without its yes the webcam just shows black, with no message.
+    camPreviewDevice = device;
+    const access = await api.recording.askCamera();
+    if (access !== 'granted') {
+      camPreviewDevice = null; camPreviewFailed = device;
+      recEls.camHint.textContent = 'macOS has not allowed Showrunner to use the webcam, so the picture is black. Press "Allow the webcam"; if no question appears, open System Settings, Privacy & Security, Camera, and switch Showrunner (or Electron, in a test build) on.';
+      recEls.camAllow.hidden = false;
+      return;
+    }
+    camPreviewStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: device ? { exact: device } : undefined, width: { ideal: 640 } } });
+    recEls.camPreview.srcObject = camPreviewStream;
+    recEls.camHint.textContent = '';
+    await refreshCameras();
+  } catch (err) {
+    camPreviewStream = null; camPreviewDevice = null; camPreviewFailed = device;
+    recEls.camHint.textContent = err.name === 'NotAllowedError' ? 'macOS has not allowed the webcam yet. Press "Allow the webcam", or allow it in System Settings, Privacy & Security, Camera.' : `The webcam could not be opened (${err.message}).`;
+    recEls.camAllow.hidden = false;
+  }
+}
+
+async function refreshCameras() {
+  try {
+    const list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+    const chosen = config.recording.camera.device;
+    const options = [['', 'System default'], ...list.map((d, i) => [d.deviceId, d.label || `Camera ${i + 1}`])];
+    if (chosen && !options.some(([id]) => id === chosen)) options.push([chosen, '(not connected)']);
+    recEls.camDevice.replaceChildren(...options.map(([id, label]) => { const o = document.createElement('option'); o.value = id; o.textContent = label; o.title = label; return o; }));
+    recEls.camDevice.value = chosen;
+    recEls.camAllow.hidden = list.every((d) => d.label);
+  } catch (err) { /* System default stays */ }
+}
+navigator.mediaDevices.addEventListener('devicechange', refreshCameras);
+refreshCameras(); // the list is filled when the app opens, not only after a preview has been started
+
+function renderCamera() {
+  const r = config.recording;
+  const uses = ['corner', 'center', 'cam'].includes(r.layout);
+  recEls.camCard.hidden = !uses;
+  if (uses && recEls.camDevice.options.length === 0) refreshCameras();
+  recEls.camCornerField.hidden = r.layout !== 'corner';
+  recEls.camSizeField.hidden = !['corner', 'center'].includes(r.layout);
+  if (document.activeElement !== recEls.camDevice) recEls.camDevice.value = r.camera.device;
+  recEls.camCorner.value = r.camera.corner;
+  recEls.camSize.value = r.camera.size;
+  recEls.camFlip.checked = r.camera.flip;
+  recEls.camBg.value = r.camera.background;
+  recEls.camKeyRow.hidden = r.camera.background !== 'key';
+  recEls.camBlurRow.hidden = r.camera.background !== 'blur';
+  if (document.activeElement !== recEls.camBlur) recEls.camBlur.value = String(r.camera.blur);
+  if (document.activeElement !== recEls.camKeyColor) recEls.camKeyColor.value = r.camera.keyColor;
+  if (document.activeElement !== recEls.camKeyTol) recEls.camKeyTol.value = String(r.camera.keyTolerance);
+  if (document.activeElement !== recEls.camKeySoft) recEls.camKeySoft.value = String(r.camera.keySoftness);
+  recEls.camPreview.classList.toggle('flip', r.camera.flip);
+  const active = status && status.recording && status.recording.builtIn && ['recording', 'paused'].includes(status.recording.builtIn.state);
+  for (const el of [recEls.camDevice, recEls.camCorner, recEls.camSize]) el.disabled = Boolean(active);
+  setPreviewFeed(activeTab === 'builtin'); // the picture preview runs only while this page is open
+  // The webcam preview runs only while the Showrunner Recorder page is open and the layout needs a webcam.
+  if (camPreviewFailed !== null && camPreviewFailed !== r.camera.device) camPreviewFailed = null;
+  const showing = uses && activeTab === 'builtin' && camPreviewWanted && !recordingNow();
+  if (showing !== camPreviewReported) { camPreviewReported = showing; api.recording.camPreview(showing); } // lets the app get the person finder ready for the blur preview
+  recEls.camPreviewBox.hidden = !showing;
+  recEls.camPreviewBtn.textContent = camPreviewWanted ? 'Hide webcam preview' : 'Show webcam preview';
+  if (showing) startCamPreview(r.camera.device); else stopCamPreview();
+}
+// Click the webcam preview, on the backdrop, to pick the colour to remove.
+camCanvas.addEventListener('click', (e) => {
+  const v = recEls.camPreview;
+  if (!v.videoWidth) return;
+  const box = camCanvas.getBoundingClientRect();
+  let fx = (e.clientX - box.left) / box.width; const fy = (e.clientY - box.top) / box.height;
+  if (config.recording.camera.flip) fx = 1 - fx;
+  const c = document.createElement('canvas'); c.width = 9; c.height = 9;
+  const pen = c.getContext('2d', { willReadFrequently: true });
+  pen.drawImage(v, Math.max(0, fx * v.videoWidth - 4), Math.max(0, fy * v.videoHeight - 4), 9, 9, 0, 0, 9, 9);
+  const d = pen.getImageData(0, 0, 9, 9).data; let r = 0; let g = 0; let b = 0;
+  for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+  const n = d.length / 4; const hex = (x) => Math.round(x / n).toString(16).padStart(2, '0');
+  recEls.camKeyColor.value = `#${hex(r)}${hex(g)}${hex(b)}`; recEls.camBg.value = 'key';
+  readRecording();
+});
+// Choosing "Picture from a file..." opens the file chooser; the choice is kept with the profile.
+const realSource = (value) => (value === '__image__' ? '' : value);
+[recEls.s1, recEls.s2].forEach((sel, index) => {
+  sel.addEventListener('change', async (event) => {
+    if (sel.value !== '__image__') return;
+    event.stopImmediatePropagation(); // the choice is not made until a file is: cancelling leaves things as they were
+    sel.value = config.recording.sources[index] || '';
+    try {
+      const picked = await api.recording.chooseImage();
+      if (!picked) return;
+      config.recording.images = { ...(config.recording.images || {}), [picked.id]: picked.name };
+      fillWindowSelect(sel, picked.id, index === 1);
+      readRecording();
+    } catch (err) { reportError(err); }
+  }, true);
+});
+recEls.camPreviewBtn.addEventListener('click', () => { camPreviewWanted = !camPreviewWanted; renderCamera(); });
+recEls.camAllow.addEventListener('click', async () => {
+  try {
+    const result = await api.recording.askCamera();
+    if (result === 'granted') { recEls.camHint.textContent = ''; camPreviewFailed = null; stopCamPreview(); renderCamera(); } else { recEls.camHint.textContent = 'macOS did not allow the webcam. System Settings has opened: switch Showrunner (or Electron, in a test build) on under Camera, then come back and press the button again.'; api.recording.openPrivacy('camera').catch(() => {}); }
+  } catch (err) { reportError(err); }
+});
+
+// ---- Showrunner Recorder audio: a level and mute for each window and the microphone, with live meters ----
+const audioRows = [
+  { name: $('rec-aw-0-name'), level: $('rec-aw-0-level'), pct: $('rec-aw-0-pct'), mute: $('rec-aw-0-mute'), row: $('rec-aw-0') },
+  { name: $('rec-aw-1-name'), level: $('rec-aw-1-level'), pct: $('rec-aw-1-pct'), mute: $('rec-aw-1-mute'), row: $('rec-aw-1') },
+  { name: null, level: $('rec-am-level'), pct: $('rec-am-pct'), mute: $('rec-am-mute'), row: $('rec-am') },
+];
+const micEls = { calibrate: $('rec-calibrate'), calibrateNote: $('rec-calibrate-note'), delay: $('rec-mic-delay'), delayRow: $('rec-mic-delay-row'), on: $('rec-mic-on'), device: $('rec-mic-device'), echo: $('rec-mic-echo'), hint: $('rec-mic-hint'), allow: $('rec-mic-allow') };
+
+function audioOf(r) { return r.audio || { windows: [{ level: 1, muted: false }, { level: 1, muted: false }], mic: { enabled: false, device: '', level: 1, muted: false, echoCancel: false } }; }
+
+function renderAudio() {
+  const r = config.recording;
+  const a = audioOf(r);
+  const items = [a.windows[0], a.windows[1], a.mic];
+  audioRows.forEach((row, i) => {
+    const item = items[i];
+    if (document.activeElement !== row.level) row.level.value = String(Math.round(item.level * 100));
+    row.pct.textContent = `${Math.round(item.level * 100)}%`;
+    row.mute.classList.toggle('on', item.muted);
+    row.mute.textContent = item.muted ? 'Muted' : 'Mute';
+    if (row.name) {
+      const view = config.views.find((v) => v.id === r.sources[i]);
+      const label = view ? (view.label || view.id) : '(no window)';
+      row.name.textContent = label; row.name.title = label;
+    }
+  });
+  const isPicture = (id) => typeof id === 'string' && id.startsWith('image:');
+  audioRows[0].row.hidden = r.layout === 'cam' || isPicture(r.sources[0]); // a picture has no sound
+  audioRows[1].row.hidden = r.layout !== 'side' || isPicture(r.sources[1]);
+  audioRows[0].row.classList.toggle('off', !r.sources[0]);
+  audioRows[2].row.classList.toggle('off', !a.mic.enabled);
+  micEls.on.checked = a.mic.enabled;
+  micEls.delayRow.hidden = !['corner', 'center', 'cam'].includes(r.layout);
+  if (document.activeElement !== micEls.delay) micEls.delay.value = String(a.mic.delayMs || 0);
+  micEls.echo.checked = a.mic.echoCancel;
+  micEls.device.disabled = !a.mic.enabled;
+  micEls.echo.disabled = !a.mic.enabled;
+  if (micEls.device.value !== a.mic.device && document.activeElement !== micEls.device) micEls.device.value = a.mic.device;
+  syncMicMeter();
+}
+
+// The list of microphones. Names stay blank until macOS has allowed the microphone once, so a number stands in.
+async function refreshMicDevices() {
+  try {
+    const list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
+    const chosen = audioOf(config.recording).mic.device;
+    const options = [['', 'System default'], ...list.map((d, i) => [d.deviceId, d.label || `Microphone ${i + 1}`])];
+    if (chosen && !options.some(([id]) => id === chosen)) options.push([chosen, '(not connected)']);
+    micEls.device.replaceChildren(...options.map(([id, label]) => { const o = document.createElement('option'); o.value = id; o.textContent = label; o.title = label; return o; }));
+    micEls.device.value = chosen;
+    micEls.allow.hidden = list.every((d) => d.label);
+  } catch (err) { /* no list: System default stays */ }
+}
+navigator.mediaDevices.addEventListener('devicechange', refreshMicDevices);
+
+function readAudio(live) {
+  const a = audioOf(config.recording);
+  const next = {
+    windows: [0, 1].map((i) => ({ level: Number(audioRows[i].level.value) / 100, muted: a.windows[i].muted })),
+    mic: { ...a.mic, level: Number(audioRows[2].level.value) / 100, enabled: micEls.on.checked, device: micEls.device.value, deviceLabel: micEls.device.selectedOptions[0] ? micEls.device.selectedOptions[0].textContent : '', echoCancel: micEls.echo.checked, delayMs: Math.min(500, Math.max(0, Number(micEls.delay.value) || 0)) },
+  };
+  config.recording = { ...config.recording, audio: next };
+  api.recording.setAudio(next).catch(() => {});
+  scheduleSave();
+  renderAudio();
+}
+audioRows.forEach((row, i) => {
+  row.level.addEventListener('input', readAudio);
+  row.mute.addEventListener('click', () => {
+    const a = audioOf(config.recording);
+    const next = { windows: a.windows.map((w) => ({ ...w })), mic: { ...a.mic } };
+    if (i < 2) next.windows[i].muted = !next.windows[i].muted; else next.mic.muted = !next.mic.muted;
+    config.recording = { ...config.recording, audio: next };
+    api.recording.setAudio(next).catch(() => {});
+    scheduleSave();
+    renderAudio();
+  });
+});
+for (const el of [micEls.on, micEls.device, micEls.echo, micEls.delay]) el.addEventListener('change', () => readAudio());
+micEls.allow.addEventListener('click', async () => {
+  try {
+    const result = await api.recording.askMicrophone();
+    micEls.hint.textContent = result === 'granted' ? 'The microphone is allowed.' : 'macOS has not allowed the microphone. Allow it in System Settings, Privacy & Security, Microphone, then try again.';
+    await refreshMicDevices();
+  } catch (err) { reportError(err); }
+});
+
+// What is going into the recording: a bar for each source. Quiet below -60 dB, amber near the top, red at the top.
+function paintBar(index, peak) {
+  const bar = audioRows[index].row.querySelector('.meter i');
+  const db = peak > 0 ? 20 * Math.log10(peak) : -90;
+  bar.style.width = `${Math.round(Math.min(1, Math.max(0, (db + 60) / 60)) * 100)}%`;
+  bar.className = db > -1 ? 'clip' : db > -9 ? 'hot' : '';
+}
+const recordingNow = () => { const st = status && status.recording && status.recording.builtIn; return Boolean(st && ['recording', 'paused', 'starting', 'stopping'].includes(st.state)); };
+api.recording.onLevels((levels) => audioRows.forEach((row, i) => paintBar(i, (levels && levels[i]) || 0)));
+
+// Before a recording the meters still move, so you can check the sound is arriving: the windows' loudness comes from the app
+// (as the recording would hear it, before the level is applied), and the microphone is listened to here. Shown with the level
+// applied, which is what the recording will have.
+api.recording.onIdleLevels((peaks) => {
+  if (recordingNow() || !config || !config.recording) return;
+  const a = audioOf(config.recording);
+  [0, 1].forEach((i) => paintBar(i, a.windows[i].muted ? 0 : (peaks[i] || 0) * a.windows[i].level));
+});
+
+let micMeter = null; // { stream, ctx, analyser, timer, device }
+function stopMicMeter() {
+  if (!micMeter) return;
+  clearInterval(micMeter.timer);
+  micMeter.stream.getTracks().forEach((t) => t.stop());
+  micMeter.ctx.close().catch(() => {});
+  micMeter = null;
+  paintBar(2, 0);
+}
+async function syncMicMeter() {
+  const a = audioOf(config.recording);
+  const want = a.mic.enabled && activeTab === 'builtin' && !recordingNow();
+  if (!want) { stopMicMeter(); return; }
+  if (micMeter && micMeter.device === a.mic.device) return;
+  stopMicMeter();
+  const device = a.mic.device;
+  micMeter = { device, starting: true };
+  try {
+    if ((await api.recording.askMicrophone()) !== 'granted') { if (micMeter && micMeter.device === device) micMeter = null; return; } // not allowed (yet): do not ask the system again from here
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: device ? { exact: device } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    if (!micMeter || micMeter.device !== device) { stream.getTracks().forEach((t) => t.stop()); return; }
+    const ctx = new AudioContext();
+    ctx.resume().catch(() => {});
+    const analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const buf = new Float32Array(1024);
+    // Read often and show the loudest of the last tenth of a second, so a short sound still lights the bar.
+    let held = 0; let ticks = 0;
+    const timer = setInterval(() => {
+      if (recordingNow()) return;
+      analyser.getFloatTimeDomainData(buf);
+      for (let i = 0; i < buf.length; i += 1) { const v = Math.abs(buf[i]); if (v > held) held = v; }
+      ticks += 1;
+      if (ticks % 5 === 0) { const m = audioOf(config.recording).mic; paintBar(2, m.muted ? 0 : held * m.level); held = 0; }
+    }, 20);
+    micMeter = { stream, ctx, analyser, timer, device };
+  } catch (err) { micMeter = null; } // not allowed yet: the Allow button deals with it
+}
+refreshMicDevices();
+
 function renderPrompter() {
   if (!config || !config.teleprompter) return;
   const t = config.teleprompter;
@@ -2283,6 +2708,7 @@ api.onStatus((next) => {
   renderAutomationsObs();
   renderYoutubeStatus();
   renderPrompter();
+  renderRecording();
   renderConnectionsBoard();
   updateRulesetRunState();
   if (config) updateAppWindowStatus();
@@ -3049,8 +3475,22 @@ let automationsSources = [];
 let automationsObsWasConnected = false;
 
 // OBS actions plus Studio actions -- both always available.
-function availableActions() {
+function allActions() {
   return [...AUTOMATION_ACTIONS, ...STUDIO_ACTIONS];
+}
+
+// Actions only the OBS Recorder can do: everything that touches OBS scenes, sources, text or audio, OBS syncing, and streaming
+// (the Showrunner Recorder records and pauses, and nothing else yet).
+const OBS_ONLY_ACTIONS = new Set([
+  ...AUTOMATION_ACTIONS.filter((a) => a.group !== 'Controls').map((a) => a.value),
+  'startStreaming', 'stopStreaming', 'syncObs', 'applySessionFilename',
+]);
+
+// What the step menu offers: with the Showrunner Recorder chosen, the OBS-only actions are left out (a step that already uses
+// one keeps it in its own menu, marked, so an old rule set is never silently changed).
+function availableActions(keep) {
+  const builtin = config && config.recording && config.recording.backend === 'builtin';
+  return allActions().filter((a) => !builtin || !OBS_ONLY_ACTIONS.has(a.value) || a.value === keep);
 }
 
 function applyAutomationsConfig(firstLoad) {
@@ -3666,7 +4106,7 @@ function appendDataFieldPicker(settingsEl, { labelText, sfield, currentValue, gr
 function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) {
   const row = document.createElement('div');
   const enabled = step.enabled !== false;
-  row.className = `automation-step ${tintClassFor(step, availableActions())}${enabled ? '' : ' disabled'}`;
+  row.className = `automation-step ${tintClassFor(step, allActions())}${enabled ? '' : ' disabled'}`;
   row.dataset.stepId = step.id;
 
   // The header line (enable/number/AND-or-Wait/action) stays one row, same
@@ -3844,7 +4284,7 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       mainRow.appendChild(runIfToggle);
     }
 
-    const actions = availableActions();
+    const actions = availableActions(step.action);
     const actionSelect = document.createElement('select');
     actionSelect.dataset.sfield = 'action';
     const groups = new Map();
@@ -3856,7 +4296,8 @@ function buildStepRow(step, index, number, isFirst, timeableActions, ruleSetId) 
       }
       const opt = document.createElement('option');
       opt.value = a.value;
-      opt.textContent = a.label;
+      const stale = OBS_ONLY_ACTIONS.has(a.value) && !availableActions().includes(a);
+      opt.textContent = stale ? `${a.label} (needs OBS Recorder)` : a.label;
       if (a.value === step.action) opt.selected = true;
       groups.get(a.group).appendChild(opt);
     }
@@ -4637,7 +5078,7 @@ function renderEventChoices() {
     if (label) option.label = label;
     list.appendChild(option);
   };
-  for (const cue of scriptEvents) add(cue.event, `${cue.kind === 'heading' ? 'Heading' : 'Cue'}: ${cue.label}`);
+  for (const cue of scriptEvents) add(cue.event, `${cue.kind === 'heading' ? 'Heading' : cue.kind === 'hold' ? 'Hold' : 'Cue'}: ${cue.label}`);
   for (const entry of (status && status.automations && status.automations.events) || []) add(entry.event, 'Recently received');
 }
 eventChoicesReady = true;
@@ -5155,6 +5596,7 @@ $('picker-save').addEventListener('click', async () => {
   renderAutomationsStatus();
   renderYoutubeStatus();
   renderPrompter();
+  renderRecording();
   renderConnectionsBoard();
   $('about-version').textContent = info.revision;
   $('about-build').textContent = info.build && info.build.branch ? `on ${info.build.branch}` : '-';
@@ -5286,3 +5728,56 @@ $('picker-save').addEventListener('click', async () => {
   window.addEventListener('resize', close);
   document.addEventListener('scroll', (e) => { if (menu && !menu.contains(e.target)) close(); }, true);
 })();
+
+// Every label in the left rail gives way with an "..." when it is too long, and the full name shows as a tooltip.
+// Done in one place so any tab added later (a window, a profile's page) gets it without its own code.
+function fitTabLabels() {
+  for (const tab of document.querySelectorAll('#tabs .tab')) {
+    let label = tab.querySelector('.tab-label');
+    if (!label) {
+      const text = [...tab.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim());
+      if (!text.length) continue;
+      label = document.createElement('span');
+      label.className = 'tab-label';
+      label.textContent = text.map((n) => n.textContent.trim()).join(' ');
+      text[0].replaceWith(label);
+      for (const n of text.slice(1)) n.remove();
+    }
+    if (tab.title !== label.textContent) tab.title = label.textContent;
+  }
+}
+fitTabLabels();
+new MutationObserver(fitTabLabels).observe($('tabs'), { childList: true, subtree: true, characterData: true });
+
+$('activity-clear').addEventListener('click', () => { window.coffeePub.recording.clearLogs(); });
+
+// Calibrate: clap in front of the camera; the app measures the webcam's delay against the microphone and sets the number.
+const calibrateBeat = $('rec-calibrate-beat');
+api.recording.onCalibrateProgress((msg) => {
+  const { text, beat, n } = typeof msg === 'string' ? { text: msg } : msg;
+  micEls.calibrateNote.textContent = text;
+  calibrateBeat.hidden = !beat;
+  calibrateBeat.className = `calibrate-beat ${beat || ''}`;
+  calibrateBeat.textContent = beat === 'clap' ? '\u{1F44F}' : (n || '');
+  if (beat === 'clap') { calibrateBeat.classList.remove('pulse'); void calibrateBeat.offsetWidth; calibrateBeat.classList.add('pulse'); }
+});
+micEls.calibrate.addEventListener('click', async () => {
+  micEls.calibrate.disabled = true; micEls.calibrateNote.textContent = 'Starting...';
+  try {
+    const r = await api.recording.calibrate();
+    config = await api.getConfig(); renderRecording(); // the new delay
+    calibrateBeat.hidden = true;
+    micEls.calibrateNote.textContent = `Done: the webcam picture was ${Math.abs(r.measuredMs)} ms ${r.measuredMs >= 0 ? 'later' : 'earlier'} than the sound (${r.claps} of 6 claps measured, from ${r.minMs} to ${r.maxMs} ms${r.maxMs - r.minMs > 80 ? ' -- they varied a lot, so run it again' : ''}). Delay set to ${r.delayMs} ms.`;
+  } catch (err) { calibrateBeat.hidden = true; micEls.calibrateNote.textContent = String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); } finally { micEls.calibrate.disabled = false; }
+});
+
+// The licence links in About.
+for (const a of document.querySelectorAll('[data-link]')) a.addEventListener('click', (event) => { event.preventDefault(); api.recording.openLink(a.dataset.link).catch(() => {}); });
+
+// Copies the whole activity log (oldest first, one line each) so it can be pasted into a message.
+$('activity-copy').addEventListener('click', async () => {
+  const text = activityEvents.slice().reverse().map((e) => `${new Date(e.at).toLocaleTimeString()} [${e.source}]${e.level === 'error' ? ' !' : ''} ${e.event}`).join('\n') || 'No activity yet.';
+  const button = $('activity-copy');
+  try { await navigator.clipboard.writeText(text); button.textContent = 'Copied'; } catch (err) { button.textContent = 'Copy failed'; }
+  setTimeout(() => { button.textContent = 'Copy logs'; }, 1500);
+});

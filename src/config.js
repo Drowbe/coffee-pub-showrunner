@@ -745,6 +745,7 @@ function defaultConfig() {
     session: defaultSession(),
     obsPins: defaultObsPins(),
     teleprompter: defaultTeleprompter(),
+    recording: defaultRecording(),
     // No metadata fields on a fresh install -- created by hand via "New" on
     // the Session tab's Metadata card.
     metadataFields: [],
@@ -862,6 +863,106 @@ function sanitizeTeleprompter(input) {
   };
 }
 
+// Recording: which backend records ('obs' or the built-in recorder), and the built-in recorder's own settings. One per profile.
+const RECORDING_BACKENDS = ['obs', 'builtin'];
+const RECORDING_LAYOUTS = ['one', 'side', 'corner', 'center', 'cam']; // one window | two side by side | a window with the webcam in a corner | ... in the middle | the webcam alone
+const CAMERA_CORNERS = ['tl', 'tr', 'bl', 'br'];
+const CAMERA_SIZES = ['small', 'medium', 'large'];
+const RECORDING_SIZES = [[1280, 720], [1920, 1080]];
+
+function defaultRecording() {
+  return {
+    backend: 'obs',
+    folder: '', // where the built-in recorder writes; empty means the Videos folder
+    layout: 'one', // 'one' (the first window fills the picture) or 'side' (two windows side by side)
+    sources: [], // ids of the windows to record, in order
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    fit: 'fit', // a window whose shape differs from its place: 'fit' (all of it, with bars) or 'fill' (fills the place, crops the edges)
+    capture: process.platform === 'darwin' ? 'screen' : 'pictures', // how the windows are captured: 'pictures' (each window's own pictures) or 'screen' (the system's screen capture, like OBS)
+    encoder: 'auto', // 'auto' (the Mac's own encoder, switching to software if it stalls), 'hardware' or 'software'
+    format: 'mp4', // the file type: 'mp4' or 'mkv' (both are written as they go, so both survive a crash)
+    audio: defaultRecordingAudio(),
+    camera: { device: '', deviceLabel: '', corner: 'br', size: 'medium', flip: false, background: 'none', keyColor: '#00b140', keyTolerance: 35, keySoftness: 25, blur: 50, cx: 0.5, cy: 0.5 }, // the webcam (cx and cy: where its middle is, as shares of the picture, for the 'center' layout) (flip mirrors it left to right), for the 'corner' and 'cam' layouts; background 'key' removes a backdrop of keyColor, 'blur' blurs everything but the person
+    toolbar: { auto: true, atStart: false, preview: true, hidePreviewOnRecord: true, keepReady: false, x: null, y: null }, // the recording toolbar: opens when recording starts (auto) or when Showrunner starts (atStart), shows the live picture (preview), and where it was left
+  };
+}
+
+// Sound for the Showrunner Recorder: a level (0 to 1.5, where 1 is as it is) and a mute for each chosen window, and the microphone.
+function defaultRecordingAudio() {
+  return {
+    windows: [{ level: 1, muted: false }, { level: 1, muted: false }],
+    mic: { enabled: false, device: '', deviceLabel: '', level: 1, muted: false, echoCancel: false, delayMs: 0 },
+  };
+}
+
+function sanitizeRecordingAudio(input) {
+  const d = defaultRecordingAudio();
+  const src = input && typeof input === 'object' ? input : {};
+  const level = (v, fallback) => (Number.isFinite(Number(v)) ? Math.min(1.5, Math.max(0, Number(v))) : fallback);
+  const win = (w, i) => ({ level: level(w && w.level, d.windows[i].level), muted: Boolean(w && w.muted) });
+  const m = src.mic && typeof src.mic === 'object' ? src.mic : {};
+  const list = Array.isArray(src.windows) ? src.windows : [];
+  return {
+    windows: [win(list[0], 0), win(list[1], 1)],
+    mic: {
+      enabled: Boolean(m.enabled),
+      device: typeof m.device === 'string' ? m.device.slice(0, 300) : '',
+      deviceLabel: typeof m.deviceLabel === 'string' ? m.deviceLabel.slice(0, 200) : '',
+      level: level(m.level, d.mic.level),
+      muted: Boolean(m.muted),
+      echoCancel: Boolean(m.echoCancel),
+      delayMs: Math.min(500, Math.max(0, Math.round(Number(m.delayMs) || 0))), // to line the voice up with a slow webcam
+    },
+  };
+}
+
+function sanitizeRecording(input) {
+  const d = defaultRecording();
+  const src = input && typeof input === 'object' ? input : {};
+  const size = RECORDING_SIZES.find(([w, h]) => w === Number(src.width) && h === Number(src.height)) || [d.width, d.height];
+  return {
+    backend: RECORDING_BACKENDS.includes(src.backend) ? src.backend : d.backend,
+    folder: typeof src.folder === 'string' ? src.folder.trim().slice(0, 1000) : d.folder,
+    layout: RECORDING_LAYOUTS.includes(src.layout) ? src.layout : d.layout,
+    // One entry for each place in the picture: a window's id, 'image:<file>' for a picture, or '' for nothing. Places keep their position.
+    sources: (() => { const raw = (Array.isArray(src.sources) ? src.sources : []).slice(0, 2).map((v) => (typeof v === 'string' ? v.slice(0, 200) : '')); if (raw[1] && raw[1] === raw[0]) raw[1] = ''; while (raw.length && !raw[raw.length - 1]) raw.pop(); return raw; })(),
+    images: (() => { const out = {}; if (src.images && typeof src.images === 'object') for (const [k, v] of Object.entries(src.images).slice(0, 50)) if (/^image:[A-Za-z0-9._-]{1,100}$/.test(k) && typeof v === 'string') out[k] = v.slice(0, 120); return out; })(), // the pictures chosen for the recorder: stored name -> the name it had
+    width: size[0],
+    height: size[1],
+    fps: [24, 30, 60].includes(Number(src.fps)) ? Number(src.fps) : d.fps,
+    format: src.format === 'mkv' ? 'mkv' : 'mp4',
+    fit: src.fit === 'fill' ? 'fill' : 'fit',
+    capture: src.capture === 'screen' || src.capture === 'pictures' ? src.capture : d.capture,
+    encoder: ['auto', 'hardware', 'software'].includes(src.encoder) ? src.encoder : 'auto',
+    audio: sanitizeRecordingAudio(src.audio),
+    camera: {
+      device: src.camera && typeof src.camera.device === 'string' ? src.camera.device.slice(0, 300) : '',
+      corner: src.camera && CAMERA_CORNERS.includes(src.camera.corner) ? src.camera.corner : 'br',
+      size: src.camera && CAMERA_SIZES.includes(src.camera.size) ? src.camera.size : 'medium',
+      deviceLabel: src.camera && typeof src.camera.deviceLabel === 'string' ? src.camera.deviceLabel.slice(0, 200) : '',
+      flip: Boolean(src.camera && src.camera.flip),
+      background: src.camera && ['key', 'blur'].includes(src.camera.background) ? src.camera.background : 'none',
+      cx: src.camera && Number.isFinite(Number(src.camera.cx)) ? Math.min(1, Math.max(0, Number(src.camera.cx))) : 0.5,
+      cy: src.camera && Number.isFinite(Number(src.camera.cy)) ? Math.min(1, Math.max(0, Number(src.camera.cy))) : 0.5,
+      blur: src.camera && Number.isFinite(Number(src.camera.blur)) ? Math.min(100, Math.max(0, Math.round(Number(src.camera.blur)))) : 50,
+      keyColor: src.camera && typeof src.camera.keyColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(src.camera.keyColor) ? src.camera.keyColor.toLowerCase() : '#00b140',
+      keyTolerance: src.camera && Number.isFinite(Number(src.camera.keyTolerance)) ? Math.min(100, Math.max(0, Math.round(Number(src.camera.keyTolerance)))) : 35,
+      keySoftness: src.camera && Number.isFinite(Number(src.camera.keySoftness)) ? Math.min(100, Math.max(0, Math.round(Number(src.camera.keySoftness)))) : 25,
+    },
+    toolbar: {
+      auto: !src.toolbar || src.toolbar.auto !== false,
+      atStart: Boolean(src.toolbar && src.toolbar.atStart),
+      preview: !src.toolbar || src.toolbar.preview !== false,
+      hidePreviewOnRecord: !src.toolbar || src.toolbar.hidePreviewOnRecord !== false,
+      keepReady: Boolean(src.toolbar && src.toolbar.keepReady),
+      x: src.toolbar && Number.isInteger(src.toolbar.x) ? src.toolbar.x : null,
+      y: src.toolbar && Number.isInteger(src.toolbar.y) ? src.toolbar.y : null,
+    },
+  };
+}
+
 function sanitizeObs(input) {
   const d = defaultObs();
   const src = input && typeof input === 'object' ? input : {};
@@ -905,6 +1006,7 @@ function sanitizeConfig(input) {
     session: sanitizeSession(src.session),
     obsPins: sanitizeObsPins(src.obsPins),
     teleprompter: sanitizeTeleprompter(src.teleprompter),
+    recording: sanitizeRecording(src.recording),
     metadataFields: sanitizeMetadataFields(src.metadataFields),
     appWindows: sanitizeAppWindows(src.appWindows),
     panel: sanitizePanel(src.panel),
@@ -955,6 +1057,7 @@ function profileFromFlat(flat, id, name) {
     session: flat.session,
     obsPins: flat.obsPins,
     teleprompter: flat.teleprompter,
+    recording: flat.recording,
     automations: { enabled: flat.automations.enabled, ruleSets: flat.automations.ruleSets },
     tavern: pick(flat.tavern, TAVERN_PROFILE_KEYS),
     youtube: pick(flat.youtube, YOUTUBE_PROFILE_KEYS),
@@ -997,6 +1100,7 @@ function flatFor(stored, profile) {
     session: profile.session,
     obsPins: profile.obsPins,
     teleprompter: profile.teleprompter,
+    recording: profile.recording,
   });
 }
 

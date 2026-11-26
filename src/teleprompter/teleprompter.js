@@ -115,15 +115,36 @@ function resetCues() {
   lastScrollY = window.scrollY;
 }
 
+// ---- holds: a cue that stops the scrolling until the presenter continues ----------------------
+
+const holdBanner = document.getElementById('hold-banner');
+const holdLabel = document.getElementById('hold-label');
+let heldCue = null; // the hold the script is stopped at
+function showHold(el) {
+  heldCue = el;
+  holdLabel.textContent = el.dataset.label;
+  holdBanner.hidden = false;
+  document.body.classList.remove('hide-cursor');
+}
+function hideHold() { heldCue = null; holdBanner.hidden = true; }
+document.getElementById('hold-continue').addEventListener('click', () => { hideHold(); setPlaying(true); });
+
 function checkCues() {
   if (editing()) return;
+  // Scrolled well away from the hold by hand: it is no longer what the banner is about.
+  if (heldCue && Math.abs(middleOf(heldCue) - lineY()) > window.innerHeight * 0.45) hideHold();
   const n = passed();
   const jump = Math.abs(window.scrollY - lastScrollY) > window.innerHeight * 0.6;
   if (n > lastIndex && !jump) {
     for (let i = lastIndex; i < n; i += 1) {
       const el = cueEls[i];
       window.prompter.cue({ event: el.dataset.cue, label: el.dataset.label, kind: el.dataset.kind });
-      status(`${el.dataset.kind === 'heading' ? 'Heading' : 'Cue'}: ${el.dataset.label}`);
+      if (el.dataset.kind === 'hold') {
+        // Stop right here, however long it takes: Space, the Continue button or the Play control carries on.
+        if (playing) setPlaying(false);
+        showHold(el);
+        status(`Hold: ${el.dataset.label}`);
+      } else status(`${el.dataset.kind === 'heading' ? 'Heading' : 'Cue'}: ${el.dataset.label}`);
     }
   }
   lastIndex = n;
@@ -186,6 +207,7 @@ function showContent(content) {
 let playing0 = false;
 function setPlaying(on) {
   playing = on;
+  if (on) hideHold();
   pos = window.scrollY;
   if (on !== playing0) status(on ? 'Scrolling' : 'Paused');
   playing0 = on;
