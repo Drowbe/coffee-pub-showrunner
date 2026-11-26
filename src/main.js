@@ -77,12 +77,25 @@ function selectorCandidates(text) {
 
 app.setName(DATA_NAME);
 
+// Startup timing, written to <userData>/startup.log so a stall at launch shows
+// up with a name even in a packaged app (which has no console).
+const STARTUP_T0 = Date.now();
+const startupLines = [];
+function startupMark(label) {
+  const line = `${String(Date.now() - STARTUP_T0).padStart(6)} ms  ${label}`;
+  startupLines.push(line);
+  console.log(`[startup] ${line}`);
+  try { fs.writeFileSync(path.join(app.getPath('userData'), 'startup.log'), `${new Date(STARTUP_T0).toISOString()}\n${startupLines.join('\n')}\n`); } catch { /* ignore */ }
+}
+
 // Keep the view windows rendering at full rate even when they are not focused
 // or are behind other windows. OBS captures whatever the window paints, so
 // throttled rendering would show up as a stuttering source.
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
-app.commandLine.appendSwitch('disable-background-timer-throttling');
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+if (!process.env.SHOWRUNNER_NO_UNTHROTTLE) {
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-background-timer-throttling');
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+}
 // Let Foundry play audio without a click first.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // Play audio from the app's own process rather than Chromium's audio helper
@@ -3260,7 +3273,8 @@ function createControlWindow() {
     },
   });
   controlWindow.loadFile(path.join(__dirname, 'control', 'index.html'));
-  controlWindow.once('ready-to-show', () => controlWindow.show());
+  controlWindow.once('ready-to-show', () => { startupMark('control window ready to show'); controlWindow.show(); });
+  controlWindow.webContents.once('did-finish-load', () => startupMark('control window page loaded'));
   // Closing the panel hides it; the app keeps running so OBS keeps its sources.
   controlWindow.on('close', (event) => {
     if (!quitting) {
@@ -4847,13 +4861,17 @@ if (!app.requestSingleInstanceLock()) {
       applicationVersion: app.getVersion(),
       credits: 'Two fixed-size Chromium windows for capturing FoundryVTT in OBS.',
     });
+    startupMark('app ready');
     configureSession();
     registerIpc();
+    startupMark('session + ipc set up');
     registerToolbarIpc();
     buildMenu();
     setupTray();
+    startupMark('tray + dock set up');
     setupDock();
     createControlWindow();
+    startupMark('control window created');
     // If the app closed in the middle of a recording last time, say where the file is (it is still playable).
     const interrupted = builtInRecorder.takeInterrupted();
     if (interrupted) {
@@ -4862,10 +4880,14 @@ if (!app.requestSingleInstanceLock()) {
       logActivity('Recorder', message, 'error');
       setTimeout(() => { if (isAlive(controlWindow)) controlWindow.webContents.send('toast', message); broadcastStatus(); }, 3000);
     }
+    startupMark('about to open Foundry windows');
     openLaunchViews();
+    startupMark('Foundry windows requested');
     { const rc = configStore.get().recording; if (rc.backend === 'builtin' && rc.toolbar.atStart) openToolbar({ focus: false }); }
+    startupMark('toolbar + views opened');
     scheduleWarm();
     if (configStore.get().teleprompter.enabled) openPrompter();
+    startupMark('recorder warm scheduled');
     obs.start().catch(() => {});
     tavern.start().catch(() => {});
     syncAutomationsServer().catch(() => {});
