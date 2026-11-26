@@ -9,10 +9,17 @@ in use at the time, except where noted.
 
 Releases 0.1.5 to 0.1.8 were never tagged; their changes are listed under 0.1.9.
 
-## Unreleased
+## 0.5.0 -- 2026-11-25
+
+### The Showrunner Recorder (Mac)
+
+The app can now record its own windows, your webcam and your microphone to a video file, with no OBS needed. This first release is for Mac; Windows follows.
+
+- **Calmer startup.** The windows now appear before the app reads its saved passwords from the keychain. A first-time keychain question used to freeze the app with every window black until it was answered. The app also writes `startup.log` in its data folder.
+- **Clearer capture choices.** **Window picture** is now **Screen recording** or **Built-in snapshots**, with a plain line under it. Calibrate asks macOS for Screen Recording itself and refuses to measure in a mode your recordings would not use.
 
 - **Calibrate the webcam against the microphone.** A **Calibrate** button beside **Match voice to webcam** records a short private clip
-  while you clap about five times in front of the camera, measures how late the picture is against the sound, sets the delay and
+  while you clap six times in front of the camera on a countdown, measures how late the picture is against the sound, sets the delay and
   deletes the clip. **Recorder fixes:** the bundled ffmpeg no longer waits five seconds to probe its inputs (that left pictures unread,
   then dropped them and put the video out of step with the sound); a late encoder now repeats the last picture instead of dropping
   any; a stuck encoder is detected by pictures piling up, not by the file's size; and the Mac app is signed ad hoc so macOS remembers
