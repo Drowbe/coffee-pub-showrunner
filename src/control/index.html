@@ -346,11 +346,12 @@
             <select id="rec-size"><option value="1920x1080">1920 x 1080</option><option value="1280x720">1280 x 720</option></select></label>
           <label class="field field-inline"><span>Frames per second</span>
             <select id="rec-fps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select></label>
-          <label class="field field-inline" id="rec-capture-field" title="How Showrunner gets the picture of each chosen window. Only that window is recorded, never your whole screen. Capture the window works the way OBS's window capture does: the picture comes from the system, so it keeps up better while the window is busy. macOS asks for its Screen Recording permission for this (the permission is named that way, but Showrunner only records the window you chose), and the window must be on screen. Copy the window needs no permission but can stutter while the window is busy."><span>Capture method</span>
-            <select id="rec-capture"><option value="pictures">Copy the window (no permission)</option><option value="screen">Capture the window (like OBS)</option></select></label>
+          <label class="field field-inline" id="rec-capture-field" title="How Showrunner gets the picture of the window you chose. Only that window is recorded, never your whole screen."><span>Window picture</span>
+            <select id="rec-capture"><option value="screen">Screen recording</option><option value="pictures">Built-in snapshots</option></select></label>
           <label class="field field-inline" title="Automatic uses the Mac's own encoder, which is light on the processor, and switches to software if it stalls. Software always works but uses more of the processor."><span>Video encoder</span>
             <select id="rec-encoder"><option value="auto">Automatic</option><option value="hardware">Hardware</option><option value="software">Software</option></select></label>
         </div>
+        <p class="hint" id="rec-capture-hint"></p>
         <div class="row">
           <label class="field field-inline field-grow"><span>Save to</span><input id="rec-folder" type="text" placeholder="Your Movies folder"></label>
           <button class="btn" id="rec-browse" type="button">Browse...</button>
