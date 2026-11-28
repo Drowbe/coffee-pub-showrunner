@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>html,body{margin:0;overflow:hidden;background:#000}canvas{display:block;width:100vw;height:100vh}</style>
+<canvas id="c" width="480" height="270"></canvas>
+<script>
+// Every 1.513 s (not a multiple of the frame time, so the average is fair) the page turns white and beeps in the same instant, the
+// way a game shows an effect and plays its sound together.
+const g = document.getElementById('c').getContext('2d');
+let actx = null; let next = 0; let whiteUntil = 0; let n = 0;
+window.begin = () => { actx = new AudioContext(); next = performance.now() + 2500; };
+// SPIKE_TONE: one unbroken tone instead, so that any hole or jump the recorder puts into the sound can be found in the file.
+window.tone = (level) => { actx = new AudioContext(); next = Infinity; const o = actx.createOscillator(); const gain = actx.createGain(); gain.gain.value = level; o.frequency.value = 440; o.connect(gain); gain.connect(actx.destination); o.start(); };
+function draw(now) {
+  if (actx && now >= next) {
+    next += 1513; whiteUntil = now + 150; n += 1;
+    const o = actx.createOscillator(); const gain = actx.createGain(); gain.gain.value = 0.1; o.frequency.value = 1000; // quiet: with SPIKE_AUDIBLE it is heard
+    o.connect(gain); gain.connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.1);
+  }
+  g.fillStyle = now < whiteUntil ? '#fff' : '#000'; g.fillRect(0, 0, 480, 270);
+  // something small keeps changing, so the screen capture keeps delivering pictures between flashes
+  g.fillStyle = `rgb(${Math.round(now / 8) % 60},0,0)`; g.fillRect(0, 262, 8, 8);
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>

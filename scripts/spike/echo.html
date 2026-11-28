@@ -1,0 +1,40 @@
+<!doctype html>
+<meta charset="utf-8">
+<script>
+// Plays a hiss that comes and goes (about as speech does) out of one speaker, and measures how loud the microphone hears it with
+// Echo cancel off and on. Only loudness numbers leave this page; no sound is recorded or kept.
+const { ipcRenderer } = require('electron');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const { speaker, mic } = await ipcRenderer.invoke('what');
+  const out = { runs: [] };
+  try {
+    (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach((t) => t.stop());
+    const list = await navigator.mediaDevices.enumerateDevices();
+    const sink = list.find((d) => d.kind === 'audiooutput' && d.label.includes(speaker) && !/^(Default|Communications)/.test(d.label));
+    const input = list.find((d) => d.kind === 'audioinput' && d.label.includes(mic) && !/^(Default|Communications)/.test(d.label));
+    if (!sink || !input) throw new Error(`not found: ${!sink ? speaker : mic}`);
+    out.speaker = sink.label; out.microphone = input.label;
+    const play = new AudioContext({ sampleRate: 48000, sinkId: sink.deviceId });
+    const noise = play.createBuffer(1, 48000 * 4, 48000); const data = noise.getChannelData(0); let low = 0;
+    for (let i = 0; i < data.length; i += 1) { low = 0.85 * low + 0.15 * (Math.random() * 2 - 1); data[i] = low * (0.55 + 0.45 * Math.sin((2 * Math.PI * 3 * i) / 48000)); }
+    const listen = new AudioContext({ sampleRate: 48000 });
+    for (const echo of [false, true, false, true]) {
+      // asked exactly as recorder.js openMic() asks
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: echo, noiseSuppression: false, autoGainControl: false, channelCount: 1, deviceId: { exact: input.deviceId } } });
+      const source = listen.createMediaStreamSource(stream); const tap = listen.createScriptProcessor(4096, 1, 1);
+      let sum = 0; let n = 0; let on = false;
+      tap.onaudioprocess = (e) => { if (!on) return; const x = e.inputBuffer.getChannelData(0); for (let i = 0; i < x.length; i += 1) sum += x[i] * x[i]; n += x.length; };
+      source.connect(tap); tap.connect(listen.destination);
+      const measure = async (ms) => { sum = 0; n = 0; on = true; await wait(ms); on = false; return +(10 * Math.log10(sum / n + 1e-12)).toFixed(1); };
+      await wait(1500); const quiet = await measure(2000);
+      const player = play.createBufferSource(); player.buffer = noise; player.loop = true; const gain = play.createGain(); gain.gain.value = 0.35; player.connect(gain); gain.connect(play.destination); player.start();
+      const first = await measure(2000); await wait(2000); const settled = await measure(5000);
+      player.stop();
+      out.runs.push({ echoCancel: echo, setting: stream.getAudioTracks()[0].getSettings().echoCancellation, roomDb: quiet, first2sDb: first, settledDb: settled });
+      tap.disconnect(); source.disconnect(); stream.getTracks().forEach((t) => t.stop());
+    }
+  } catch (err) { out.error = `${err.name}: ${err.message}`; }
+  ipcRenderer.send('done', out);
+})();
+</script>

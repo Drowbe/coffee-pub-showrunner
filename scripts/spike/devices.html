@@ -1,0 +1,36 @@
+<!doctype html>
+<meta charset="utf-8">
+<script>
+// What the app would see of the microphones and webcams, and what each microphone says about echo cancel. Nothing is recorded or kept.
+const { ipcRenderer } = require('electron');
+(async () => {
+  const out = { devices: [], microphone: [], camera: null };
+  try {
+    (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach((t) => t.stop()); // labels need one open first
+    const list = await navigator.mediaDevices.enumerateDevices();
+    out.devices = list.map((d) => ({ kind: d.kind, label: d.label, id: d.deviceId.slice(0, 16) }));
+    for (const d of list.filter((x) => x.kind === 'audioinput' && /yeti|brio|default/i.test(x.label))) {
+      for (const echo of [false, true]) {
+        try {
+          // asked exactly as recorder.js openMic() asks
+          const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: echo, noiseSuppression: false, autoGainControl: false, channelCount: 1, deviceId: { exact: d.deviceId } } });
+          const t = s.getAudioTracks()[0]; const st = t.getSettings(); const cap = t.getCapabilities();
+          out.microphone.push({ label: d.label, askedEchoCancel: echo, got: { echoCancellation: st.echoCancellation, noiseSuppression: st.noiseSuppression, autoGainControl: st.autoGainControl, sampleRate: st.sampleRate, channelCount: st.channelCount }, canEchoCancel: cap.echoCancellation, state: t.readyState });
+          t.stop();
+        } catch (err) { out.microphone.push({ label: d.label, askedEchoCancel: echo, error: `${err.name}: ${err.message}` }); }
+      }
+    }
+    try {
+      // asked exactly as recorder.js openCam() asks
+      const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } } });
+      const t = s.getVideoTracks()[0]; const st = t.getSettings();
+      const v = document.createElement('video'); v.muted = true; v.srcObject = s; await v.play();
+      let frames = 0; const tick = () => { frames += 1; v.requestVideoFrameCallback(tick); }; v.requestVideoFrameCallback(tick);
+      await new Promise((r) => setTimeout(r, 2000)); frames = 0; await new Promise((r) => setTimeout(r, 5000));
+      out.camera = { label: t.label, width: st.width, height: st.height, frameRate: st.frameRate, deliveredFps: +(frames / 5).toFixed(1) };
+      t.stop();
+    } catch (err) { out.camera = { error: `${err.name}: ${err.message}` }; }
+  } catch (err) { out.error = `${err.name}: ${err.message}`; }
+  ipcRenderer.send('done', out);
+})();
+</script>

@@ -1,0 +1,111 @@
+<!doctype html>
+<meta charset="utf-8">
+<script>
+// Feeds ffmpeg the way src/recorder/recorder.js does (from a hidden Electron page: raw RGBA on stdin, raw f32le sound on a second
+// route), using the app's own buildArgs, and times every write.
+const { ipcRenderer } = require('electron');
+const { spawn } = require('child_process');
+const net = require('net');
+const path = require('path');
+const { buildArgs } = require(path.join(__dirname, '..', '..', 'src', 'ffmpeg.js'));
+
+const RATE = 48000; const BLOCK = 1024; // the size tap-worklet.js posts
+const W = 1920; const H = 1080; const FPS = 30;
+const NVENC = ['-c:v', 'h264_nvenc', '-preset', 'p4', '-tune', 'll', '-rc', 'vbr', '-b:v', '8M', '-g', String(FPS * 2)];
+
+// Eight pictures made ahead of time, different from each other: bands that move, and a square of noise.
+function pictures() {
+  return Array.from({ length: 8 }, (_v, n) => {
+    const buf = Buffer.alloc(W * H * 4); const u = new Uint32Array(buf.buffer, buf.byteOffset, W * H);
+    for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) u[y * W + x] = 0xff000000 | (((x + n * 40) & 255)) | ((y & 255) << 8) | ((((x + y) >> 3) & 255) << 16);
+    for (let y = 100; y < 500; y += 1) for (let x = 100 + n * 100; x < 500 + n * 100; x += 1) u[y * W + x] = 0xff000000 | ((Math.random() * 0xffffff) >>> 0);
+    return buf;
+  });
+}
+
+const stats = (list) => { if (!list.length) return null; const s = Float64Array.from(list).sort(); const q = (p) => +s[Math.min(s.length - 1, Math.floor(s.length * p))].toFixed(1); return { n: s.length, median: q(0.5), p99: q(0.99), max: +s[s.length - 1].toFixed(1) }; };
+
+ipcRenderer.on('run', async (_e, { ffmpeg, route, codec, seconds, out, noQueueSize }) => {
+  const result = { route, codec, seconds, removedThreadQueueSize: noQueueSize };
+  try {
+    const frames = pictures();
+    const args = buildArgs({ width: W, height: H, fps: FPS, format: 'mp4', codec: 'x264', out, offsetMs: 0 });
+    for (let i = args.indexOf('-thread_queue_size'); noQueueSize && i >= 0; i = args.indexOf('-thread_queue_size')) args.splice(i, 2);
+    if (codec === 'nvenc') { const from = args.indexOf('-c:v'); args.splice(from, args.lastIndexOf('-pix_fmt') - from, ...NVENC); }
+    let server = null; let socket = null; let connectedAt = 0; const waiting = [];
+    const spawnedAtRef = { at: 0 };
+    const connected = (s) => { socket = s; connectedAt = performance.now(); s.on('error', (err) => { result.audioError = err.message; }); for (const w of waiting.splice(0)) w(); };
+    if (route !== 'fd3') {
+      server = net.createServer(connected);
+      const where = route === 'pipe' ? `\\\\.\\pipe\\showrunner-audio-${process.pid}-${Date.now()}` : null;
+      await new Promise((resolve, reject) => { server.on('error', reject); if (where) server.listen(where, resolve); else server.listen(0, '127.0.0.1', resolve); });
+      args[args.indexOf('pipe:3')] = where || `tcp://127.0.0.1:${server.address().port}`;
+    }
+    args.splice(args.indexOf('-y'), 0, '-progress', 'pipe:1', '-stats_period', '1');
+    args[args.indexOf('-loglevel') + 1] = 'warning';
+    result.command = args.join(' ');
+    spawnedAtRef.at = performance.now();
+    const child = spawn(ffmpeg, args, { stdio: route === 'fd3' ? ['pipe', 'pipe', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'] });
+    const video = child.stdin; let audio = route === 'fd3' ? child.stdio[3] : null;
+    let stderr = ''; child.stderr.on('data', (d) => { stderr = (stderr + d).slice(-3000); });
+    for (const p of [video, audio]) if (p) p.on('error', (err) => { result.pipeError = err.message; });
+    let exited = null; const closed = new Promise((resolve) => child.on('close', (code) => { exited = code; resolve(code); }));
+    const progress = []; let block = {}; let t0 = 0; let firstOutput = null;
+    child.stdout.on('data', (d) => {
+      for (const line of String(d).split('\n')) {
+        const [k, v] = line.trim().split('=');
+        if (!k) continue; block[k] = v;
+        if (k === 'progress') {
+          const at = performance.now() - t0; const outMs = Number(block.out_time_us) / 1000;
+          if (outMs > 0) { if (firstOutput === null) firstOutput = Math.round(at); progress.push({ at, lag: at - outMs, frame: Number(block.frame), drop: Number(block.drop_frames), dup: Number(block.dup_frames), speed: block.speed, last: v === 'end' }); }
+          block = {};
+        }
+      }
+    });
+    const videoMs = []; const audioMs = []; const frameBytes = W * H * 4;
+    let sentFrames = 0; let sentSamples = 0; let queuedSamples = 0; let maxVideoBacklog = 0; let maxAudioBacklog = 0; let behindTicks = 0; let lastTick = 0; let worstTick = 0;
+    const pendingAudio = [];
+    const writeAudio = (buf) => { if (!audio) { pendingAudio.push(buf); return; } const s = performance.now(); audio.write(buf, () => audioMs.push(performance.now() - s)); };
+    if (route !== 'fd3') waiting.push(() => { audio = socket; for (const b of pendingAudio.splice(0)) writeAudio(b); });
+    t0 = performance.now(); lastTick = t0;
+    // The picture: one write for every frame the clock says is due, as in draw().
+    const draw = setInterval(() => {
+      const now = performance.now(); worstTick = Math.max(worstTick, now - lastTick); lastTick = now;
+      const backlog = video.writableLength / frameBytes; maxVideoBacklog = Math.max(maxVideoBacklog, backlog); if (backlog > FPS) behindTicks += 1;
+      const due = Math.min(seconds * FPS, Math.floor(((now - t0) / 1000) * FPS) + 1);
+      while (sentFrames < due && exited === null) { const s = performance.now(); video.write(frames[sentFrames % frames.length], () => videoMs.push(performance.now() - s)); sentFrames += 1; }
+    }, 1000 / FPS);
+    // The sound: an unbroken tone in blocks of 1024 samples, so any gap in the file shows.
+    const sound = setInterval(() => {
+      if (audio) maxAudioBacklog = Math.max(maxAudioBacklog, audio.writableLength);
+      const due = Math.min(seconds * RATE, Math.floor(((performance.now() - t0) / 1000) * RATE));
+      while (queuedSamples + BLOCK <= due && exited === null) {
+        const f = new Float32Array(BLOCK * 2);
+        for (let i = 0; i < BLOCK; i += 1) { const v = 0.3 * Math.sin((2 * Math.PI * 440 * (queuedSamples + i)) / RATE); f[i * 2] = v; f[i * 2 + 1] = v; }
+        writeAudio(Buffer.from(f.buffer)); queuedSamples += BLOCK;
+      }
+    }, 10);
+    const reportTimer = setInterval(() => { const p = progress[progress.length - 1]; ipcRenderer.send('progress', `${route} ${codec} t=${Math.round((performance.now() - t0) / 1000)}s frames ${sentFrames} out ${p ? p.frame : '-'} lag ${p ? Math.round(p.lag) : '-'} ms backlog ${maxVideoBacklog.toFixed(1)}`); }, 30000);
+    while (performance.now() - t0 < seconds * 1000 + 100 && exited === null) await new Promise((r) => setTimeout(r, 100));
+    clearInterval(draw); clearInterval(sound); clearInterval(reportTimer);
+    sentSamples = queuedSamples;
+    result.endedEarly = exited !== null;
+    const endAt = performance.now();
+    video.end(); if (audio) audio.end();
+    const code = await Promise.race([closed, new Promise((r) => setTimeout(() => r('timeout'), 20000))]);
+    if (code === 'timeout') child.kill('SIGKILL');
+    if (server) server.close();
+    const settled = progress.filter((p) => p.at > 5000 && !p.last).map((p) => p.lag);
+    const end = progress[progress.length - 1] || {};
+    Object.assign(result, {
+      exit: code, finishMs: Math.round(performance.now() - endAt), sentFrames, sentSamples,
+      audioConnectMs: connectedAt ? Math.round(connectedAt - spawnedAtRef.at) : null, firstOutputMs: firstOutput,
+      videoWriteMs: stats(videoMs), audioWriteMs: stats(audioMs), maxVideoBacklogFrames: +maxVideoBacklog.toFixed(1), ticksOverOneSecondBehind: behindTicks,
+      maxAudioBacklogBytes: maxAudioBacklog, worstTimerGapMs: Math.round(worstTick),
+      encoderLagMs: stats(settled), lagAtStartMs: settled.length ? Math.round(settled[0]) : null, lagAtEndMs: settled.length ? Math.round(settled[settled.length - 1]) : null,
+      ffmpegDropped: end.drop, ffmpegDuplicated: end.dup, ffmpegFrames: end.frame, stderr: stderr.trim().slice(-1200),
+    });
+  } catch (err) { result.error = err.stack || String(err); }
+  ipcRenderer.send('done', result);
+});
+</script>
