@@ -10,7 +10,7 @@ The four spike questions mostly come out well: the encoders are fast, window cap
 
 | # | Problem | Effect | How sure |
 |---|---|---|---|
-| 1 | Recorded window sound has silent holes of about 120 ms every 4 to 16 s, and many small breaks | Audible faults in recordings; timing constants cannot be set | Measured. Cause not found. One PC only |
+| 1 | Recorded window sound has silent holes of about 120 ms every 4 to 16 s, and many small breaks | Audible faults in recordings; timing constants cannot be set | Measured. Cause traced to the page's copy of its sound (`tap-preload.js`). One PC only |
 | 2 | Calibrate fails: `src/calibrate.js` puts a `C:\...` path inside an ffmpeg filter (lines 48, 49) | Calibrate always errors | Measured; goes away when the path is escaped |
 | 3 | ffmpeg `master` refuses `-thread_queue_size` on an input (`src/ffmpeg.js`) | The app cannot record with that build | Measured. n8.1 accepts it |
 | 4 | Webcam picture is 145 ms or more *ahead* of the voice; the delay setting cannot go below 0, and Calibrate drops readings beyond -150 ms | Cannot be corrected; Calibrate often matches too few claps | Measured |
@@ -150,8 +150,30 @@ An unbroken 440 Hz tone from a window, recorded by the app's recorder. The same 
 | Window audible | 87 s | 12 / 12 | 109 to 132 ms | 544 / 571 |
 | Without `disable-features=AudioServiceOutOfProcess` | 57 s | 5 / 5 | 118 to 136 ms | 285 / 277 |
 
-- A hole matches `AUDIO_CUSHION` (0.12 s): `src/recorder/recorder.js:55` restarts a source that far ahead when its next chunk is late. A likely explanation, not proven, is that the page's `ScriptProcessor` copy loses small pieces until the cushion runs out.
-- Not checked: a real Foundry page, another output device (the default here is a SteelSeries Sonar virtual device), the microphone path, or the same test on a Mac.
+
+#### Cause
+
+The tone was followed through each stage of the app's sound path (`trace.js`, 40 s a run unless said; counters added in memory).
+
+**The copy the page makes with `ScriptProcessor` (`src/recorder/tap-preload.js:30`) delivers less sound than the page plays.** The recorder queues each piece after the one before (`src/recorder/recorder.js:52-57`), so the shortfall uses up the head start (about 0.1 s). When it is gone, line 55 starts the next piece `AUDIO_CUSHION` (0.12 s) ahead: that is the hole. The lost pieces are the small breaks.
+
+| How the page copies its sound | Page rate (Hz) | Share of the sound delivered | Holes the recorder made |
+|---|---|---|---|
+| As the app does (`ScriptProcessor`, 2048) | 96000 | 98.42%, 98.83% | 5, 4 |
+| As the app, page not drawing | 96000 | 98.42% | 5 |
+| As the app, page asking for 48 kHz | 48000 | 99.69% | 1 |
+| The same, page not drawing | 48000 | 99.87% | 0 |
+| `ScriptProcessor`, 16384 | 96000 | 99.61% | 1 |
+| **`AudioWorklet`**, 2048 | 96000 | **100.00%** | **0** |
+| `AudioWorklet`, Screen recording | 96000 | 100.00% | 0 |
+| `AudioWorklet`, 180 s | 96000 | 100.00% | 0 |
+
+- The sound is already broken when it leaves the page. The later stages add only the holes: the writer to ffmpeg padded and threw away nothing in any run, and ffmpeg is clean (question 3).
+- With the `AudioWorklet` copy, the finished files had no holes and no breaks, and the head start stayed between 75 and 136 ms.
+- This PC's default output (a SteelSeries Sonar virtual device) runs pages at 96 kHz, which loses the most. At 48 kHz sound is still lost, only more slowly: at the measured rates a hole about every 40 to 90 s, so other PCs are likely affected too.
+- Page drawing is not the reason. Why Chromium's `ScriptProcessor` loses sound here was not established.
+- The `AudioWorklet` copy tested is spike code (`trace-page.js`), not a change to the app. A real fix must also cover media elements and live streams (they use the same copy), and a page whose security policy blocks loading a worklet from a `blob:` address.
+- Not checked: a real Foundry page, another output device, the microphone (it does not go through this copy), or the Mac.
 
 ## 5. Leftovers
 
@@ -171,16 +193,16 @@ An unbroken 440 Hz tone from a window, recorded by the app's recorder. The same 
 
 | Open question | Recommendation |
 |---|---|
-| Fix first | The sound holes. Run `SPIKE_TONE=0.3` with `av-sync.js` on the Mac to learn whether this is Windows only |
+| Fix first | The sound holes: replace the `ScriptProcessor` copy in `tap-preload.js` with an `AudioWorklet`, and test it on a real Foundry page. Run `trace.js` with `asis worklet` on the Mac too, as the code is shared |
 | Then | Escape the Calibrate path; let Calibrate use the screen-mode shift on Windows; allow holding the webcam back, and widen the -150 ms limit |
 | ffmpeg build | Pin an n8.1 (or 7.1, matching the Mac) build by a dated release tag and SHA-256, not `latest` or `master` |
 | Sound route | Keep `pipe:3`. A named pipe is a proven spare |
 | Encoder | NVENC first, then QuickSync, then x264. The health check that switches to software only watches `videotoolbox` (`recorder.js:415`) and must cover them. Stop x264's 67 ms shift (for example `-bf 0`, untested) |
 | Window picture default | Screen recording, once timing is fixed. It works covered and on another monitor and reaches 60 fps. Warn about, or prevent, minimising |
 | Capture behind other windows | Works; the window need not be on top |
-| Timing constants | Measure again after the sound fix |
+| Timing constants | Measure again after the sound fix: the head start swinging between 0 and 0.16 s likely moved the readings |
 | AMF | Untested until an AMD machine is available |
 
 ## Running the tests again
 
-Each script's first lines say how. `window-capture.js` and `av-sync.js` open windows on screen, `echo.js` plays sound, and `devices.js` opens the microphones and webcam briefly.
+Each script's first lines say how. `window-capture.js`, `av-sync.js` and `trace.js` open windows on screen, `echo.js` plays sound, and `devices.js` opens the microphones and webcam briefly.
