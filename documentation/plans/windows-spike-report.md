@@ -10,7 +10,7 @@ The four spike questions mostly come out well: the encoders are fast, window cap
 
 | # | Problem | Effect | How sure |
 |---|---|---|---|
-| 1 | Recorded window sound has silent holes of about 120 ms every 4 to 16 s, and many small breaks | Audible faults in recordings; timing constants cannot be set | Measured. Cause traced to the page's copy of its sound (`tap-preload.js`). One PC only |
+| 1 | Recorded window sound has silent holes of about 120 ms every 4 to 16 s, and many small breaks | Audible faults in recordings; timing constants cannot be set | Measured. Cause traced to the page's copy of its sound (`tap-preload.js`). One PC only. See the re-test at the end |
 | 2 | Calibrate fails: `src/calibrate.js` puts a `C:\...` path inside an ffmpeg filter (lines 48, 49) | Calibrate always errors | Measured; goes away when the path is escaped |
 | 3 | ffmpeg `master` refuses `-thread_queue_size` on an input (`src/ffmpeg.js`) | The app cannot record with that build | Measured. n8.1 accepts it |
 | 4 | Webcam picture is 145 ms or more *ahead* of the voice; the delay setting cannot go below 0, and Calibrate drops readings beyond -150 ms | Cannot be corrected; Calibrate often matches too few claps | Measured |
@@ -206,3 +206,48 @@ The tone was followed through each stage of the app's sound path (`trace.js`, 40
 ## Running the tests again
 
 Each script's first lines say how. `window-capture.js`, `av-sync.js` and `trace.js` open windows on screen, `echo.js` plays sound, and `devices.js` opens the microphones and webcam briefly.
+
+## Re-test on `audio-worklet` (`6c03892`)
+
+Run on 2026-11-27 on this PC, with the n8.1 build. That branch changes the sound copy in `tap-preload.js`; it is not merged here. Its extra test variants and `serve.js` are on that branch.
+
+### Sound
+
+| Case | Page rate (Hz) | Length | Delivered | Holes | Head start (ms) |
+|---|---|---|---|---|---|
+| Local page, as the app does | 96000 | 180 s | 100.00% | 0 | 13 to 131 |
+| Local page at 48 kHz | 48000 | 90 s | 100.01% | 0 | 67 to 117 |
+| Media element playing a live stream | 96000 | 90 s | 100.01% | 0 | 93 to 131 |
+| Foundry login page (`game.coffeepub.live/join`) | 96000 | 60 s | 100.01% | 0 | 80 to 117 |
+| **Insecure address** (`http://` on the PC's network address) | 96000 | 180 s | **98.97%** | **15** (about 120 ms; one 232 ms) | 0 to 304 |
+
+- **The holes are gone wherever the worklet loads.** The files had no breaks either.
+- **An insecure address still has them,** about one every 12 s. It reports "Sound copy by the older method: no audio worklets on this page". A Foundry server opened over plain `http://` on a local network would be in this case. A larger fallback block loses less but not nothing (16384: 99.61% and one hole in 40 s, in the earlier trace).
+- On the Foundry login page, Foundry had not made an audio context yet, so the tone used one made by the test. Sound from a logged-in game was not tested.
+
+### Timing
+
+`av-sync.js`, window sound copied by the worklet, x264. Median ms the picture is late against the beep.
+
+| Run | Screen recording | Built-in snapshots |
+|---|---|---|
+| Muted, 75 s, 1 | 238 | 300 |
+| Muted, 75 s, 2 | 227 | 293 |
+| Audible, 45 s, 1 | 230 | 317 |
+| Audible, 45 s, 2 | 231 | 305 |
+| **Average** | **232** | **304** |
+
+Readings no longer climb and jump back. These replace the "rough Windows figures" above:
+
+| Windows value | With x264 as it is (picture 66.7 ms late) | With that shift removed |
+|---|---|---|
+| `VIDEO_DELAY_MS` (Mac 335) | about 35 | about 100 |
+| Sound lead in screen mode, `VIDEO_DELAY_MS - SCREEN_LATENCY_MS` (Mac 275) | about 43 | about 110 |
+| `SCREEN_LATENCY_MS` that follows | about 0 | about 0 |
+| Webcam picture ahead of the voice, Built-in snapshots | about 145 | about 210 |
+| Webcam picture ahead of the voice, Screen recording | about 100 | about 100 |
+
+- Worked out as 335 (or 275) minus the measured lateness, taking about 300 ms for snapshots and 232 ms for screen. The values have not been tried in the app. Expect about ±20 ms.
+- "With that shift removed" is arithmetic; no encoder setting without it was measured. NVENC as tested wrote no shift (question 3 files).
+- The webcam rows use the earlier Calibrate readings, adjusted by the sound lead; only the first x264 snapshot figure (145) was measured directly.
+- **Calibrate was not run again.** It records no window sound, and this branch changes nothing it uses.
