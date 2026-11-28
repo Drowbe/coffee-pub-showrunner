@@ -1,0 +1,72 @@
+<!doctype html>
+<meta charset="utf-8">
+<script>
+// Opens a window capture the way src/recorder/recorder.js openScreen() does, and counts what arrives.
+const { ipcRenderer } = require('electron');
+const CELL = 24; const OX = 100; const OY = 100;
+let stream = null; let copy = null; let video = null; let reader = null; let stats = null; let origin = null; let topRows = null; // colours down the left edge of the first picture, to check the crop
+const full = document.createElement('canvas'); const fg = full.getContext('2d', { willReadFrequently: true });
+const bar = document.createElement('canvas'); const bg = bar.getContext('2d', { willReadFrequently: true });
+const fresh = () => ({ frames: 0, rvfc: 0, decoded: 0, unique: new Set(), lat: [], gaps: [], last: 0 });
+
+function findMarker(frame) {
+  full.width = frame.displayWidth; full.height = frame.displayHeight; fg.drawImage(frame, 0, 0);
+  const w = Math.min(300, full.width); const h = Math.min(300, full.height);
+  const d = fg.getImageData(0, 0, w, h).data;
+  for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) { const i = (y * w + x) * 4; if (d[i] > 200 && d[i + 1] < 70 && d[i + 2] > 200) return { x, y }; }
+  return null;
+}
+function decode(frame, scale) {
+  const cell = CELL * scale; const w = Math.ceil(32 * cell); const h = Math.ceil(3 * cell);
+  if (bar.width !== w || bar.height !== h) { bar.width = w; bar.height = h; }
+  bg.drawImage(frame, origin.x + OX * scale, origin.y + OY * scale, w, h, 0, 0, w, h);
+  const d = bg.getImageData(0, 0, w, h).data;
+  const row = (r) => { let v = 0; for (let i = 0; i < 32; i += 1) { const x = Math.floor((i + 0.5) * cell); const y = Math.floor((r + 0.5) * cell); v = (v * 2) + (d[(y * w + x) * 4 + 1] > 127 ? 1 : 0); } return v; };
+  const t = row(0); const n = row(1); const inv = row(2);
+  return ((~t) >>> 0) === inv && n > 0 ? { t, n } : null;
+}
+
+async function openCapture({ sourceId, fps, scale, min, display, noSize }) {
+  try {
+    // "display" is the other way in (getDisplayMedia), only used to see whether it can go faster.
+    stream = display
+      ? await navigator.mediaDevices.getDisplayMedia({ audio: false, video: { frameRate: { ideal: fps, max: fps } } })
+      : await navigator.mediaDevices.getUserMedia({ audio: false, video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sourceId, maxFrameRate: fps, ...(noSize ? {} : { maxWidth: 3840, maxHeight: 2160 }), ...(min ? { minFrameRate: fps } : {}) } } });
+    video = document.createElement('video'); video.muted = true; video.srcObject = stream; await video.play();
+    const track = stream.getVideoTracks()[0];
+    stats = fresh(); origin = null;
+    const tick = () => { stats.rvfc += 1; if (video) video.requestVideoFrameCallback(tick); }; video.requestVideoFrameCallback(tick);
+    let ended = false; track.onended = () => { ended = true; ipcRenderer.send('capture:note', 'track ended'); };
+    // A copy of the track feeds the counter. It must be stopped on close, or the next capture of the window keeps this frame rate.
+    copy = track.clone(); reader = new MediaStreamTrackProcessor({ track: copy }).readable.getReader();
+    (async () => {
+      for (;;) {
+        const { value: frame, done } = await reader.read();
+        if (done) break;
+        const now = performance.timeOrigin + performance.now();
+        stats.frames += 1;
+        if (stats.last) stats.gaps.push(now - stats.last); stats.last = now;
+        if (!origin) { origin = findMarker(frame); topRows = Array.from({ length: 32 }, (_v, y) => `${y}:${Array.from(fg.getImageData(5, y, 1, 1).data.slice(0, 3)).join(',')}`); }
+        if (origin) {
+          const got = decode(frame, scale);
+          if (got) { stats.decoded += 1; stats.unique.add(got.n); const lat = ((Math.round(now) % 4294967296) - got.t); stats.lat.push(lat); }
+        }
+        frame.close();
+      }
+    })().catch(() => {});
+    ipcRenderer.send('capture:opened', { ok: true, w: video.videoWidth, h: video.videoHeight, settings: track.getSettings() });
+  } catch (err) { ipcRenderer.send('capture:opened', { ok: false, error: `${err.name}: ${err.message}` }); }
+}
+ipcRenderer.on('open', (_e, options) => openCapture(options));
+
+ipcRenderer.on('reset', () => { stats = fresh(); });
+ipcRenderer.on('report', (_e, seconds) => {
+  const pct = (list, p) => { if (!list.length) return null; const s = [...list].sort((a, b) => a - b); return Math.round(s[Math.min(s.length - 1, Math.floor(s.length * p))]); };
+  ipcRenderer.send('capture:report', {
+    deliveredFps: +(stats.frames / seconds).toFixed(1), videoElementFps: +(stats.rvfc / seconds).toFixed(1), freshFps: +(stats.unique.size / seconds).toFixed(1),
+    decoded: stats.decoded, frames: stats.frames, latencyMedianMs: pct(stats.lat, 0.5), latencyP95Ms: pct(stats.lat, 0.95), worstGapMs: stats.gaps.length ? Math.round(Math.max(...stats.gaps)) : null,
+    videoSize: video ? `${video.videoWidth}x${video.videoHeight}` : null, markerAt: origin, topRows,
+  });
+});
+ipcRenderer.on('close', () => { if (reader) reader.cancel().catch(() => {}); if (copy) copy.stop(); if (stream) stream.getTracks().forEach((t) => t.stop()); copy = null; stream = null; video = null; reader = null; ipcRenderer.send('capture:closed'); });
+</script>
