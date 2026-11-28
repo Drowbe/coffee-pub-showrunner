@@ -125,6 +125,28 @@ function migrateLegacyUserData() {
 migrateLegacyUserData();
 
 const configStore = new ConfigStore(path.join(app.getPath('userData'), 'config.json'));
+// Pages on a plain http address that is not this computer (a self-hosted Foundry reached as http://192.168.1.20:30000, say) are not
+// "secure contexts", and Chromium gives such pages no audio worklets, which the recorder uses to copy a page's sound without losing any.
+// The addresses the user has set for their windows are told to Chromium as secure, which is only about what those pages may use (the
+// connection stays as it is). Chromium reads this once at startup, so an address added later takes effect at the next launch.
+function insecureWindowOrigins(cfg) {
+  const urls = [];
+  for (const v of Array.isArray(cfg.views) ? cfg.views : []) urls.push(v && v.url);
+  for (const p of Array.isArray(cfg.profiles) ? cfg.profiles : []) for (const v of Array.isArray(p && p.views) ? p.views : []) urls.push(v && v.url);
+  const found = new Set();
+  for (const u of urls) {
+    try {
+      const url = new URL(String(u || ''));
+      const local = url.hostname === 'localhost' || url.hostname.endsWith('.localhost') || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+      if (url.protocol === 'http:' && !local) found.add(url.origin);
+    } catch (err) { /* not an address */ }
+  }
+  return [...found];
+}
+try {
+  const origins = insecureWindowOrigins(configStore.get());
+  if (origins.length) app.commandLine.appendSwitch('unsafely-treat-insecure-origin-as-secure', origins.join(','));
+} catch (err) { /* the recorder falls back to the older sound copy */ }
 // Whatever saves the settings (the control panel, the toolbar), the toolbar shows the new values straight away.
 { const save = configStore.save.bind(configStore); configStore.save = (next) => { const saved = save(next); setImmediate(() => { try { sendToolbarState(); scheduleWarm(); } catch (err) { /* toolbar not ready yet */ } }); return saved; }; }
 

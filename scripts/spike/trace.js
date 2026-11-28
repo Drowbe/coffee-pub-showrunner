@@ -16,6 +16,7 @@ const path = require('path');
 const [ffmpeg, work, ...variants] = process.argv.slice(2);
 process.env.SHOWRUNNER_FFMPEG = ffmpeg;
 for (const [k, v] of [['disable-renderer-backgrounding'], ['disable-background-timer-throttling'], ['disable-backgrounding-occluded-windows'], ['autoplay-policy', 'no-user-gesture-required'], ['disable-features', 'AudioServiceOutOfProcess']]) app.commandLine.appendSwitch(k, v);
+if (process.env.SPIKE_SECURE_ORIGIN) app.commandLine.appendSwitch('unsafely-treat-insecure-origin-as-secure', process.env.SPIKE_SECURE_ORIGIN); // as src/main.js does for the user's window addresses
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'showrunner-spike-trace-'));
 app.setPath('userData', data);
 const { BuiltInRecorder } = require('../../src/recorder.js');
