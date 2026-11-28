@@ -8,6 +8,10 @@
   window.variants = {
     // as the app does it
     asis: () => { const { ctx, gain } = make(); gain.connect(ctx.destination); },
+    // a real Foundry page: the tone goes through Foundry's own audio context when it has one (game.audio.context)
+    foundry: () => { const fc = window.game && window.game.audio && window.game.audio.context; const ctx = fc || new AudioContext(); window.ctx = ctx; const o = ctx.createOscillator(); const gain = ctx.createGain(); gain.gain.value = 0.3; o.frequency.value = 440; o.connect(gain); gain.connect(ctx.destination); o.start(); return fc ? 'foundry context' : 'own context'; },
+    // a tone played through a media element from a live stream (the route live streams and <audio> players take), not through Web Audio's output
+    media: () => { const ctx = new AudioContext(); window.ctx = ctx; const dest = ctx.createMediaStreamDestination(); const o = ctx.createOscillator(); const gain = ctx.createGain(); gain.gain.value = 0.3; o.frequency.value = 440; o.connect(gain); gain.connect(dest); o.start(); const el = document.createElement('audio'); el.srcObject = dest.stream; document.body.appendChild(el); el.play(); },
     // the app's copy, with the page asking for 48 kHz instead of the output device's own rate
     asis48000: () => { const { ctx, gain } = make(48000); gain.connect(ctx.destination); },
     // the same kind of copy, with the largest block

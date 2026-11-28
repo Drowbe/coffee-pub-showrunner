@@ -20,6 +20,7 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), 'showrunner-spike-trace-'));
 app.setPath('userData', data);
 const { BuiltInRecorder } = require('../../src/recorder.js');
 const SECONDS = Number(process.env.SPIKE_SECONDS || 40);
+const tapNotes = []; ipcMain.on('recorder:tapinfo', (_e, text) => tapNotes.push(text)); // what the page's sound copy says about itself
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // How many times a 440 Hz wave breaks off, and holes (runs of silence), in a stream fed piece by piece.
@@ -68,7 +69,7 @@ app.whenReady().then(async () => {
     const win = new BrowserWindow({ title: 'Coffee Pub Showrunner - Game', x: 40, y: 20, width: 1920, height: 1108, useContentSize: true, frame: false, resizable: false, show: false });
     const page = new WebContentsView({ webPreferences: { preload: path.join(__dirname, '..', '..', 'src', 'recorder', 'tap-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false } });
     win.contentView.addChildView(page); page.setBounds({ x: 0, y: 28, width: 1920, height: 1080 }); win.show();
-    await page.webContents.loadFile(path.join(__dirname, 'sync.html'));
+    if (process.env.SPIKE_URL) await page.webContents.loadURL(process.env.SPIKE_URL); else await page.webContents.loadFile(path.join(__dirname, 'sync.html')); // SPIKE_URL: trace a real page (a Foundry login page, or serve.js)
     page.webContents.setAudioMuted(true);
     if (flags.includes('idle')) await page.webContents.executeJavaScript('window.requestAnimationFrame = () => 0; true');
     const recorder = new BuiltInRecorder({
@@ -104,11 +105,12 @@ app.whenReady().then(async () => {
         queue: { recorderRate: inside.recorderRate, recorderClock: +inside.recorderClock.toFixed(5), pieces: inside.queue.length, queuedAheadMs: { first: Math.round(leads[0] * 1000), min: Math.round(Math.min(...leads) * 1000), max: Math.round(Math.max(...leads) * 1000) }, everyTwoSecondsMs: leads.filter((_v, i) => i % Math.round((2 * handed.rate) / [...handed.sizes][0]) === 0).map((v) => Math.round(v * 1000)), holesMadeMs: inside.queue.filter((q) => q[1] > 0.001).map((q) => Math.round(q[1] * 1000)), overlaps: inside.queue.filter((q) => q[1] < -0.001).length },
         mix: { breaks: inside.mix.breaks, holes: inside.mix.holes, piecesThrownAway: inside.dropped, silencePaddedMs: inside.padded, audioThreadGaps: inside.clockGaps },
         file: inFile(kept),
+        tapNotes: tapNotes.splice(0),
       };
       results.push(r); console.log(JSON.stringify(r));
     } catch (err) { results.push({ variant, error: String(err.stack || err) }); console.log(`${variant}: ${err.stack || err}`); }
     ipcMain.removeListener('recorder:audio', listen);
-    ipcMain.removeAllListeners('recorder:frameAck'); ipcMain.removeAllListeners('recorder:composite'); ipcMain.removeAllListeners('recorder:note'); ipcMain.removeAllListeners('recorder:stats'); ipcMain.removeAllListeners('recorder:levels'); ipcMain.removeAllListeners('recorder:mask'); ipcMain.removeAllListeners('recorder:tapinfo'); ipcMain.removeAllListeners('recorder:peak'); ipcMain.removeAllListeners('recorder:failed'); ipcMain.removeAllListeners('recorder:audio'); // each run has its own recorder
+    ipcMain.removeAllListeners('recorder:frameAck'); ipcMain.removeAllListeners('recorder:composite'); ipcMain.removeAllListeners('recorder:note'); ipcMain.removeAllListeners('recorder:stats'); ipcMain.removeAllListeners('recorder:levels'); ipcMain.removeAllListeners('recorder:mask'); ipcMain.removeAllListeners('recorder:peak'); ipcMain.removeAllListeners('recorder:failed'); ipcMain.removeAllListeners('recorder:audio'); // each run has its own recorder
     win.destroy();
     fs.writeFileSync(path.join(work, `trace-${variants.join('_')}.json`), JSON.stringify(results, null, 1));
     await wait(1000);
